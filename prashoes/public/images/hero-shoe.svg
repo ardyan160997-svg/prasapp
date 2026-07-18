@@ -1,0 +1,66 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="50%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.5">
+      <stop offset="0%" stop-color="#eab308" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#eab308" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shoe-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#eab308" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#eab308" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="shoe-clip">
+      <rect x="260" y="180" width="680" height="540" rx="24"/>
+    </clipPath>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <rect width="1200" height="900" fill="url(#glow)"/>
+  <rect x="260" y="180" width="680" height="540" rx="24" fill="url(#shoe-glow)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  <!-- Shoe silhouette - side view -->
+  <g transform="translate(600,420) rotate(-8) scale(1.1)">
+    <!-- Sole -->
+    <path d="M-180 40 L-170 55 L160 55 L200 40 L180 30 L-160 30 Z" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+    <!-- Upper -->
+    <path d="M-170 30 L-165 -20 L-130 -50 L-50 -70 L50 -75 L130 -60 L180 30 L160 30 L-160 30 Z" fill="#2a2a2a" stroke="#444" stroke-width="0.5"/>
+    <!-- Toe cap highlight -->
+    <path d="M-165 -20 L-150 -35 L-120 -45 L-100 -48 L-90 -40 L-95 -25 L-130 -15 L-160 -10 Z" fill="#333" opacity="0.6"/>
+    <!-- Heel -->
+    <path d="M130 -60 L160 -45 L180 30 L170 30 L150 -20 L140 -40 Z" fill="#222"/>
+    <!-- Sneaker stripe / accent -->
+    <path d="M-80 -5 L-60 15 L60 15 L80 -5 Z" fill="#eab308" opacity="0.7"/>
+    <!-- Shoe tongue -->
+    <path d="M-10 -55 L-5 -75 L15 -80 L25 -70 L20 -55 Z" fill="#333" stroke="#444" stroke-width="0.5"/>
+    <!-- Lace holes row -->
+    <circle cx="-25" cy="-40" r="2.5" fill="#555"/>
+    <circle cx="-10" cy="-45" r="2.5" fill="#555"/>
+    <circle cx="5" cy="-48" r="2.5" fill="#555"/>
+    <circle cx="20" cy="-48" r="2.5" fill="#555"/>
+    <!-- Texture lines on upper -->
+    <path d="M-40 -30 Q-30 -20 -20 -30" stroke="#444" stroke-width="0.5" fill="none" opacity="0.5"/>
+    <path d="M-20 -35 Q-10 -25 0 -35" stroke="#444" stroke-width="0.5" fill="none" opacity="0.5"/>
+    <path d="M0 -40 Q10 -30 20 -40" stroke="#444" stroke-width="0.5" fill="none" opacity="0.5"/>
+  </g>
+  <!-- Water droplets / cleaning effect -->
+  <circle cx="340" cy="380" r="3" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="355" cy="395" r="2" fill="rgba(255,255,255,0.1)"/>
+  <circle cx="330" cy="410" r="2.5" fill="rgba(255,255,255,0.08)"/>
+  <circle cx="850" cy="350" r="2" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="865" cy="365" r="1.5" fill="rgba(255,255,255,0.08)"/>
+  <!-- Brush element -->
+  <g transform="translate(800,480) rotate(-15)">
+    <rect x="0" y="0" width="60" height="12" rx="2" fill="#8B4513" opacity="0.6"/>
+    <rect x="60" y="-2" width="20" height="16" rx="1" fill="#d4d4d8" opacity="0.4"/>
+    <line x1="65" y1="-2" x2="65" y2="14" stroke="#a1a1aa" stroke-width="0.5" opacity="0.3"/>
+    <line x1="70" y1="-2" x2="70" y2="14" stroke="#a1a1aa" stroke-width="0.5" opacity="0.3"/>
+    <line x1="75" y1="-2" x2="75" y2="14" stroke="#a1a1aa" stroke-width="0.5" opacity="0.3"/>
+  </g>
+  <!-- Prashoes watermark -->
+  <text x="600" y="840" text-anchor="middle" fill="rgba(255,255,255,0.04)" font-family="Inter, sans-serif" font-size="20" font-weight="bold" letter-spacing="4">PRASHOES</text>
+  <!-- Gold accent lines -->
+  <line x1="380" y1="175" x2="450" y2="175" stroke="#eab308" stroke-width="2" opacity="0.3"/>
+  <line x1="750" y1="175" x2="820" y2="175" stroke="#eab308" stroke-width="2" opacity="0.3"/>
+</svg>
