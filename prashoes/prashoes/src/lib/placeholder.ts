@@ -1,4 +1,4 @@
-import type { ServiceItem, TrackingStatus, PromoItem } from "@/types";
+import type { PromoItem, ServiceItem } from "@/types";
 
 // Dummy tracking data for Step 1
 // Future: query `orders` table by order_code

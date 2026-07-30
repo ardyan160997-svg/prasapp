@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useTransition } from "react";
-import type { AdminOrder, AdminOrderItem } from "@/types";
+import type { AdminOrder, AdminOrderItem } from "@/features/admin/types";
 
 function formatDate(value: string) {
   if (!value) return "-";

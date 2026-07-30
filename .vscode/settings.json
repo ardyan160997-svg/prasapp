@@ -1,0 +1,9 @@
+{
+    "liveServer.settings.AdvanceCustomBrowserCmdLine": "",
+    "liveServer.settings.fullReload": true,
+    "liveServer.settings.NoBrowser": false,
+    "liveServer.settings.useLocalIp": false,
+    "liveServer.settings.useWebExt": false,
+    "liveServer.settings.port": 3001,
+    "liveServer.settings.ChromeDebuggingAttachment": false
+}

@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   description:
     "Prashoes adalah layanan cuci sepatu profesional dengan layanan antar jemput, tracking pesanan, dan perawatan premium.",
   icons: {
-    icon: "/images/iconsite.avif",
-    shortcut: "/images/iconsite.avif",
-    apple: "/images/iconsite.avif",
+    icon: "/images/icon.avif",
+    shortcut: "/images/icon.avif",
+    apple: "/images/icon.avif",
   },
   keywords: [
     "cuci sepatu premium",

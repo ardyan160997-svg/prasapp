@@ -1,0 +1,13 @@
+BEGIN;
+
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS play_sessions;
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS pricing_rules;
+DROP TABLE IF EXISTS stations;
+DROP TABLE IF EXISTS members;
+DROP TABLE IF EXISTS admin_users;
+DROP TABLE IF EXISTS branches;
+
+COMMIT;

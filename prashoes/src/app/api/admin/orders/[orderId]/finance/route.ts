@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 function toNumber(value: unknown) {
@@ -10,6 +11,12 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ orderId: string }> }
 ) {
+  const unauthorizedResponse = await requireAdminRequest();
+
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {

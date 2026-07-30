@@ -1,6 +1,7 @@
 "use client";
 
-import type { OrderItemPhoto } from "@/types";
+import Image from "next/image";
+import type { OrderItemPhoto } from "@/features/main/types";
 
 interface OrderItemBeforeAfterProps {
   itemNumber: number;
@@ -83,9 +84,12 @@ export default function OrderItemBeforeAfter({
           </p>
           {beforePhoto ? (
             beforePhoto.image_url ? (
-              <img
+              <Image
                 src={beforePhoto.image_url}
                 alt={beforePhoto.caption || "Foto sebelum"}
+                width={512}
+                height={384}
+                unoptimized
                 className="mx-auto h-28 w-full rounded-lg object-cover sm:h-36"
               />
             ) : (
@@ -114,9 +118,12 @@ export default function OrderItemBeforeAfter({
           </p>
           {afterPhoto ? (
             afterPhoto.image_url ? (
-              <img
+              <Image
                 src={afterPhoto.image_url}
                 alt={afterPhoto.caption || "Foto sesudah"}
+                width={512}
+                height={384}
+                unoptimized
                 className="mx-auto h-28 w-full rounded-lg object-cover sm:h-36"
               />
             ) : (

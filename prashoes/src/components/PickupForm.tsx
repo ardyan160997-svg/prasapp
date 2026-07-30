@@ -1,44 +1,105 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { serviceOptions as fallbackOptions } from "@/lib/placeholder";
-import { createPickupRequest, fetchServiceOptions } from "@/lib/supabase-service";
+import {
+  calculatePickupPricing,
+  createPickupRequest,
+  fetchServiceOptions,
+} from "@/features/main/services/public-site-data";
 
 export default function PickupForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState<string[]>(fallbackOptions);
+  const [options, setOptions] = useState<string[]>([]);
+  const [requestCode, setRequestCode] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
   const [form, setForm] = useState({
     fullName: "",
     whatsappNumber: "",
+    email: "",
     pickupAddress: "",
+    pickupLatitude: null as number | null,
+    pickupLongitude: null as number | null,
+    pickupShareUrl: "",
     shoeQuantity: 1,
-    serviceType: fallbackOptions[0],
+    serviceType: "",
+    isMember: false,
+    memberCode: "",
+    notes: "",
   });
 
   useEffect(() => {
-    fetchServiceOptions().then(setOptions);
+    fetchServiceOptions().then((data) => {
+      setOptions(data);
+      setForm((current) => ({
+        ...current,
+        serviceType: current.serviceType || data[0] || "",
+      }));
+    });
   }, []);
 
-  useEffect(() => {
-    // Sync serviceType if options change and current selection is out of range
-    if (!options.includes(form.serviceType) && options.length > 0) {
-      setForm((prev) => ({ ...prev, serviceType: options[0] }));
-    }
-  }, [options, form.serviceType]);
+  const normalizedServiceType = options.includes(form.serviceType)
+    ? form.serviceType
+    : (options[0] ?? "");
+  const pricing = calculatePickupPricing({
+    ...form,
+    serviceType: normalizedServiceType,
+  });
 
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value, type } = e.target;
+    setForm((current) => ({
+      ...current,
+      [name]:
+        type === "number"
+          ? Number(value)
+          : type === "checkbox"
+            ? (e.target as HTMLInputElement).checked
+            : value,
+    }));
+  }
+
+  function handleUseLocation() {
+    if (!navigator.geolocation) {
+      setLocationMessage("Browser ini belum mendukung GPS perangkat.");
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationMessage("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        setForm((current) => ({
+          ...current,
+          pickupLatitude: latitude,
+          pickupLongitude: longitude,
+          pickupShareUrl: `https://maps.google.com/?q=${latitude},${longitude}`,
+        }));
+        setLocationLoading(false);
+      },
+      () => {
+        setLocationLoading(false);
+        setLocationMessage("Izin lokasi ditolak. Lanjutkan dengan alamat manual.");
+      }
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!normalizedServiceType) {
+      alert("Belum ada layanan di database.");
+      return;
+    }
     setLoading(true);
     try {
       const result = await createPickupRequest(form);
       if (result.success) {
+        setRequestCode(result.requestCode ?? "");
         setSubmitted(true);
       } else {
         alert("Gagal mengirim permintaan. Silakan coba lagi.");
@@ -61,6 +122,15 @@ export default function PickupForm() {
               Permintaan berhasil dibuat. Admin Prashoes akan segera
               menghubungi kamu.
             </p>
+            {requestCode ? (
+              <p className="mt-4 text-sm text-emerald-300">
+                Kode permintaan: <span className="font-mono font-semibold">{requestCode}</span>
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-zinc-400">
+              Untuk non-member, nomor order final masih akan dikirim lewat WhatsApp saat
+              pesanan diproses admin.
+            </p>
           </div>
         </div>
       </section>
@@ -79,6 +149,43 @@ export default function PickupForm() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">
+                Status Customer
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-zinc-200">
+                  <input
+                    type="radio"
+                    name="isMember"
+                    checked={!form.isMember}
+                    onChange={() =>
+                      setForm((current) => ({
+                        ...current,
+                        isMember: false,
+                        memberCode: "",
+                      }))
+                    }
+                  />
+                  Non-member
+                </label>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-zinc-200">
+                  <input
+                    type="radio"
+                    name="isMember"
+                    checked={form.isMember}
+                    onChange={() =>
+                      setForm((current) => ({
+                        ...current,
+                        isMember: true,
+                      }))
+                    }
+                  />
+                  Member
+                </label>
+              </div>
+            </div>
+
             <div>
               <label
                 htmlFor="fullName"
@@ -112,10 +219,46 @@ export default function PickupForm() {
                 required
                 value={form.whatsappNumber}
                 onChange={handleChange}
-                placeholder="Contoh: 08123456789"
                 className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder-zinc-500 outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
               />
             </div>
+
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-1 block text-sm font-medium text-zinc-300"
+              >
+                Email (Opsional)
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="nama@email.com"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder-zinc-500 outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
+              />
+            </div>
+
+            {form.isMember ? (
+              <div>
+                <label
+                  htmlFor="memberCode"
+                  className="mb-1 block text-sm font-medium text-zinc-300"
+                >
+                  Kode Member
+                </label>
+                <input
+                  id="memberCode"
+                  name="memberCode"
+                  type="text"
+                  value={form.memberCode}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder-zinc-500 outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
+                />
+              </div>
+            ) : null}
 
             <div>
               <label
@@ -124,16 +267,34 @@ export default function PickupForm() {
               >
                 Alamat Penjemputan
               </label>
-              <input
+              <div className="mb-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleUseLocation}
+                  disabled={locationLoading}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-yellow-400/50 hover:text-yellow-300 disabled:opacity-60"
+                >
+                  {locationLoading ? "Mengambil lokasi..." : "Pakai Lokasi Saya"}
+                </button>
+              </div>
+              <textarea
                 id="pickupAddress"
                 name="pickupAddress"
-                type="text"
                 required
                 value={form.pickupAddress}
                 onChange={handleChange}
                 placeholder="Alamat lengkap penjemputan"
+                rows={4}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder-zinc-500 outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
               />
+              {form.pickupShareUrl ? (
+                <p className="mt-2 text-xs text-emerald-300">
+                  Share location siap: {form.pickupShareUrl}
+                </p>
+              ) : null}
+              {locationMessage ? (
+                <p className="mt-2 text-xs text-zinc-400">{locationMessage}</p>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -166,17 +327,60 @@ export default function PickupForm() {
                 <select
                   id="serviceType"
                   name="serviceType"
-                  value={form.serviceType}
+                  value={normalizedServiceType}
                   onChange={handleChange}
                   className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
                 >
-                  {options.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
+                  {options.length > 0 ? (
+                    options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Belum ada layanan</option>
+                  )}
                 </select>
               </div>
+            </div>
+
+            {options.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                Belum ada layanan di database. Tambahkan data layanan terlebih dahulu.
+              </p>
+            ) : null}
+
+            <div>
+              <label
+                htmlFor="notes"
+                className="mb-1 block text-sm font-medium text-zinc-300"
+              >
+                Catatan Tambahan
+              </label>
+              <textarea
+                id="notes"
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Contoh: minta pickup sore, patokan rumah, atau detail sepatu"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder-zinc-500 outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.06] p-4 text-sm text-zinc-200">
+              <p className="font-semibold text-yellow-300">Ringkasan Benefit & Ongkir</p>
+              <div className="mt-3 grid gap-2 text-sm">
+                <p>Promo: {pricing.promoLabel}</p>
+                <p>Diskon estimasi: Rp{pricing.discountAmount.toLocaleString("id-ID")}</p>
+                <p>Ongkir: Rp{pricing.deliveryFee.toLocaleString("id-ID")}</p>
+                <p>Total estimasi: {pricing.estimatedTotalLabel}</p>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+                Member baru mendapat diskon 10%. Member gratis ongkir minimal 2 pair.
+                Non-member dikenakan ongkir Rp5.000. Program loyalti: gratis 1x cuci
+                setelah 10x Deep Clean.
+              </p>
             </div>
 
             <button

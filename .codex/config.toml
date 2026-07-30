@@ -1,3 +1,142 @@
-[agents]
-max_threads = 4
-max_depth = 1
+model = "cx/gpt-5.4"
+model_provider = "9router"
+model_reasoning_effort = "medium"
+approval_policy = "untrusted"
+notify = [
+    "/Users/ardyan.prasetya/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient",
+    "turn-ended",
+    "--previous-notify",
+    '''["bash","-c","command -v curl >\/dev\/null 2>&1 && curl -s --connect-timeout 1 --max-time 2 \"http:\/\/localhost:2208\/api\/notify?type=stop&sessionId=$NINE_REMOTE_SESSION_ID&tool=codex\" > \/dev\/null 2>&1 & true ; exec 'bash' '-c' 'command -v curl >\/dev\/null 2>&1 && curl -s --connect-timeout 1 --max-time 2 \"http:\/\/localhost:20128\/api\/notify?type=stop&sessionId=$NINE_REMOTE_SESSION_ID&tool=codex\" > \/dev\/null 2>&1 & true' '9remote' \"$@\"","9remote"]''',
+]
+
+[model_providers.9router]
+name = "9Router"
+base_url = "http://localhost:20128/v1"
+wire_api = "responses"
+
+[shell_environment_policy]
+ignore_default_excludes = true
+inherit = "all"
+
+[shell_environment_policy.set]
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "330cfa6875d3acd34ed3d321d03e97c0dd9ee3c1855467f2600215089f2d8279,6d25aa7656feac858f3a3bdaea5bcbab0dbfd426c9de8e6931ce90c399ee8e4f"
+NODE_REPL_TRUSTED_CODE_PATHS = "/Users/ardyan.prasetya/.codex"
+CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN = "1"
+ANTHROPIC_DEFAULT_FABLE_MODEL = "cc/claude-fable-5"
+ANTHROPIC_BASE_URL = "http://127.0.0.1:20128/v1"
+ANTHROPIC_AUTH_TOKEN = "sk-2024d74d707059be-ra8rx4-3a686c9d"
+ANTHROPIC_DEFAULT_OPUS_MODEL = "cc/claude-opus-4-8"
+ANTHROPIC_DEFAULT_SONNET_MODEL = "cc/claude-sonnet-5"
+ANTHROPIC_DEFAULT_HAIKU_MODEL = "cc/claude-haiku-4-5-20251001"
+
+[agents.subagent]
+model = "webdev-build"
+
+[projects."/Users/ardyan.prasetya/Documents/mudamudi"]
+trust_level = "trusted"
+
+[projects."/Users/ardyan.prasetya/Documents/prashoes"]
+trust_level = "trusted"
+
+[projects."/Users/ardyan.prasetya/Downloads/mudamudi"]
+trust_level = "trusted"
+
+[projects."/Users/ardyan.prasetya"]
+trust_level = "trusted"
+
+[projects."/Users/ardyan.prasetya/Documents/Codex/2026-07-17/browser-plugin-browser-openai-bundled"]
+trust_level = "trusted"
+
+[projects."/Users/ardyan.prasetya/Documents/Codex/2026-07-18/create-a-new-website-for-a"]
+trust_level = "trusted"
+
+[projects."/Users/ardyan.prasetya/Documents/prasapp"]
+trust_level = "trusted"
+
+[tui]
+status_line = [
+    "model-with-reasoning",
+    "current-dir",
+    "five-hour-limit",
+    "weekly-limit",
+]
+status_line_use_colors = true
+
+[tui.model_availability_nux]
+"gpt-5.6-sol" = 3
+
+[marketplaces.openai-bundled]
+last_updated = "2026-07-18T04:18:40Z"
+source_type = "local"
+source = "/Users/ardyan.prasetya/.codex/.tmp/bundled-marketplaces/openai-bundled"
+
+[marketplaces.openai-primary-runtime]
+last_updated = "2026-07-17T17:01:13Z"
+source_type = "local"
+source = "/Users/ardyan.prasetya/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+[plugins."chrome@openai-bundled"]
+enabled = true
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[features]
+js_repl = false
+
+[mcp_servers.node_repl]
+args = []
+command = "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl"
+startup_timeout_sec = 120
+
+[mcp_servers.node_repl.env]
+NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
+NODE_REPL_NODE_MODULE_DIRS = "/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules"
+NODE_REPL_NODE_PATH = "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
+NODE_REPL_TRUSTED_CODE_PATHS = "/Users/ardyan.prasetya/.codex"
+CODEX_HOME = "/Users/ardyan.prasetya/.codex"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "330cfa6875d3acd34ed3d321d03e97c0dd9ee3c1855467f2600215089f2d8279,6d25aa7656feac858f3a3bdaea5bcbab0dbfd426c9de8e6931ce90c399ee8e4f"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
+NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
+NODE_REPL_INSTRUCTIONS_USE_CASE_COMPUTER_USE = "Control desktop apps on macOS through Computer Use."
+BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
+BROWSER_USE_CODEX_APP_VERSION = "26.715.31251"
+CODEX_CLI_PATH = "/Applications/ChatGPT.app/Contents/Resources/codex"
+
+[mcp_servers.computer-use]
+command = "./Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
+args = ["mcp"]
+cwd = "."
+enabled = false
+
+[desktop]
+conversationDetailMode = "STEPS_PROSE"
+sansFontSize = 14
+codeFontSize = 13
+ambient-suggestions-enabled = true
+followUpQueueMode = "queue"
+
+[hooks.state]
+
+[hooks.state."/Users/ardyan.prasetya/.codex/hooks.json:stop:0:0"]
+trusted_hash = "sha256:aa70c89178a63599e3a9cf0a26568552638c664c59abdf7490bb4ca3d0582557"
