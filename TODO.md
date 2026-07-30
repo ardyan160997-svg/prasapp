@@ -1627,3 +1627,75 @@ belum ada mekanisme override permission per user/cabang.
 Selesai. Portal admin sekarang bisa mengekspor audit log ke CSV, meminta konfirmasi
 untuk aksi sensitif, dan mengelola permission matrix per user atau per cabang yang
 langsung memengaruhi effective permission saat login.
+
+---
+
+## TASK-027 — Setup database PraStation di Coolify
+
+- Status: in-progress
+- Requested route: auto
+- Selected combo: plan
+- Priority: high
+- Risk: high
+- Dependencies: TASK-026
+
+### Objective
+
+Menyiapkan database PostgreSQL untuk `PraStation` lewat Coolify agar migration,
+seed awal, dan pengujian login berbasis database bisa dijalankan.
+
+### Context
+
+Implementasi aplikasi `prastation` dan migration lokal sudah siap, tetapi `DATABASE_URL`
+runtime belum tersedia. Upaya menjalankan `npm run db:migrate` secara lokal sebelumnya
+gagal karena environment database belum dikonfigurasi dan role Postgres default tidak
+sesuai. Akses Coolify sudah tersedia, namun server bawaan `localhost` masih berstatus
+`Sentinel Out Of Sync` dan `Not reachable & Not usable by Coolify`.
+
+### Scope
+
+#### In scope
+
+- `TODO.md`
+- Validasi server Coolify untuk host aplikasi
+- Pembuatan service PostgreSQL untuk `prastation`
+- Pengambilan connection string / `DATABASE_URL`
+- Menjalankan `prastation` migration dan seed terhadap DB baru
+- Uji login ulang untuk memastikan override permission tercermin pada session baru
+
+#### Out of scope
+
+- Deploy production final `prastation`
+- Cutover DNS atau subdomain
+- Migrasi data historis dari sistem lain
+
+### Requirements
+
+- Server Coolify tervalidasi dan usable.
+- Tersedia database PostgreSQL khusus `prastation`.
+- `npm run db:migrate` berhasil terhadap database tersebut.
+- Seed awal dapat dijalankan bila dibutuhkan.
+- Login ulang admin membaca permission override terbaru dari database.
+
+### Constraints
+
+- Keep the existing framework.
+- Do not add a dependency without approval.
+- Do not change the database schema without a migration.
+- Jangan menjalankan aksi destruktif di server/database produksi tanpa konfirmasi.
+
+### Validation
+
+- Verifikasi status server Coolify berubah usable setelah host/SSH valid.
+- Verifikasi service PostgreSQL aktif dan connection string tersedia.
+- `npm run db:migrate` di folder `prastation` berhasil.
+- Uji login ulang menunjukkan session baru memuat permission efektif terbaru.
+
+### Result
+
+Sedang berjalan. Website `prastation` sudah tersimpan di repo `ardyan160997-svg/prasapp`
+dengan commit `8f53da1` (`prastation`). Investigasi Coolify menunjukkan blocker utama
+ada pada server `localhost` yang masih memakai `IP Address/Domain` = `host.docker.internal`,
+sehingga validasi server gagal. Langkah berikutnya adalah mengubah host server ke
+`178.83.188.207`, memvalidasi server, lalu membuat PostgreSQL service untuk `prastation`
+sebelum menjalankan migration dan seed.
