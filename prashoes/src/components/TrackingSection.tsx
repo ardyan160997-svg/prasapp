@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { fetchOrderTracking } from "@/lib/supabase-service";
-import type { OrderTrackingResult } from "@/types";
+import { fetchOrderTracking } from "@/features/main/services/public-site-data";
+import type { OrderTrackingResult } from "@/features/main/types";
 import OrderItemBeforeAfter from "@/components/OrderItemBeforeAfter";
 
 export default function TrackingSection() {
@@ -69,7 +69,6 @@ export default function TrackingSection() {
               <input
                 id="order-id"
                 type="text"
-                placeholder="Contoh: PRS001"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
                 onKeyDown={(e) => {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 
 type PhotoType = "before" | "after";
@@ -11,6 +12,12 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ itemId: string }> }
 ) {
+  const unauthorizedResponse = await requireAdminRequest();
+
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {

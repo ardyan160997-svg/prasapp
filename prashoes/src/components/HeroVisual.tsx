@@ -71,7 +71,7 @@ export default function HeroVisual() {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <section className="relative min-h-screen w-full overflow-hidden bg-zinc-950">
+    <section className="relative min-h-screen w-full overflow-hidden bg-zinc-650">
       {/* --- Full-bleed hero background image --- */}
       <div className="absolute inset-0">
         {!imgError && (
@@ -79,7 +79,7 @@ export default function HeroVisual() {
             src="/images/hero-shoe.avif"
             alt="Prashoes premium shoe cleaning service — sepatu bersih dan terawat"
             fill
-            className="object-cover"
+            className="object-cover object-top md:object-cover"
             onError={() => setImgError(true)}
             priority
             sizes="100vw"
@@ -98,7 +98,7 @@ export default function HeroVisual() {
 
       {/* --- Fallback when image fails --- */}
       {imgError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-zinc-950">
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-650">
           <p className="text-sm text-zinc-500">
             Image <span className="font-mono text-yellow-400">hero-shoe.avif</span> not found in{" "}
             <span className="font-mono text-yellow-400">public/images/</span>
@@ -108,7 +108,7 @@ export default function HeroVisual() {
 
       {/* --- Content overlay --- */}
       {!imgError && (
-        <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 pb-16 pt-28 md:pb-24 md:pt-36 lg:pb-32 lg:pt-44">
+        <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-start px-6 pb-16 pt-16 md:pb-24 md:pt-20 lg:pb-32 lg:pt-24">
           {/* Badge */}
           <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/15 px-4 py-1.5 text-xs font-medium tracking-wide text-yellow-400 backdrop-blur-sm md:text-sm">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-400" />
@@ -170,7 +170,7 @@ export default function HeroVisual() {
           </div>
 
           {/* --- Hero bottom benefit cards --- */}
-          <div className="mt-12 grid grid-cols-2 gap-3 md:mt-16 md:grid-cols-4 md:gap-4">
+          <div className="mt-10 grid grid-cols-2 gap-3 md:mt-14 md:grid-cols-4 md:gap-4">
             {benefitCards.map((card) => {
               const Icon = card.icon;
               return (
