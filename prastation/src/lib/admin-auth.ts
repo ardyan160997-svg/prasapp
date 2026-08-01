@@ -80,6 +80,8 @@ export function requirePermission(
 export async function createSession(
   response: NextResponse,
   account: {
+    userId: string;
+    branchId: string | null;
     username: string;
     role: AdminRole;
     displayName: string;

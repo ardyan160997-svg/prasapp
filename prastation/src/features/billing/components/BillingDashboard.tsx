@@ -111,11 +111,10 @@ export default function BillingDashboard({ session }: BillingDashboardProps) {
         | null;
 
       if (!response.ok) {
-        setError(
-          "error" in (result ?? {}) && typeof result?.error === "string"
-            ? result.error
-            : "Aksi billing gagal.",
-        );
+        const err = result && typeof result === 'object' && 'error' in result
+          ? ((result as { error?: string }).error ?? 'Aksi billing gagal.')
+          : 'Aksi billing gagal.';
+        setError(err ?? 'Aksi billing gagal.');
         setBusyStationId(null);
         return;
       }
