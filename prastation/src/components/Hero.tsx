@@ -19,62 +19,62 @@ export function Hero() {
 
       <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 pb-16 pt-28 md:pb-24 md:pt-36 lg:pb-32 lg:pt-44">
         <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/15 px-4 py-1.5 text-xs font-medium tracking-wide text-yellow-400 backdrop-blur-sm md:text-sm">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-400" />
-          #1 Creative Station & Studio Booking
-        </div>
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-400" />
+                #1 Rental PlayStation Jakarta
+              </div>
 
-        <h1 className="max-w-3xl text-[clamp(2rem,5.5vw,4rem)] font-bold leading-[1.1] tracking-tight text-white">
-          Ruang Kreatif,<br />
-          <span className="text-yellow-400">Tanpa Batas</span>
-          untuk Komunitas.
-        </h1>
+              <h1 className="max-w-3xl text-[clamp(2rem,5.5vw,4rem)] font-bold leading-[1.1] tracking-tight text-white">
+                Main PS5 & PS4,<br />
+                <span className="text-yellow-400">Tanpa Beli Konsol</span>
+                Hanya Bayar Sewa.
+              </h1>
 
-        <p className="mt-4 max-w-xl text-sm leading-relaxed text-zinc-300 md:text-base">
-          Prastation adalah creative station lengkap untuk booking studio, rental equipment, event komunitas, dan jasa produksi. Semua di satu platform.
-        </p>
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-zinc-300 md:text-base">
+                Sewa PlayStation 5, PS4, PS VR2, controller, headset, dan game lengkap. Harga terjangkau, siap main di rumah atau bawa pulang. Tidak perlu beli konsol mahal.
+              </p>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="#booking"
-            className="inline-flex items-center justify-center rounded-xl bg-yellow-400 px-6 py-3 text-sm font-semibold text-black transition-all hover:bg-yellow-300 hover:shadow-lg hover:shadow-yellow-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-          >
-            Mulai Booking
-          </Link>
-          <Link
-            href="#layanan"
-            className="inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:border-white/25 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-          >
-            Lihat Layanan
-          </Link>
-        </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="#booking"
+                  className="inline-flex items-center justify-center rounded-xl bg-yellow-400 px-6 py-3 text-sm font-semibold text-black transition-all hover:bg-yellow-300 hover:shadow-lg hover:shadow-yellow-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                >
+                  Sewa Sekarang
+                </Link>
+                <Link
+                  href="#layanan"
+                  className="inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:border-white/25 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                >
+                  Lihat Paket
+                </Link>
+              </div>
 
-        <div className="mt-8 flex flex-wrap gap-2.5">
-          <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-xs text-zinc-200 backdrop-blur-sm md:text-sm">
-            <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Aman untuk Semua Equipment</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-xs text-zinc-200 backdrop-blur-sm md:text-sm">
-            <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Booking Mudah & Cepat</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-xs text-zinc-200 backdrop-blur-sm md:text-sm">
-            <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Komunitas Kreatif Aktif</span>
-          </div>
-        </div>
+              <div className="mt-8 flex flex-wrap gap-2.5">
+                <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-xs text-zinc-200 backdrop-blur-sm md:text-sm">
+                  <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Konsol Original & Terawat</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-xs text-zinc-200 backdrop-blur-sm md:text-sm">
+                  <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Sewa Harian/Mingguan</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3.5 py-2 text-xs text-zinc-200 backdrop-blur-sm md:text-sm">
+                  <svg className="h-3.5 w-3.5 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Game Library Lengkap</span>
+                </div>
+              </div>
 
-        <div className="mt-12 grid grid-cols-2 gap-3 md:mt-16 md:grid-cols-4 md:gap-4">
-          <TrustMetric number="50+" label="Studio & Ruang" />
-          <TrustMetric number="200+" label="Equipment Tersedia" />
-          <TrustMetric number="1000+" label="Booking Bulanan" />
-          <TrustMetric number="4.9" label="Rating Komunitas" />
-        </div>
+              <div className="mt-12 grid grid-cols-2 gap-3 md:mt-16 md:grid-cols-4 md:gap-4">
+                <TrustMetric number="50+" label="Konsol Tersedia" />
+                <TrustMetric number="200+" label="Game Library" />
+                <TrustMetric number="1000+" label="Penyewa Puas" />
+                <TrustMetric number="4.9" label="Rating Google" />
+              </div>
       </div>
 
       <div className="relative mx-auto h-[50vh] min-h-[300px] w-full max-w-4xl">

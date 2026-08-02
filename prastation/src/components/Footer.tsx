@@ -4,12 +4,12 @@ import Link from "next/link";
 
 export function Footer() {
   const navLinks = [
-    { href: "#layanan", label: "Layanan" },
-    { href: "#booking", label: "Booking" },
-    { href: "#studio", label: "Studio & Ruang" },
-    { href: "#event", label: "Event & Komunitas" },
-    { href: "#equipment", label: "Equipment Rental" },
-    { href: "#komunitas", label: "Komunitas" },
+    { href: "#layanan", label: "Paket Sewa" },
+    { href: "#booking", label: "Sewa Sekarang" },
+    { href: "#studio", label: "Paket Populer" },
+    { href: "#event", label: "Promo" },
+    { href: "#equipment", label: "Game Library" },
+    { href: "#komunitas", label: "Keunggulan" },
     { href: "#kontak", label: "Kontak" },
   ];
 
@@ -17,7 +17,7 @@ export function Footer() {
     { href: "https://instagram.com/prastation", label: "Instagram", icon: "Instagram" },
     { href: "https://tiktok.com/@prastation", label: "TikTok", icon: "TikTok" },
     { href: "https://youtube.com/@prastation", label: "YouTube", icon: "YouTube" },
-    { href: "https://discord.gg/prastation", label: "Discord", icon: "Discord" },
+    { href: "https://wa.me/6281234567890", label: "WhatsApp", icon: "WhatsApp" },
   ];
 
   return (
@@ -29,7 +29,7 @@ export function Footer() {
               <span className="text-2xl font-bold text-yellow-400">Prastation</span>
             </Link>
             <p className="text-sm leading-relaxed text-zinc-400">
-              Creative station lengkap untuk booking studio recording, photo studio, rental equipment, event space, dan jasa produksi profesional. Bergabung dengan komunitas kreator Indonesia.
+              Rental PlayStation terpercaya untuk sewa PS5, PS4, controller, dan game favorit. Cocok untuk hiburan rumah, mabar, liburan, dan hadiah akhir pekan.
             </p>
           </div>
 
@@ -51,14 +51,14 @@ export function Footer() {
 
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-300">Kontak</h3>
-            <p className="mb-3 text-sm text-zinc-500">Hubungi kami via WhatsApp atau kunjungi lokasi langsung.</p>
+            <p className="mb-3 text-sm text-zinc-500">Hubungi kami via WhatsApp untuk tanya stok, harga, atau request antar-ambil.</p>
             <a
-              href="https://www.google.com/maps/search/?api=1&query=Prastation"
+              href="https://wa.me/6281234567890"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-yellow-300"
             >
-              Buka Lokasi di Google Maps
+              Chat WhatsApp
             </a>
           </div>
 
@@ -66,7 +66,7 @@ export function Footer() {
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-300">Jam Operasional</h3>
             <p className="text-sm text-zinc-500">Senin — Minggu</p>
             <p className="text-sm text-zinc-500">09.00 — 22.00 WIB</p>
-            <p className="mt-2 text-sm text-zinc-500">Di luar jam operasional bisa request dengan biaya overtime.</p>
+            <p className="mt-2 text-sm text-zinc-500">Order malam tetap bisa masuk. Konfirmasi pengantaran menyesuaikan jadwal admin.</p>
 
             <h3 className="mt-6 mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-300">Sosial Media</h3>
             <div className="flex gap-3">
@@ -94,9 +94,9 @@ export function Footer() {
                       <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                     </svg>
                   )}
-                  {social.icon === "Discord" && (
+                  {social.icon === "WhatsApp" && (
                     <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.675 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.083.083 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-.47.076.076 0 0 0 .023-.106 13.107 13.107 0 0 0-.573-2.593.077.077 0 0 1-.007-.128 10.2 10.2 0 0 1 .168-1.198.074.074 0 0 1 .088-.017 9.404 9.404 0 0 1 2.915 1.067.077.077 0 0 1 .032.122 12.883 12.883 0 0 1-.9 4.58.077.077 0 0 1-.082.046 19.83 19.83 0 0 1-5.653-1.71.077.077 0 0 1-.032-.128 12.774 12.774 0 0 1 2.192-5.616.076.076 0 0 1 .087-.017 6.827 6.827 0 0 1 2.815.924.077.077 0 0 1 .03.122 9.7 9.7 0 0 1-1.205 5.409.077.077 0 0 1-.131.017 13.374 13.374 0 0 1-4.519-.924.077.077 0 0 1-.047-.13 5.366 5.366 0 0 1 1.729-4.912.077.077 0 0 1 .13-.022 6.541 6.541 0 0 1 5.233 1.65.077.077 0 0 1 .032.129c-.66 2.137-2.082 4.224-4.134 5.834a.061.061 0 0 1-.082 0zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.212 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.212 0 2.176 1.096 2.157 2.42 0 1.333-.945 2.418-2.157 2.418z" />
+                      <path d="M20.52 3.48A11.86 11.86 0 0012.07 0C5.55 0 .25 5.3.25 11.82c0 2.08.54 4.1 1.57 5.87L0 24l6.5-1.7a11.8 11.8 0 005.57 1.42h.01c6.52 0 11.82-5.3 11.82-11.82 0-3.16-1.23-6.13-3.48-8.42zM12.08 21.7h-.01a9.84 9.84 0 01-5.02-1.37l-.36-.21-3.86 1.01 1.03-3.76-.24-.39a9.8 9.8 0 01-1.5-5.17c0-5.41 4.4-9.81 9.82-9.81 2.62 0 5.08 1.02 6.92 2.88a9.72 9.72 0 012.88 6.93c0 5.41-4.41 9.81-9.82 9.81zm5.39-7.36c-.3-.15-1.76-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.08-.3-.15-1.25-.46-2.37-1.46-.87-.78-1.46-1.74-1.63-2.03-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.49.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.23-.24-.58-.49-.5-.67-.5h-.57c-.2 0-.52.08-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.27.5 1.71.64.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.29.18-1.42-.07-.12-.27-.2-.57-.35z" />
                     </svg>
                   )}
                 </a>

@@ -8,7 +8,7 @@ export function BookingForm() {
     email: "",
     phone: "",
     bookingDate: "",
-    serviceType: "Recording Studio",
+    serviceType: "Paket PS5 Harian",
     notes: "",
   });
 
@@ -29,7 +29,7 @@ export function BookingForm() {
         email: "",
         phone: "",
         bookingDate: "",
-        serviceType: "Recording Studio",
+        serviceType: "Paket PS5 Harian",
         notes: "",
       });
     }, 1000);
@@ -43,9 +43,9 @@ export function BookingForm() {
     <section id="booking" className="w-full py-20 bg-zinc-950">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-white/[0.04] p-8 backdrop-blur-sm sm:p-12">
-          <h2 className="mb-2 text-center text-3xl font-bold text-white">Booking Prastation</h2>
+          <h2 className="mb-2 text-center text-3xl font-bold text-white">Sewa PlayStation</h2>
           <p className="mb-8 text-center text-sm text-zinc-400">
-            Isi form di bawah ini untuk mengecek ketersediaan studio, equipment, atau event space.
+            Isi form di bawah untuk cek ketersediaan & order paket sewa PS5/PS4. Tim kami balas via WhatsApp maksimal 1 jam.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -91,7 +91,7 @@ export function BookingForm() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="bookingDate" className="mb-1 block text-sm font-medium text-zinc-300">Tanggal Booking</label>
+                <label htmlFor="bookingDate" className="mb-1 block text-sm font-medium text-zinc-300">Tanggal Mulai Sewa</label>
                 <input
                   id="bookingDate"
                   type="date"
@@ -102,29 +102,29 @@ export function BookingForm() {
                 />
               </div>
               <div>
-                <label htmlFor="serviceType" className="mb-1 block text-sm font-medium text-zinc-300">Jenis Layanan</label>
+                <label htmlFor="serviceType" className="mb-1 block text-sm font-medium text-zinc-300">Paket Sewa</label>
                 <select
                   id="serviceType"
                   className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
                   value={form.serviceType}
                   onChange={(e) => updateField("serviceType", e.target.value)}
                 >
-                  <option value="Recording Studio">Recording Studio</option>
-                  <option value="Photo Studio">Photo Studio</option>
-                  <option value="Rehearsal Room">Rehearsal Room</option>
-                  <option value="Event Space">Event Space</option>
-                  <option value="Equipment Rental">Equipment Rental</option>
-                  <option value="Paket Produksi">Paket Produksi</option>
+                  <option value="Paket PS5 Harian">Paket PS5 Harian (Rp150.000/hari)</option>
+                  <option value="Paket PS4 Harian">Paket PS4 Harian (Rp100.000/hari)</option>
+                  <option value="Paket Mingguan PS5">Paket Mingguan PS5 (Rp850.000/7 hari)</option>
+                  <option value="Paket Full Set Mabar">Paket Full Set Mabar 4 Player (Rp250.000/hari)</option>
+                  <option value="Paket Keluarga Hemat">Paket Keluarga PS4 Hemat (Rp120.000/hari)</option>
+                  <option value="Custom">Custom / Tanya Dulu</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label htmlFor="notes" className="mb-1 block text-sm font-medium text-zinc-300">Catatan Tambahan</label>
+              <label htmlFor="notes" className="mb-1 block text-sm font-medium text-zinc-300">Catatan (Opsional)</label>
               <textarea
                 id="notes"
                 rows={4}
-                placeholder="Jelaskan kebutuhan proyek, jumlah orang, jam estimasi, equipment khusus, dsb."
+                placeholder="Contoh: butuh 2 stik tambahan, game FIFA & Tekken, antar ke alamat..., durasi sewa 3 hari, dll."
                 className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder-zinc-500 outline-none transition-colors focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/30"
                 value={form.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
@@ -135,7 +135,7 @@ export function BookingForm() {
               <p className="text-sm text-red-400">Lengkapi semua field wajib terlebih dahulu.</p>
             )}
             {status === "success" && (
-              <p className="text-sm text-green-400">Request booking terkirim. Tim Prastation akan menghubungi kamu segera.</p>
+              <p className="text-sm text-green-400">Request sewa terkirim. Tim Prastation akan menghubungi via WhatsApp segera.</p>
             )}
 
             <button
@@ -143,7 +143,7 @@ export function BookingForm() {
               disabled={status === "loading"}
               className="w-full rounded-xl bg-yellow-400 px-6 py-3 font-semibold text-black transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {status === "loading" ? "Mengirim..." : "Kirim Request Booking"}
+              {status === "loading" ? "Mengirim..." : "Kirim Request Sewa"}
             </button>
           </form>
         </div>

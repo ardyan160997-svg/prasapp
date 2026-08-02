@@ -4,12 +4,12 @@ import Link from "next/link";
 
 export function Header() {
   const navLinks = [
-    { href: "#layanan", label: "Layanan" },
-    { href: "#booking", label: "Booking" },
-    { href: "#studio", label: "Studio" },
-    { href: "#event", label: "Event" },
-    { href: "#equipment", label: "Equipment" },
-    { href: "#komunitas", label: "Komunitas" },
+    { href: "#layanan", label: "Paket Sewa" },
+    { href: "#booking", label: "Sewa Sekarang" },
+    { href: "#studio", label: "Paket Populer" },
+    { href: "#event", label: "Promo" },
+    { href: "#equipment", label: "Game Library" },
+    { href: "#komunitas", label: "Keunggulan" },
     { href: "#kontak", label: "Kontak" },
   ];
 
@@ -34,7 +34,7 @@ export function Header() {
           href="#booking"
           className="rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-yellow-300"
         >
-          Booking Sekarang
+          Sewa Sekarang
         </Link>
       </div>
     </header>

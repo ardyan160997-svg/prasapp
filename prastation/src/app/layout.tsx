@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Prastation | Creative Station untuk Studio, Event & Komunitas",
-  description: "Prastation adalah creative station lengkap untuk booking studio recording, photo studio, rental equipment, event space, dan jasa produksi video/foto. Bergabung dengan komunitas kreator Indonesia.",
-  keywords: ["prastation", "studio recording", "photo studio", "rental equipment", "event space", "booking studio", "creative community", "produksi video", "produksi foto"],
+  title: "Prastation | Rental PlayStation 5 & PS4 Jakarta",
+  description: "Sewa PlayStation 5, PS4, PS VR2, controller, dan game lengkap. Harga terjangkau mulai Rp100.000/hari. Antar-ambil gratis area Jakarta. Cocok mabar, liburan, keluarga.",
+  keywords: ["rental playstation", "sewa ps5", "sewa ps4", "rental ps5 jakarta", "sewa playstation jakarta", "sewa konsol game", "mabar ps5", "paket sewa ps5"],
   authors: [{ name: "Prastation" }],
   creator: "Prastation",
   publisher: "Prastation",
@@ -23,17 +23,17 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "id_ID",
-    url: "https://prastation.com",
-    title: "Prastation | Creative Station untuk Studio, Event & Komunitas",
-    description: "Booking studio, rental equipment, event space, dan jasa produksi profesional. Bergabung dengan komunitas kreator Indonesia.",
+    url: "https://prastation.prasapp.com",
+    title: "Prastation | Rental PlayStation 5 & PS4 Jakarta",
+    description: "Sewa PS5, PS4, controller, game lengkap. Harga mulai Rp100.000/hari. Antar-ambil gratis Jakarta. Order via WhatsApp.",
     siteName: "Prastation",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Prastation | Creative Station",
-    description: "Booking studio, rental equipment, event space, dan jasa produksi profesional.",
+    title: "Prastation | Rental PlayStation Jakarta",
+    description: "Sewa PS5, PS4, game lengkap. Harga terjangkau, antar-ambil gratis area Jakarta.",
   },
-  metadataBase: new URL("https://prastation.com"),
+  metadataBase: new URL("https://prastation.prasapp.com"),
   alternates: {
     canonical: "/",
   },
