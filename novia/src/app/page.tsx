@@ -255,9 +255,9 @@ export default function HomePage() {
               haiii 💕
             </h1>
             <p className="text-base md:text-lg leading-8 text-pink-100/90 mb-8 animate-in delay-200 max-w-md mx-auto">
-              ✨ Bantu aku yuk biar bisa lebih mengenal kamu<br />
-              🫶 Aku punya {questions.length} pertanyaan lucu buat kamu.<br />
-              💭 Jawab santai aja, nggak usah formal-formal. Biar aku bisa ngertiin kamuu..
+              ✨ Bantu aku yuk biar bisa lebih mengenal kamu lebih dekat<br />
+              🫶 Harus jujur yaa... dijawab apa adanya<br />
+              💭 Aku lebih pilih jawaban jujur walaupun gk enak daripada jawaban manis tapi dibuat buat, anjayy class🤘
               {answeredCount > 0 && <br />}
               {answeredCount > 0 && (
                 <span className="text-sm text-pink-300/80">Kamu sudah jawab {answeredCount} pertanyaan. Lanjut dari tempat terakhir yaa 💕</span>
