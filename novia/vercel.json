@@ -3,10 +3,5 @@
   "devCommand": "next dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["sin1"],
-  "env": {
-    "DATABASE_URL": "@supabase_db_url",
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "EDITOR_PASSWORD": "@editor_password"
-  }
+  "regions": ["sin1"]
 }

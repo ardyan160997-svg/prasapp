@@ -179,7 +179,7 @@ export default function EditorDashboardPage() {
   const fetchData = useCallback(async () => {
     try {
       const [questionsRes, answersRes] = await Promise.all([
-        fetch('/api/questions').then(r => r.json()),
+        fetch('/api/questions?includeInactive=true').then(r => r.json()),
         fetch('/api/answers').then(r => r.json()),
       ]);
       

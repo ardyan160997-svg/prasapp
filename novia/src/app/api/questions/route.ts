@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const includeInactive = request.nextUrl.searchParams.get('includeInactive') === 'true';
+
     const questions = await prisma.question.findMany({
-      where: { isActive: true },
+      where: includeInactive ? undefined : { isActive: true },
       orderBy: { order: 'asc' },
       select: {
         id: true,
         text: true,
         category: true,
         order: true,
+        isActive: true,
       },
     });
 
