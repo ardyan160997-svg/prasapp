@@ -48,7 +48,6 @@ export default function HomePage() {
         const fetchedQuestions = data.questions || [];
         setQuestions(fetchedQuestions);
         setIsLoading(false);
-        setTimeout(() => setShowHero(false), 500);
 
         // Auto-advance to first unanswered question (only on initial load)
         const answered = Array.from(answeredQuestions);
@@ -194,9 +193,9 @@ export default function HomePage() {
   const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-pink-900/20 dark:via-gray-900 dark:to-purple-900/20 relative overflow-hidden">
+    <div className={`min-h-screen relative overflow-hidden transition-colors duration-500 ${showHero ? 'bg-gradient-to-br from-[#170d18] via-[#231126] to-[#0d1324]' : 'bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-pink-900/20 dark:via-gray-900 dark:to-purple-900/20'}`}>
       {/* Floating decorations */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+      <div className={`fixed inset-0 pointer-events-none overflow-hidden transition-opacity duration-500 ${showHero ? 'opacity-0' : 'opacity-100'}`}>
         <div className="absolute top-10 left-10 w-16 h-16 opacity-20 animate-float" style={{ animationDelay: '0s' }}>
           <Heart className="w-full h-full text-pink-400" />
         </div>
@@ -212,13 +211,13 @@ export default function HomePage() {
       </div>
 
       {/* Progress indicator at top */}
-      <div className="fixed top-0 left-0 right-0 z-30 bg-white/80 dark:bg-[#1a1017]/80 backdrop-blur-sm border-b border-pink-100 dark:border-pink-900/30">
+      <div className={`fixed top-0 left-0 right-0 z-30 backdrop-blur-sm border-b transition-colors duration-500 ${showHero ? 'bg-transparent border-pink-200/10' : 'bg-white/80 dark:bg-[#1a1017]/80 border-pink-100 dark:border-pink-900/30'}`}>
         <div className="max-w-md mx-auto px-4 py-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-pink-600 dark:text-pink-300">
+            <span className={`text-xs font-medium ${showHero ? 'text-pink-200/80' : 'text-pink-600 dark:text-pink-300'}`}>
               Progress: {answeredCount} / {questions.length} ({progress}%)
             </span>
-            {answeredCount > 0 && (
+            {answeredCount > 0 && !showHero && (
               <button
                 onClick={handleClearCache}
                 className="text-xs text-pink-500 hover:text-pink-700 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors"
@@ -227,7 +226,7 @@ export default function HomePage() {
               </button>
             )}
           </div>
-          <div className="h-1.5 bg-pink-100 dark:bg-pink-900/30 rounded-full overflow-hidden">
+          <div className={`h-1.5 rounded-full overflow-hidden ${showHero ? 'bg-fuchsia-200/10' : 'bg-pink-100 dark:bg-pink-900/30'}`}>
             <div
               className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
@@ -238,9 +237,9 @@ export default function HomePage() {
 
       {/* Hero Section */}
       {showHero && (
-        <div className="fixed inset-0 flex items-center justify-center z-20 animate-in pt-16" style={{ animationDelay: '0ms' }}>
+        <div className="fixed inset-0 flex items-center justify-center z-20 animate-in px-6 pt-16" style={{ animationDelay: '0ms' }}>
           <div className="text-center p-8 max-w-md mx-4">
-            <div className="w-32 h-32 mx-auto mb-6 illustration-float">
+            <div className="w-28 h-28 mx-auto mb-7 illustration-float">
               <svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="64" cy="64" r="56" fill="#fce7f3"/>
                 <path d="M64 32C46.3 32 32 46.3 32 64C32 74.5 40 82.5 52 88L64 100L76 88C88 82.5 96 74.5 96 64C96 46.3 81.7 32 64 32Z" fill="#ec4899" opacity="0.2"/>
@@ -249,25 +248,26 @@ export default function HomePage() {
                 <path d="M52 68C52 64.7 54.7 62 58 62C61.3 62 64 64.7 64 68C64 71.3 61.3 74 58 74C54.7 74 52 71.3 52 68Z" fill="#ec4899" opacity="0.5"/>
               </svg>
             </div>
-            <h1 className="text-4xl md:text-5xl font-display font-bold gradient-text mb-4 animate-in delay-100">
-              Hai Sayang! 💕
+            <h1 className="text-4xl md:text-5xl font-display font-bold mb-4 animate-in delay-100 bg-gradient-to-r from-pink-400 via-fuchsia-300 to-violet-300 bg-clip-text text-transparent leading-tight">
+              haiii ❤️..
             </h1>
-            <p className="text-lg md:text-xl text-gray-600 dark:text-pink-200 mb-8 animate-in delay-200">
+            <p className="text-base md:text-lg leading-8 text-pink-100/90 mb-8 animate-in delay-200 max-w-sm mx-auto">
+              bantu aku yuk biar bisa lebih mengenal kamu<br />
               Aku punya {questions.length} pertanyaan lucu buat kamu.<br />
-              Jawab santai aja, nggak usah formal-formal~
+              Jawab santai aja, nggak usah formal-formal. Biar aku bisa ngertiin kamuu..
               {answeredCount > 0 && <br />}
               {answeredCount > 0 && (
-                <span className="text-sm text-pink-500">Kamu sudah jawab {answeredCount} pertanyaan. Lanjut dari mana berhenti? 💕</span>
+                <span className="text-sm text-pink-300/80">Kamu sudah jawab {answeredCount} pertanyaan. Lanjut dari tempat terakhir yaa ❤️</span>
               )}
             </p>
-            <Link
-              href="#start"
+            <button
+              type="button"
               onClick={(e) => { e.preventDefault(); setShowHero(false); }}
-              className="btn-cute btn-cute-primary inline-block animate-in delay-300"
+              className="inline-flex flex-col items-center justify-center gap-1 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-10 py-4 text-white font-semibold shadow-[0_0_40px_rgba(217,70,239,0.35)] transition-transform duration-300 hover:scale-[1.02] animate-in delay-300"
             >
-              {answeredCount > 0 ? 'Lanjutkan 💕' : 'Mulai Yuk! '}
+              <span>{answeredCount > 0 ? 'Lanjut Yuk!' : 'Mulai Yuk!'}</span>
               <Heart className="w-5 h-5 ml-2 animate-heartbeat" />
-            </Link>
+            </button>
           </div>
         </div>
       )}
@@ -291,7 +291,7 @@ export default function HomePage() {
       )}
 
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 p-4 text-center text-xs text-pink-400/50 dark:text-pink-500/50 pointer-events-none">
+      <footer className={`fixed bottom-0 left-0 right-0 p-4 text-center text-xs pointer-events-none transition-colors duration-500 ${showHero ? 'text-pink-200/45' : 'text-pink-400/50 dark:text-pink-500/50'}`}>
         Dibuat dengan ❤️ buat kamu
       </footer>
     </div>
