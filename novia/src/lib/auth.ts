@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 
-const EDITOR_PASSWORD = process.env.EDITOR_PASSWORD || 'novia2024';
+const EDITOR_PASSWORD = process.env.EDITOR_PASSWORD || 'novia1234';
 
 export async function loginAction(password: string): Promise<{ success: boolean; error?: string }> {
   if (password === EDITOR_PASSWORD) {

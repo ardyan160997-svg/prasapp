@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const EDITOR_PASSWORD = process.env.EDITOR_PASSWORD || 'novia2024';
+const EDITOR_PASSWORD = process.env.EDITOR_PASSWORD || 'novia1234';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

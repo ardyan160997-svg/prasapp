@@ -137,7 +137,7 @@ export default function EditorLoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-pink-400/70 dark:text-pink-500/70">
-          Default password: <code className="bg-pink-100 dark:bg-pink-900/30 px-1.5 py-0.5 rounded text-pink-700 dark:text-pink-300">novia2024</code>
+          Default password: <code className="bg-pink-100 dark:bg-pink-900/30 px-1.5 py-0.5 rounded text-pink-700 dark:text-pink-300">novia1234</code>
         </p>
       </div>
     </div>
