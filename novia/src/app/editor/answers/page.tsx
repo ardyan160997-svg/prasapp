@@ -1,0 +1,160 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, MessageSquare, Search, Filter, Sparkles } from 'lucide-react';
+
+interface AnswerItem {
+  id: string;
+  answerText: string;
+  createdAt: string;
+  question: {
+    text: string;
+    category: string;
+  };
+}
+
+const categoryLabels: Record<string, string> = {
+  icebreaker: '❄️ Icebreaker',
+  fun: '😄 Fun',
+  values: '💎 Values',
+  deep: '🌊 Deep',
+  relationship: '💕 Relationship',
+};
+
+export default function EditorAnswersPage() {
+  const [answers, setAnswers] = useState<AnswerItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
+
+  useEffect(() => {
+    fetch('/api/answers')
+      .then((res) => res.json())
+      .then((data: { answers?: AnswerItem[] }) => {
+        setAnswers(data.answers || []);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch answers:', err);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const filteredAnswers = useMemo(() => {
+    return answers.filter((answer) => {
+      const matchesCategory = category === 'all' || answer.question.category === category;
+      const haystack = `${answer.question.text} ${answer.answerText}`.toLowerCase();
+      const matchesQuery = haystack.includes(query.toLowerCase());
+      return matchesCategory && matchesQuery;
+    });
+  }, [answers, category, query]);
+
+  const totalCategories = new Set(answers.map((answer) => answer.question.category)).size;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-medium text-pink-500 dark:text-pink-300 mb-2">Inbox Jawaban 💌</p>
+          <h1 className="text-3xl font-display font-bold text-gray-800 dark:text-gray-100">Jawaban dari Novia</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Lihat semua jawaban yang sudah masuk, cari cepat, lalu baca per pertanyaan.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full md:w-auto md:min-w-[420px]">
+          <div className="card-cute p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total Jawaban</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{answers.length}</p>
+          </div>
+          <div className="card-cute p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Hasil Filter</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{filteredAnswers.length}</p>
+          </div>
+          <div className="card-cute p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Kategori Terisi</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{totalCategories}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="card-cute p-4 md:p-5">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
+          <label className="relative block">
+            <Search className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari isi jawaban atau pertanyaan..."
+              className="input-cute pl-11"
+            />
+          </label>
+          <label className="relative block">
+            <Filter className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="input-cute pl-11"
+            >
+              <option value="all">Semua kategori</option>
+              {Object.entries(categoryLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {filteredAnswers.map((answer, index) => (
+          <div key={answer.id} className="card-cute p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 px-3 py-1 text-xs font-medium">
+                    <Sparkles className="w-3 h-3" /> Jawaban #{filteredAnswers.length - index}
+                  </span>
+                  <span className="inline-flex rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1 text-xs font-medium">
+                    {categoryLabels[answer.question.category] || answer.question.category}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Pertanyaan</p>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed">{answer.question.text}</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Jawaban</p>
+                <div className="rounded-2xl bg-white/70 dark:bg-[#221625] border border-pink-100 dark:border-pink-900/30 p-4">
+                  <p className="whitespace-pre-wrap break-words text-gray-700 dark:text-pink-100 leading-7">{answer.answerText}</p>
+                </div>
+              </div>
+              <div className="shrink-0 md:w-44">
+                <div className="rounded-2xl bg-pink-50 dark:bg-pink-900/20 border border-pink-100 dark:border-pink-900/30 p-4">
+                  <p className="text-xs uppercase tracking-wide text-pink-500 dark:text-pink-300 mb-2">Waktu Masuk</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-pink-100 leading-6">
+                    {new Date(answer.createdAt).toLocaleString('id-ID', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {filteredAnswers.length === 0 && (
+          <div className="card-cute p-10 text-center text-gray-500 dark:text-gray-400">
+            <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-40" />
+            <p className="text-lg font-medium mb-2">Belum ada jawaban yang cocok</p>
+            <p>Coba ganti filter atau tunggu jawaban baru masuk yaa 💕</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

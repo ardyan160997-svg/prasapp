@@ -356,7 +356,7 @@ export default function EditorDashboardPage() {
             </div>
           </div>
         </Link>
-        <Link href="/editor" className="card-cute p-6 hover:shadow-lg transition-shadow">
+        <Link href="/editor/answers" className="card-cute p-6 hover:shadow-lg transition-shadow">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
               <MessageSquare className="w-6 h-6 text-purple-500" />

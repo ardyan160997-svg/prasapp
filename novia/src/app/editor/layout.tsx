@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import Link from 'next/link';
-import { LogOut, LayoutDashboard, List, Settings } from 'lucide-react';
+import { LogOut, LayoutDashboard, List, Settings, MessageSquare } from 'lucide-react';
 
 export default function EditorLayout({ children }: { children: ReactNode }) {
   return (
@@ -28,6 +28,9 @@ export default function EditorLayout({ children }: { children: ReactNode }) {
               </Link>
               <Link href="/editor/questions" className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 dark:text-pink-200 hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors">
                 <List className="w-4 h-4 inline mr-1" /> Pertanyaan
+              </Link>
+              <Link href="/editor/answers" className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 dark:text-pink-200 hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors">
+                <MessageSquare className="w-4 h-4 inline mr-1" /> Jawaban
               </Link>
               <Link href="/editor/settings" className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 dark:text-pink-200 hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors">
                 <Settings className="w-4 h-4 inline mr-1" /> Pengaturan
