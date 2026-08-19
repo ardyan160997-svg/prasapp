@@ -248,16 +248,19 @@ export default function HomePage() {
                 <path d="M52 68C52 64.7 54.7 62 58 62C61.3 62 64 64.7 64 68C64 71.3 61.3 74 58 74C54.7 74 52 71.3 52 68Z" fill="#ec4899" opacity="0.5"/>
               </svg>
             </div>
-            <h1 className="text-4xl md:text-5xl font-display font-bold mb-4 animate-in delay-100 bg-gradient-to-r from-pink-400 via-fuchsia-300 to-violet-300 bg-clip-text text-transparent leading-tight">
-              haiii ❤️..
+            <p className="inline-flex items-center gap-2 rounded-full border border-pink-300/20 bg-pink-300/10 px-4 py-2 text-xs md:text-sm font-medium tracking-wide text-pink-100/80 mb-5 animate-in delay-75">
+              💌 Ini adalah website khusus untuk diisi oleh Novia Adriyani saja
+            </p>
+            <h1 className="text-4xl md:text-5xl font-display font-bold mb-4 animate-in delay-100 bg-gradient-to-r from-pink-300 via-fuchsia-200 to-violet-200 bg-clip-text text-transparent leading-tight drop-shadow-[0_0_18px_rgba(244,114,182,0.18)]">
+              haiii 💕
             </h1>
-            <p className="text-base md:text-lg leading-8 text-pink-100/90 mb-8 animate-in delay-200 max-w-sm mx-auto">
-              bantu aku yuk biar bisa lebih mengenal kamu<br />
-              Aku punya {questions.length} pertanyaan lucu buat kamu.<br />
-              Jawab santai aja, nggak usah formal-formal. Biar aku bisa ngertiin kamuu..
+            <p className="text-base md:text-lg leading-8 text-pink-100/90 mb-8 animate-in delay-200 max-w-md mx-auto">
+              ✨ Bantu aku yuk biar bisa lebih mengenal kamu<br />
+              🫶 Aku punya {questions.length} pertanyaan lucu buat kamu.<br />
+              💭 Jawab santai aja, nggak usah formal-formal. Biar aku bisa ngertiin kamuu..
               {answeredCount > 0 && <br />}
               {answeredCount > 0 && (
-                <span className="text-sm text-pink-300/80">Kamu sudah jawab {answeredCount} pertanyaan. Lanjut dari tempat terakhir yaa ❤️</span>
+                <span className="text-sm text-pink-300/80">Kamu sudah jawab {answeredCount} pertanyaan. Lanjut dari tempat terakhir yaa 💕</span>
               )}
             </p>
             <button
