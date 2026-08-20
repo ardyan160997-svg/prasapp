@@ -273,6 +273,47 @@ export default function EditorDashboardPage() {
     setIsSubmitting(true);
 
     try {
+      // Check if editing a question that already has answers AND the text changed
+      const hasAnswers = editingQuestion && (editingQuestion._count?.answers || 0) > 0;
+      const textChanged = editingQuestion && formData.text !== editingQuestion.text;
+      
+      if (editingQuestion && hasAnswers && textChanged) {
+        // Versioning: deactivate old question and create new one
+        const deactivateRes = await fetch(`/api/questions/${editingQuestion.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: false }),
+        });
+        
+        if (!deactivateRes.ok) {
+          throw new Error('Gagal menonaktifkan pertanyaan lama');
+        }
+
+        // Create new question with updated text
+        const createRes = await fetch('/api/questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: formData.text,
+            category: formData.category,
+            order: formData.order || questions.length + 1,
+            isActive: formData.isActive,
+          }),
+        });
+
+        if (!createRes.ok) {
+          const data = await createRes.json();
+          throw new Error(data.error || 'Gagal membuat pertanyaan baru');
+        }
+
+        setShowModal(false);
+        setEditingQuestion(null);
+        setFormData({ text: '', category: 'icebreaker', order: 0, isActive: true });
+        fetchData();
+        return;
+      }
+
+      // Normal update for questions without answers, or when text didn't change
       const url = editingQuestion
         ? `/api/questions/${editingQuestion.id}`
         : '/api/questions';
@@ -435,6 +476,21 @@ export default function EditorDashboardPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              {editingQuestion && (editingQuestion._count?.answers || 0) > 0 && (
+                <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 mb-4">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                    <FileText className="w-5 h-5" />
+                    <span className="text-sm font-medium">
+                      Versi Baru Akan Dibuat
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                    Pertanyaan ini sudah punya <strong>{editingQuestion._count?.answers}</strong> jawaban. 
+                    Mengubah teks akan menonaktifkan versi lama dan membuat pertanyaan baru di urutan paling bawah. 
+                    Jawaban lama tetap tersimpan di versi lama 💕
+                  </p>
+                </div>
+              )}
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
                   {error}

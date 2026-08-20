@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Heart, Sparkles, Star, Flower2, Gift, Music, Crown, Zap, Smile, MessageSquare } from 'lucide-react';
+import { Heart, Sparkles, Star, Flower2, Gift, Music, Crown, Zap, Smile, MessageSquare, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+
+const STORAGE_KEY = 'novia_answers';
+const ANSWERED_KEY = 'novia_answered';
 
 export default function EndingPage() {
   const [showContent, setShowContent] = useState(false);
@@ -18,16 +21,24 @@ export default function EndingPage() {
   // Load user's name from localStorage (first answer)
   useEffect(() => {
     try {
-      const savedAnswers = localStorage.getItem('novia_answers');
+      const savedAnswers = localStorage.getItem(STORAGE_KEY);
       if (savedAnswers) {
         const answers = JSON.parse(savedAnswers);
-        const firstAnswer = answers['seed-1'];
+        const firstAnswer = Object.values(answers)[0] as string;
         if (firstAnswer) setUserName(firstAnswer.split(' ')[0]);
       }
     } catch (e) {
       console.error('Failed to load name:', e);
     }
   }, []);
+
+  const handleStartOver = () => {
+    // Clear localStorage to start fresh - server answers are preserved in database
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(ANSWERED_KEY);
+    // Navigate to home page which will fetch fresh questions from DB
+    window.location.href = '/';
+  };
 
   const messages = [
     `Terima kasih ${userName ? userName + ' ' : ''}udah mau meluangkan waktu buat menjawab ini... 💕`,
@@ -197,40 +208,19 @@ export default function EndingPage() {
         </h1>
 
         {/* Subtitle */}
-        <p className="text-lg md:text-xl text-gray-600 dark:text-pink-200 mb-10 leading-relaxed animate-in delay-200">
-          Kamu baru saja menjawab <span className="font-semibold text-pink-600 dark:text-pink-400">28 pertanyaan</span> dengan jujur dan manis.<br />
-          Jawabanmu sudah tersimpan dengan aman 💕
-        </p>
-
-        {/* Stats Cards - Animated entrance */}
-        <div 
-          className={cn(
-            'card-cute p-6 mb-8 animate-in delay-300',
-            showStats ? 'animate-slide-up' : 'opacity-0 translate-y-4'
-          )}
-        >
-          <div className="flex items-center justify-center gap-6 text-center">
-            <div className="flex-1">
-              <div className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent animate-count">28</div>
-              <div className="text-sm text-pink-500 dark:text-pink-400 mt-1">Pertanyaan</div>
-            </div>
-            <div className="w-px h-16 bg-gradient-to-b from-pink-200 to-purple-200 dark:from-pink-800 dark:to-purple-800" />
-            <div className="flex-1">
-              <div className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent animate-count">100%</div>
-              <div className="text-sm text-purple-500 dark:text-purple-400 mt-1">Selesai</div>
-            </div>
-            <div className="w-px h-16 bg-gradient-to-b from-pink-200 to-purple-200 dark:from-pink-800 dark:to-purple-800" />
-            <div className="flex-1">
-              <div className="text-4xl font-bold bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent animate-count">∞</div>
-              <div className="text-sm text-teal-500 dark:text-teal-400 mt-1">Cinta</div>
-            </div>
-          </div>
+        <div className="space-y-2 mb-10 animate-in delay-200">
+          <p className="text-lg md:text-xl text-gray-600 dark:text-pink-200 leading-relaxed">
+            Terima kasih ya sudah menjawab semua pertanyaannya dengan jujur 💕
+          </p>
+          <p className="text-base text-pink-500 dark:text-pink-400 font-medium italic">
+            "Jawabanmu sudah tersimpan aman di hatiku... eh, di database maksudnya 🤭"
+          </p>
         </div>
 
-        {/* Rotating Message Card - The Main Focus */}
+        {/* Rotating Message Card */}
         <div 
           className={cn(
-            'card-cute p-8 mb-8 bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-pink-900/30 dark:via-gray-900/20 dark:to-purple-900/30 border-pink-200 dark:border-pink-800 relative overflow-hidden animate-in delay-400',
+            'card-cute p-8 mb-10 bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-pink-900/30 dark:via-gray-900/20 dark:to-purple-900/30 border-pink-200 dark:border-pink-800 relative overflow-hidden animate-in delay-400',
             showMessageCard ? 'animate-slide-up' : 'opacity-0 translate-y-4'
           )}
         >
@@ -243,50 +233,40 @@ export default function EndingPage() {
             >
               "{messages[currentMessage]}"
             </p>
-            
-            {/* Decorative quotes */}
-            <div className="flex items-center justify-center gap-4 mt-8 opacity-50">
-              <span className="text-4xl">💕</span>
-              <span className="text-3xl">✨</span>
-              <span className="text-4xl">💕</span>
-            </div>
           </div>
         </div>
 
-        {/* Cute illustration row */}
-        <div className="flex items-center justify-center gap-3 mb-8 animate-in delay-500" style={{ opacity: showMessageCard ? 1 : 0 }}>
-          {[Heart, Sparkles, Star, Flower2, Gift].map((Icon, i) => (
-            <div 
-              key={i} 
-              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30 flex items-center justify-center animate-bounce-gentle border border-pink-200 dark:border-pink-800"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            >
-              <Icon className="w-7 h-7 text-pink-500" />
-            </div>
-          ))}
+        {/* Start Over Action */}
+        <div className="space-y-4 animate-in delay-600">
+          <button
+            onClick={handleStartOver}
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-10 py-4 text-white font-bold shadow-[0_0_40px_rgba(217,70,239,0.4)] transition-all duration-300 hover:scale-[1.05] hover:shadow-[0_0_50px_rgba(217,70,239,0.5)] active:scale-95"
+          >
+            <RotateCcw className="w-6 h-6" />
+            <span className="text-lg">Mulai Lagi</span>
+          </button>
+          <p className="text-sm text-pink-400/80 dark:text-pink-500/80 max-w-sm mx-auto leading-relaxed">
+            Klik buat isi ulang pertanyaan terbaru yang ada di editor.<br />
+            Jawaban sebelumnya **tetap aman** di database kamu 💕
+          </p>
         </div>
 
-        {/* Simple footer - just love note */}
-        <div className="mt-10 animate-in delay-600">
-          <p className="text-sm text-pink-400/80 dark:text-pink-500/80 mb-2">
-            Dibuat dengan ❤️ khusus buat kamu
+        {/* Love Footer */}
+        <div className="mt-16 animate-in delay-700">
+          <p className="text-sm text-pink-400/60 dark:text-pink-500/60 mb-3 flex items-center justify-center gap-2">
+            <span className="w-8 h-px bg-pink-200 dark:bg-pink-800" />
+            Made with ❤️ for you
+            <span className="w-8 h-px bg-pink-200 dark:bg-pink-800" />
           </p>
-          <div className="flex items-center justify-center gap-2 text-pink-400/60 dark:text-pink-500/60">
-            <Heart className="w-4 h-4 animate-heartbeat" />
-            <span className="text-xs">novia adriyani</span>
-            <Heart className="w-4 h-4 animate-heartbeat" style={{ animationDelay: '0.5s' }} />
+          <div className="flex items-center justify-center gap-3 text-pink-400 dark:text-pink-500 font-medium">
+            <Heart className="w-5 h-5 animate-heartbeat fill-pink-400/20" />
+            <span className="tracking-widest uppercase text-xs">novia adriyani</span>
+            <Heart className="w-5 h-5 animate-heartbeat fill-pink-400/20" style={{ animationDelay: '0.5s' }} />
           </div>
         </div>
       </div>
 
       <style jsx>{`
-        .animate-count {
-          animation: countUp 1.5s ease-out forwards;
-        }
-        @keyframes countUp {
-          from { opacity: 0; transform: scale(0.5); }
-          to { opacity: 1; transform: scale(1); }
-        }
         .animate-slide-up {
           animation: slideUp 0.6s ease-out forwards;
         }
@@ -298,19 +278,63 @@ export default function EndingPage() {
           animation: floatUp 6s ease-out forwards;
         }
         @keyframes floatUp {
-          0% { transform: translateY(0) scale(1); opacity: 1; }
-          100% { transform: translateY(-120vh) scale(0.5); opacity: 0; }
+          from { opacity: 0; transform: translateY(100vh); }
+          to { opacity: 1; transform: translateY(-10vh); }
+        }
+        .animate-bounce-gentle {
+          animation: bounceGentle 2s ease-in-out infinite;
+        }
+        @keyframes bounceGentle {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        .animate-pulse-gentle {
+          animation: pulseGentle 3s ease-in-out infinite;
+        }
+        @keyframes pulseGentle {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.05); }
+        }
+        .animate-heartbeat {
+          animation: heartbeat 1.5s ease-in-out infinite;
+        }
+        @keyframes heartbeat {
+          0%, 100% { transform: scale(1); }
+          15% { transform: scale(1.2); }
+          30% { transform: scale(1); }
+          45% { transform: scale(1.15); }
+        }
+        .animate-float-gentle {
+          animation: floatGentle 8s ease-in-out infinite;
+        }
+        @keyframes floatGentle {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(15px, -15px); }
+        }
+        .animate-in {
+          animation: fadeIn 0.8s ease-out forwards;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
         }
         .confetti-piece {
           position: absolute;
-          width: 10px;
-          height: 10px;
-          border-radius: 2px;
-          animation: confettiFall linear forwards;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          animation: confettiFall 3.5s ease-out forwards;
         }
         @keyframes confettiFall {
-          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+          0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+          100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+        }
+        .illustration-float {
+          animation: illustrationFloat 5s ease-in-out infinite;
+        }
+        @keyframes illustrationFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-15px); }
         }
       `}</style>
     </div>
