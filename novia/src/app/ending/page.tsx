@@ -194,7 +194,7 @@ export default function EndingPage() {
                   transform: `rotate(${p.rotation}deg)`,
                   '--tx': `${(Math.random() - 0.5) * 500}px`,
                   '--ty': `${(Math.random() - 0.5) * 500}px`,
-                }}
+                } as any}
               />
             ))}
           </div>
