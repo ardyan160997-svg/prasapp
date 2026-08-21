@@ -152,6 +152,28 @@ export default function EndingPage() {
 
   const iconComponents = [Heart, Sparkles, Star, Flower2, Gift, Music, Crown, Zap, Smile];
 
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Mobile-specific "No" button handler - moves on tap instead of hover
+  const handleNoTap = () => {
+    if (!isMobile || !proposalContainerRef.current) return;
+    const containerRect = proposalContainerRef.current.getBoundingClientRect();
+    const btnWidth = 140;
+    const btnHeight = 48;
+    const maxX = Math.max(btnWidth / 2 + 10, containerRect.width - btnWidth - 20);
+    const maxY = Math.max(btnHeight / 2 + 10, containerRect.height - btnHeight - 20);
+    const newX = Math.max(btnWidth / 2 + 10, Math.random() * maxX);
+    const newY = Math.max(btnHeight / 2 + 10, Math.random() * maxY);
+    setNoButtonPos({ x: newX, y: newY });
+  };
+
   // Proposal Screen
   if (showProposal) {
     return (
@@ -223,8 +245,8 @@ export default function EndingPage() {
 
         <div className="relative z-20 max-w-lg w-full text-center px-4 animate-in">
           {/* Big heart illustration */}
-          <div className="relative mb-8">
-            <div className="w-56 h-56 mx-auto illustration-float relative">
+          <div className="relative mb-6 md:mb-8">
+            <div className="w-48 md:w-56 h-48 md:h-56 mx-auto illustration-float relative">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 opacity-25 animate-pulse-gentle" />
               <div className="absolute inset-6 rounded-full bg-gradient-to-r from-pink-300 to-purple-300 opacity-20 animate-pulse-gentle" style={{ animationDelay: '0.5s' }} />
               <div className="absolute inset-12 rounded-full bg-gradient-to-r from-pink-200 to-purple-200 opacity-15 animate-pulse-gentle" style={{ animationDelay: '1s' }} />
@@ -257,7 +279,7 @@ export default function EndingPage() {
               {[...Array(12)].map((_, i) => (
                 <div
                   key={i}
-                  className="absolute w-6 h-6 animate-ping"
+                  className="absolute w-5 md:w-6 h-5 md:h-6 animate-ping"
                   style={{
                     left: `${50 + Math.cos(i * Math.PI / 6) * 85}%`,
                     top: `${50 + Math.sin(i * Math.PI / 6) * 85}%`,
@@ -271,51 +293,85 @@ export default function EndingPage() {
           </div>
 
           {/* Proposal Question */}
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold gradient-text mb-6 animate-in delay-100">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold gradient-text mb-4 md:mb-6 animate-in delay-100 leading-tight">
             {userName ? `${userName}, ` : ''}maukah kamu menjadi pasanganku? 💕
           </h1>
 
-          <p className="text-lg md:text-xl text-gray-600 dark:text-pink-200 mb-12 leading-relaxed animate-in delay-200 max-w-md mx-auto">
+          <p className="text-base md:text-lg text-gray-600 dark:text-pink-200 mb-8 md:mb-10 leading-relaxed animate-in delay-200 max-w-md mx-auto px-2">
             Jawab dengan jujur ya... aku nggak sabar tau jawabannya 🥺
           </p>
 
-          {/* Buttons - Container for relative positioning */}
+          {/* Buttons - Responsive layout */}
           <div 
             ref={proposalContainerRef}
             className="relative animate-in delay-300" 
-            style={{ minHeight: '140px' }}
+            style={{ minHeight: isMobile ? '160px' : '140px' }}
           >
-            {/* Ya Button - Fixed position at center */}
-            <div className="flex justify-center">
-              <button
-                onClick={handleYes}
-                className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-10 py-4 text-white font-bold text-lg shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 hover:scale-[1.05] hover:shadow-[0_0_60px_rgba(217,70,239,0.6)] active:scale-95 z-10"
-                style={{ zIndex: 10 }}
-              >
-                <Heart className="w-6 h-6 fill-current" />
-                <span>Ya, Aku Mau! 💖</span>
-              </button>
-            </div>
+            {isMobile ? (
+              {/* Mobile: Stack vertically, No button at bottom, runs on tap */}
+              <div className="flex flex-col items-center gap-4 w-full">
+                {/* Ya Button - Full width on mobile */}
+                <button
+                  onClick={handleYes}
+                  className="w-full max-w-xs inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-8 py-4 text-white font-bold text-base shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 active:scale-95 z-10"
+                  style={{ zIndex: 10 }}
+                >
+                  <Heart className="w-5 h-5 fill-current" />
+                  <span>Ya, Aku Mau! 💖</span>
+                </button>
 
-            {/* Tidak Button - Runs away on hover */}
-            <button
-              ref={noBtnRef}
-              onMouseEnter={handleNoHover}
-              onClick={handleNoClick}
-              className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-8 py-3 text-gray-600 dark:text-gray-300 font-medium transition-all duration-300 hover:scale-105 cursor-pointer z-5"
-              style={{
-                left: `${noButtonPos.x}px`,
-                top: `${noButtonPos.y}px`,
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <span className="text-sm">Tidak</span>
-              <Sparkles className="w-4 h-4 text-gray-400" />
-            </button>
+                {/* Tidak Button - Runs away on tap */}
+                <button
+                  ref={noBtnRef}
+                  onClick={handleNoTap}
+                  onMouseEnter={handleNoHover}
+                  className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-6 py-2.5 text-gray-600 dark:text-gray-300 font-medium text-sm transition-all duration-300 active:scale-105 cursor-pointer z-5"
+                  style={{
+                    left: `${noButtonPos.x}px`,
+                    top: `${noButtonPos.y}px`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <span>Tidak</span>
+                  <Sparkles className="w-3 h-3 text-gray-400" />
+                </button>
+              </div>
+            ) : (
+              {/* Desktop: Side by side, No button runs on hover */}
+              <div className="flex flex-col items-center gap-4">
+                {/* Ya Button - Fixed position at center */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleYes}
+                    className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-10 py-4 text-white font-bold text-lg shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 hover:scale-[1.05] hover:shadow-[0_0_60px_rgba(217,70,239,0.6)] active:scale-95 z-10"
+                    style={{ zIndex: 10 }}
+                  >
+                    <Heart className="w-6 h-6 fill-current" />
+                    <span>Ya, Aku Mau! 💖</span>
+                  </button>
+                </div>
+
+                {/* Tidak Button - Runs away on hover */}
+                <button
+                  ref={noBtnRef}
+                  onMouseEnter={handleNoHover}
+                  onClick={handleNoClick}
+                  className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-8 py-3 text-gray-600 dark:text-gray-300 font-medium transition-all duration-300 hover:scale-105 cursor-pointer z-5"
+                  style={{
+                    left: `${noButtonPos.x}px`,
+                    top: `${noButtonPos.y}px`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <span className="text-sm">Tidak</span>
+                  <Sparkles className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            )}
           </div>
 
-          <p className="text-xs text-pink-400/70 dark:text-pink-500/70 mt-8 animate-in delay-400">
-            Coba klik "Tidak" kalau bisa 😏
+          <p className="text-xs text-pink-400/70 dark:text-pink-500/70 mt-6 md:mt-8 animate-in delay-400">
+            {isMobile ? 'Coba tap "Tidak" kalau bisa 😏' : 'Coba klik "Tidak" kalau bisa 😏'}
           </p>
         </div>
 
