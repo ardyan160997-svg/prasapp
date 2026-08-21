@@ -8,7 +8,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { answerText } = body;
+    const { answerText, questionText, questionCategory } = body;
 
     if (!answerText) {
       return NextResponse.json({ error: 'answerText is required' }, { status: 400 });
@@ -16,7 +16,11 @@ export async function PUT(
 
     const answer = await prisma.answer.update({
       where: { id },
-      data: { answerText },
+      data: {
+        answerText,
+        ...(questionText !== undefined && { questionTextSnapshot: questionText }),
+        ...(questionCategory !== undefined && { questionCategorySnapshot: questionCategory }),
+      },
       include: {
         question: {
           select: { text: true, category: true },
@@ -24,7 +28,16 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json({ answer });
+    const normalizedAnswer = {
+      ...answer,
+      question: {
+        text: answer.questionTextSnapshot,
+        category: answer.questionCategorySnapshot,
+      },
+      liveQuestion: answer.question,
+    };
+
+    return NextResponse.json({ answer: normalizedAnswer });
   } catch (error) {
     console.error('PUT /api/answers/[id] error:', error);
     return NextResponse.json({ error: 'Failed to update answer' }, { status: 500 });

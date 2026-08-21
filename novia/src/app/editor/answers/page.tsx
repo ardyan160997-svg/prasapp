@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Edit, Filter, Loader2, MessageSquare, Save, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { Edit, Filter, Loader2, MessageSquare, Save, Search, Sparkles, Trash2, X, PenSquare, Tag } from 'lucide-react';
 
 interface AnswerItem {
   id: string;
   answerText: string;
   createdAt: string;
   question: {
+    text: string;
+    category: string;
+  };
+  liveQuestion?: {
     text: string;
     category: string;
   };
@@ -21,6 +25,14 @@ const categoryLabels: Record<string, string> = {
   relationship: '💕 Relationship',
 };
 
+const categoryOptions = [
+  { value: 'icebreaker', label: '❄️ Icebreaker' },
+  { value: 'fun', label: '😄 Fun' },
+  { value: 'values', label: '💎 Values' },
+  { value: 'deep', label: '🌊 Deep' },
+  { value: 'relationship', label: '💕 Relationship' },
+];
+
 export default function EditorAnswersPage() {
   const [answers, setAnswers] = useState<AnswerItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +40,8 @@ export default function EditorAnswersPage() {
   const [category, setCategory] = useState('all');
   const [editingAnswer, setEditingAnswer] = useState<AnswerItem | null>(null);
   const [draftAnswer, setDraftAnswer] = useState('');
+  const [draftQuestionText, setDraftQuestionText] = useState('');
+  const [draftQuestionCategory, setDraftQuestionCategory] = useState('icebreaker');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -61,12 +75,16 @@ export default function EditorAnswersPage() {
   const openEditModal = (answer: AnswerItem) => {
     setEditingAnswer(answer);
     setDraftAnswer(answer.answerText);
+    setDraftQuestionText(answer.question.text);
+    setDraftQuestionCategory(answer.question.category);
     setError('');
   };
 
   const closeModal = () => {
     setEditingAnswer(null);
     setDraftAnswer('');
+    setDraftQuestionText('');
+    setDraftQuestionCategory('icebreaker');
     setError('');
   };
 
@@ -83,7 +101,11 @@ export default function EditorAnswersPage() {
       const res = await fetch(`/api/answers/${editingAnswer.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answerText: draftAnswer.trim() }),
+        body: JSON.stringify({
+          answerText: draftAnswer.trim(),
+          questionText: draftQuestionText.trim(),
+          questionCategory: draftQuestionCategory,
+        }),
       });
 
       if (!res.ok) {
@@ -190,9 +212,19 @@ export default function EditorAnswersPage() {
                     <span className="inline-flex rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1 text-xs font-medium">
                       {categoryLabels[answer.question.category] || answer.question.category}
                     </span>
+                    {answer.liveQuestion && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-1 text-xs font-medium">
+                        <Tag className="w-3 h-3" /> Snapshot
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Pertanyaan</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Pertanyaan (snapshot)</p>
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed">{answer.question.text}</h2>
+                  {answer.liveQuestion && answer.liveQuestion.text !== answer.question.text && (
+                    <div className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                      Live: {answer.liveQuestion.text}
+                    </div>
+                  )}
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Jawaban</p>
                   <div className="rounded-2xl bg-white/70 dark:bg-[#221625] border border-pink-100 dark:border-pink-900/30 p-4">
                     <p className="whitespace-pre-wrap break-words text-gray-700 dark:text-pink-100 leading-7">{answer.answerText}</p>
@@ -248,7 +280,7 @@ export default function EditorAnswersPage() {
             <div className="sticky top-0 bg-white dark:bg-[#2a1a2e] border-b border-pink-100 dark:border-pink-900/30 p-4 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-display font-semibold text-gray-800 dark:text-gray-100">Edit Jawaban</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Kamu bisa rapikan atau koreksi isi jawaban di sini.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Kamu bisa rapikan atau koreksi isi jawaban & snapshot pertanyaannya di sini.</p>
               </div>
               <button
                 type="button"
@@ -261,10 +293,33 @@ export default function EditorAnswersPage() {
 
             <div className="p-4 space-y-4">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Pertanyaan</p>
-                <div className="rounded-2xl bg-pink-50 dark:bg-pink-900/20 border border-pink-100 dark:border-pink-900/30 p-4 text-gray-700 dark:text-pink-100 leading-7">
-                  {editingAnswer.question.text}
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Pertanyaan (snapshot)</p>
+                  <PenSquare className="w-4 h-4 text-pink-400" />
                 </div>
+                <textarea
+                  value={draftQuestionText}
+                  onChange={(e) => setDraftQuestionText(e.target.value)}
+                  className="input-cute min-h-[80px] resize-none"
+                  rows={3}
+                  placeholder="Teks pertanyaan pada saat jawaban ini dikirim"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                  Kategori (snapshot)
+                  <Tag className="w-4 h-4 text-pink-400" />
+                </label>
+                <select
+                  value={draftQuestionCategory}
+                  onChange={(e) => setDraftQuestionCategory(e.target.value)}
+                  className="input-cute"
+                >
+                  {categoryOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

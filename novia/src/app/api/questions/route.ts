@@ -14,6 +14,10 @@ export async function GET(request: NextRequest) {
         category: true,
         order: true,
         isActive: true,
+        createdAt: true,
+        _count: {
+          select: { answers: true },
+        },
       },
     });
 
