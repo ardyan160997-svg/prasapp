@@ -244,13 +244,29 @@ export default function EditorDashboardPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Yakin mau hapus pertanyaan ini?')) return;
+    const question = questions.find(q => q.id === id);
+    const hasAnswers = question && (question._count?.answers || 0) > 0;
+    
+    let confirmMessage = 'Yakin mau hapus pertanyaan ini?';
+    if (hasAnswers) {
+      confirmMessage = 'Pertanyaan ini sudah punya jawaban. Menghapusnya akan gagal (data jawaban terlindungi). Yakin mau coba?';
+    }
+    
+    if (!confirm(confirmMessage)) return;
     
     try {
-      await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        alert(data.error || 'Gagal menghapus pertanyaan');
+        return;
+      }
+      
       fetchData();
     } catch (err) {
       console.error('Failed to delete:', err);
+      alert('Terjadi kesalahan saat menghapus');
     }
   };
 

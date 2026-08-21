@@ -34,6 +34,20 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // Check if question has answers first
+    const answerCount = await prisma.answer.count({
+      where: { questionId: id },
+    });
+
+    if (answerCount > 0) {
+      return NextResponse.json(
+        { 
+          error: 'Tidak bisa menghapus pertanyaan yang sudah punya jawaban. Gunakan nonaktifkan (isActive: false) sebagai gantinya.' 
+        }, 
+        { status: 409 }
+      );
+    }
+
     await prisma.question.delete({
       where: { id },
     });
