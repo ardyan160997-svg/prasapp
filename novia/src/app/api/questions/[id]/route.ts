@@ -34,20 +34,26 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Check if question has answers first
+    // Check if question has answers
     const answerCount = await prisma.answer.count({
       where: { questionId: id },
     });
 
     if (answerCount > 0) {
-      return NextResponse.json(
-        { 
-          error: 'Tidak bisa menghapus pertanyaan yang sudah punya jawaban. Gunakan nonaktifkan (isActive: false) sebagai gantinya.' 
-        }, 
-        { status: 409 }
-      );
+      // Has answers → archive instead of delete
+      await prisma.question.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        archived: true,
+        message: 'Pertanyaan sudah punya jawaban, otomatis diarsipkan (nonaktifkan). Jawaban tetap aman.' 
+      });
     }
 
+    // No answers → hard delete
     await prisma.question.delete({
       where: { id },
     });

@@ -249,7 +249,7 @@ export default function EditorDashboardPage() {
     
     let confirmMessage = 'Yakin mau hapus pertanyaan ini?';
     if (hasAnswers) {
-      confirmMessage = 'Pertanyaan ini sudah punya jawaban. Menghapusnya akan gagal (data jawaban terlindungi). Yakin mau coba?';
+      confirmMessage = 'Pertanyaan ini sudah punya jawaban. Akan otomatis diarsipkan (nonaktifkan) supaya jawaban tetap aman. Lanjutkan?';
     }
     
     if (!confirm(confirmMessage)) return;
@@ -261,6 +261,10 @@ export default function EditorDashboardPage() {
       if (!res.ok) {
         alert(data.error || 'Gagal menghapus pertanyaan');
         return;
+      }
+      
+      if (data.archived) {
+        alert(data.message || 'Pertanyaan sudah diarsipkan. Jawaban tetap aman di database.');
       }
       
       fetchData();
