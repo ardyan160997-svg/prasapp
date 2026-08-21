@@ -176,6 +176,67 @@ export default function EndingPage() {
 
   // Proposal Screen
   if (showProposal) {
+    // Extract responsive buttons to variable to avoid JSX ternary parsing issues
+    const proposalButtons = isMobile ? (
+      <div className="flex flex-col items-center gap-4 w-full">
+        {/* Ya Button - Full width on mobile */}
+        <button
+          onClick={handleYes}
+          className="w-full max-w-xs inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-8 py-4 text-white font-bold text-base shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 active:scale-95 z-10"
+          style={{ zIndex: 10 }}
+        >
+          <Heart className="w-5 h-5 fill-current" />
+          <span>Ya, Aku Mau! 💖</span>
+        </button>
+
+        {/* Tidak Button - Runs away on tap */}
+        <button
+          ref={noBtnRef}
+          onClick={handleNoTap}
+          onMouseEnter={handleNoHover}
+          className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-6 py-2.5 text-gray-600 dark:text-gray-300 font-medium text-sm transition-all duration-300 active:scale-105 cursor-pointer z-5"
+          style={{
+            left: `${noButtonPos.x}px`,
+            top: `${noButtonPos.y}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <span>Tidak</span>
+          <Sparkles className="w-3 h-3 text-gray-400" />
+        </button>
+      </div>
+    ) : (
+      <div className="flex flex-col items-center gap-4">
+        {/* Ya Button - Fixed position at center */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleYes}
+            className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-10 py-4 text-white font-bold text-lg shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 hover:scale-[1.05] hover:shadow-[0_0_60px_rgba(217,70,239,0.6)] active:scale-95 z-10"
+            style={{ zIndex: 10 }}
+          >
+            <Heart className="w-6 h-6 fill-current" />
+            <span>Ya, Aku Mau! 💖</span>
+          </button>
+        </div>
+
+        {/* Tidak Button - Runs away on hover */}
+        <button
+          ref={noBtnRef}
+          onMouseEnter={handleNoHover}
+          onClick={handleNoClick}
+          className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-8 py-3 text-gray-600 dark:text-gray-300 font-medium transition-all duration-300 hover:scale-105 cursor-pointer z-5"
+          style={{
+            left: `${noButtonPos.x}px`,
+            top: `${noButtonPos.y}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <span className="text-sm">Tidak</span>
+          <Sparkles className="w-4 h-4 text-gray-400" />
+        </button>
+      </div>
+    );
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-pink-900/20 dark:via-gray-900 dark:to-purple-900/20 relative overflow-hidden flex items-center justify-center p-4">
         {/* Floating decorations background */}
@@ -307,67 +368,7 @@ export default function EndingPage() {
             className="relative animate-in delay-300" 
             style={{ minHeight: isMobile ? '160px' : '140px' }}
           >
-            {isMobile ? (
-              {/* Mobile: Stack vertically, No button at bottom, runs on tap */}
-              <div className="flex flex-col items-center gap-4 w-full">
-                {/* Ya Button - Full width on mobile */}
-                <button
-                  onClick={handleYes}
-                  className="w-full max-w-xs inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-8 py-4 text-white font-bold text-base shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 active:scale-95 z-10"
-                  style={{ zIndex: 10 }}
-                >
-                  <Heart className="w-5 h-5 fill-current" />
-                  <span>Ya, Aku Mau! 💖</span>
-                </button>
-
-                {/* Tidak Button - Runs away on tap */}
-                <button
-                  ref={noBtnRef}
-                  onClick={handleNoTap}
-                  onMouseEnter={handleNoHover}
-                  className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-6 py-2.5 text-gray-600 dark:text-gray-300 font-medium text-sm transition-all duration-300 active:scale-105 cursor-pointer z-5"
-                  style={{
-                    left: `${noButtonPos.x}px`,
-                    top: `${noButtonPos.y}px`,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                >
-                  <span>Tidak</span>
-                  <Sparkles className="w-3 h-3 text-gray-400" />
-                </button>
-              </div>
-            ) : (
-              {/* Desktop: Side by side, No button runs on hover */}
-              <div className="flex flex-col items-center gap-4">
-                {/* Ya Button - Fixed position at center */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={handleYes}
-                    className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 px-10 py-4 text-white font-bold text-lg shadow-[0_0_40px_rgba(217,70,239,0.5)] transition-all duration-300 hover:scale-[1.05] hover:shadow-[0_0_60px_rgba(217,70,239,0.6)] active:scale-95 z-10"
-                    style={{ zIndex: 10 }}
-                  >
-                    <Heart className="w-6 h-6 fill-current" />
-                    <span>Ya, Aku Mau! 💖</span>
-                  </button>
-                </div>
-
-                {/* Tidak Button - Runs away on hover */}
-                <button
-                  ref={noBtnRef}
-                  onMouseEnter={handleNoHover}
-                  onClick={handleNoClick}
-                  className="absolute inline-flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 px-8 py-3 text-gray-600 dark:text-gray-300 font-medium transition-all duration-300 hover:scale-105 cursor-pointer z-5"
-                  style={{
-                    left: `${noButtonPos.x}px`,
-                    top: `${noButtonPos.y}px`,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                >
-                  <span className="text-sm">Tidak</span>
-                  <Sparkles className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
-            )}
+            {proposalButtons}
           </div>
 
           <p className="text-xs text-pink-400/70 dark:text-pink-500/70 mt-6 md:mt-8 animate-in delay-400">
