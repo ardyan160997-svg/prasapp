@@ -114,12 +114,24 @@ model SavingsGoal {
   currentAmount Decimal  @default(0) @db.Decimal(15, 2)
   status        SavingsStatus @default(ACTIVE)
   note          String?
+  sourceType    SavingsSourceType @default(GENERAL)
+  sourcePlanId  String?
+  sourcePlan    FinancialPlan? @relation("SavingsGoalFromPlan", fields: [sourcePlanId], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   entries       SavingsEntry[]
-  plans         FinancialPlan[]
+  plans         FinancialPlan[] @relation("PlanLinkedSavingsGoal")
 
   @@index([householdId, status])
+  @@index([householdId, sourceType])
+  @@index([householdId, sourcePlanId])
+}
+
+enum SavingsSourceType {
+  GENERAL
+  WISHLIST
+  RENCANA
+  DANA_DARURAT
 }
 
 enum SavingsStatus {
@@ -153,14 +165,13 @@ model FinancialPlan {
   priority             Priority @default(MEDIUM)
   status               PlanStatus @default(PLANNED)
   linkedSavingsGoalId  String?
-  linkedSavingsGoal    SavingsGoal? @relation(fields: [linkedSavingsGoalId], references: [id], onDelete: SetNull)
+  linkedSavingsGoal    SavingsGoal? @relation("PlanLinkedSavingsGoal", fields: [linkedSavingsGoalId], references: [id], onDelete: SetNull)
+  savingsGoals         SavingsGoal[] @relation("SavingsGoalFromPlan")
   planSavings          PlanSaving[]
   note                 String?
-  // Installment / cicilan fields
   isInstallment        Boolean  @default(false)
   installmentMonths    Int?
   installmentAmount    Decimal? @db.Decimal(15, 2)
-  // Monthly saving for this specific plan (wishlist cicilan)
   monthlySavingAmount  Decimal? @db.Decimal(15, 2)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -168,6 +179,7 @@ model FinancialPlan {
   @@index([householdId, dueDate])
   @@index([householdId, status])
 }
+
 
 enum Priority {
   LOW

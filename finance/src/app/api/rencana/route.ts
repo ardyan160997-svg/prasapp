@@ -33,6 +33,13 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         linkedSavingsGoal: true,
+        savingsGoals: {
+          include: {
+            entries: {
+              orderBy: { entryDate: "desc" },
+            },
+          },
+        },
         planSavings: {
           orderBy: { savingDate: "desc" },
         },
@@ -61,6 +68,21 @@ export async function GET(request: NextRequest) {
                 currentAmount: Number(p.linkedSavingsGoal.currentAmount),
               }
             : null,
+          savingsGoals: p.savingsGoals.map((goal) => ({
+            id: goal.id,
+            name: goal.name,
+            targetAmount: Number(goal.targetAmount),
+            currentAmount: Number(goal.currentAmount),
+            progress: Number(goal.targetAmount) > 0 ? (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100 : 0,
+            sourceType: goal.sourceType,
+            entries: goal.entries.map((entry) => ({
+              id: entry.id,
+              amount: Number(entry.amount),
+              entryDate: entry.entryDate,
+              note: entry.note,
+              memberId: entry.memberId,
+            })),
+          })),
           isInstallment: p.isInstallment,
           installmentMonths: p.installmentMonths,
           installmentAmount: p.installmentAmount ? Number(p.installmentAmount) : null,

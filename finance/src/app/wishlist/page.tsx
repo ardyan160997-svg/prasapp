@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, Coins, Heart, PiggyBank, Plus, ReceiptText, Trash2 } from "lucide-react";
+import { Calendar, Coins, Heart, PiggyBank, Plus, ReceiptText, Trash2, Target, ArrowRight } from "lucide-react";
 import { formatDate, formatRupiah } from "@/lib/utils";
 
 type Member = {
@@ -17,6 +17,15 @@ type WishlistSaving = {
   memberId: string;
 };
 
+type LinkedSavingsGoal = {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  progress: number;
+  sourceType: string;
+};
+
 type WishlistItem = {
   id: string;
   title: string;
@@ -30,6 +39,7 @@ type WishlistItem = {
   totalSaved: number;
   remainingAmount: number;
   savings: WishlistSaving[];
+  savingsGoals: LinkedSavingsGoal[];
   priority?: string;
 };
 
@@ -49,6 +59,13 @@ type SavingFormState = {
   note: string;
 };
 
+type StartSavingFormState = {
+  name: string;
+  targetAmount: string;
+  targetDate: string;
+  note: string;
+};
+
 const initialWishlistForm: WishlistFormState = {
   title: "",
   amount: "",
@@ -65,15 +82,25 @@ const initialSavingForm = (): SavingFormState => ({
   note: "",
 });
 
+const initialStartSavingForm = (item?: WishlistItem): StartSavingFormState => ({
+  name: item?.title || "",
+  targetAmount: item ? String(item.amount) : "",
+  targetDate: item?.dueDate ? item.dueDate.split("T")[0] : "",
+  note: item?.note || "",
+});
+
 export default function WishlistPage() {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showWishlistForm, setShowWishlistForm] = useState(false);
   const [showSavingFormForId, setShowSavingFormForId] = useState<string | null>(null);
+  const [showStartSavingForId, setShowStartSavingForId] = useState<string | null>(null);
   const [wishlistForm, setWishlistForm] = useState<WishlistFormState>(initialWishlistForm);
   const [savingForm, setSavingForm] = useState<SavingFormState>(initialSavingForm);
+  const [startSavingForm, setStartSavingForm] = useState<StartSavingFormState>(initialStartSavingForm);
   const [savingError, setSavingError] = useState<string | null>(null);
+  const [startSavingError, setStartSavingError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -152,6 +179,40 @@ export default function WishlistPage() {
     if (!confirm("Hapus wishlist ini?")) return;
     const res = await fetch(`/api/rencana/${id}`, { method: "DELETE" });
     if (!res.ok) return;
+    await fetchData();
+  };
+
+  const handleStartSavingSubmit = async (e: React.FormEvent, item: WishlistItem) => {
+    e.preventDefault();
+    setStartSavingError(null);
+
+    const targetAmount = Number(startSavingForm.targetAmount);
+    if (!startSavingForm.name.trim() || !targetAmount || targetAmount <= 0) {
+      setStartSavingError("Nama target dan nominal wajib diisi.");
+      return;
+    }
+
+    const res = await fetch("/api/tabungan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: startSavingForm.name,
+        targetAmount,
+        targetDate: startSavingForm.targetDate || null,
+        note: startSavingForm.note || `Target tabungan dari wishlist: ${item.title}`,
+        sourceType: "WISHLIST",
+        sourcePlanId: item.id,
+      }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      setStartSavingError(error.error || "Gagal membuat target tabungan.");
+      return;
+    }
+
+    setShowStartSavingForId(null);
+    setStartSavingForm(initialStartSavingForm());
     await fetchData();
   };
 
@@ -299,7 +360,14 @@ export default function WishlistPage() {
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {items.map((item) => {
-            const progress = item.amount > 0 ? Math.min((item.totalSaved / item.amount) * 100, 100) : 0;
+            const linkedGoal = item.savingsGoals[0] || null;
+            const progress = linkedGoal
+              ? Math.min(linkedGoal.progress, 100)
+              : item.amount > 0
+                ? Math.min((item.totalSaved / item.amount) * 100, 100)
+                : 0;
+            const savedAmount = linkedGoal ? linkedGoal.currentAmount : item.totalSaved;
+            const remainingAmount = Math.max(0, item.amount - savedAmount);
             return (
               <div key={item.id} className="card-soft space-y-4">
                 <div className="flex items-start justify-between gap-3">
@@ -318,15 +386,15 @@ export default function WishlistPage() {
                     <p className="text-lg font-bold text-[var(--primary)]">{formatRupiah(item.amount)}</p>
                   </div>
                   <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--surface-muted)" }}>
-                    <p className="text-xs text-[color:var(--foreground)]/55">Sudah Dicicil</p>
-                    <p className="text-lg font-bold text-[var(--secondary)]">{formatRupiah(item.totalSaved)}</p>
+                    <p className="text-xs text-[color:var(--foreground)]/55">Sudah Terkumpul</p>
+                    <p className="text-lg font-bold text-[var(--secondary)]">{formatRupiah(savedAmount)}</p>
                   </div>
                   <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--surface-muted)" }}>
-                    <p className="text-xs text-[color:var(--foreground)]/55">Sisa</p>
-                    <p className="text-lg font-bold text-[var(--accent)]">{formatRupiah(item.remainingAmount)}</p>
+                    <p className="text-xs text-[color:var(--foreground)]/55\">Sisa</p>
+                    <p className="text-lg font-bold text-[var(--accent)]">{formatRupiah(remainingAmount)}</p>
                   </div>
                   <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--surface-muted)" }}>
-                    <p className="text-xs text-[color:var(--foreground)]/55">Target Cicilan/Bulan</p>
+                    <p className="text-xs text-[color:var(--foreground)]/55\">Target Cicilan/Bulan</p>
                     <p className="text-lg font-bold">
                       {formatRupiah(item.monthlySavingAmount || item.installmentAmount || 0)}
                     </p>
@@ -336,8 +404,8 @@ export default function WishlistPage() {
                 <div className="space-y-2 rounded-2xl p-3" style={{ backgroundColor: "var(--surface-muted)" }}>
                   <div className="flex items-center justify-between text-sm">
                     <span className="inline-flex items-center gap-2">
-                      <PiggyBank className="h-4 w-4" />
-                      Progress Cicilan
+                      {linkedGoal ? <Target className="h-4 w-4" /> : <PiggyBank className="h-4 w-4" />}
+                      {linkedGoal ? "Progress Tabungan" : "Progress Cicilan"}
                     </span>
                     <span className="font-semibold">{progress.toFixed(1)}%</span>
                   </div>
@@ -361,18 +429,88 @@ export default function WishlistPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      setShowSavingFormForId(showSavingFormForId === item.id ? null : item.id);
-                      setSavingForm(initialSavingForm());
-                      setSavingError(null);
-                    }}
-                    className="rounded-2xl px-4 py-2 text-sm font-semibold text-white"
-                    style={{ backgroundColor: "var(--secondary)" }}
-                  >
-                    Isi Cicilan Bulan Ini
-                  </button>
+                  {linkedGoal ? (
+                    <button
+                      onClick={() => window.location.href = `/tabungan`}
+                      className="rounded-2xl px-4 py-2 text-sm font-semibold text-white"
+                      style={{ backgroundColor: "var(--accent)" }}
+                    >
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                      Kelola Tabungan
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setShowStartSavingForId(showStartSavingForId === item.id ? null : item.id);
+                          setStartSavingForm(initialStartSavingForm(item));
+                          setStartSavingError(null);
+                        }}
+                        className="rounded-2xl px-4 py-2 text-sm font-semibold text-white"
+                        style={{ backgroundColor: "var(--secondary)" }}
+                      >
+                        <Target className="h-4 w-4 mr-1" />
+                        Mulai Tabung
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowSavingFormForId(showSavingFormForId === item.id ? null : item.id);
+                          setSavingForm(initialSavingForm());
+                          setSavingError(null);
+                        }}
+                        className="rounded-2xl px-4 py-2 text-sm font-semibold text-white"
+                        style={{ backgroundColor: "var(--primary)" }}
+                      >
+                        Isi Cicilan Bulan Ini
+                      </button>
+                    </>
+                  )}
                 </div>
+
+                {showStartSavingForId === item.id && (
+                  <form onSubmit={(event) => handleStartSavingSubmit(event, item)} className="space-y-3 rounded-2xl border p-4" style={{ borderColor: "var(--border)" }}>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold">Mulai tabungan dari wishlist ini</p>
+                      <p className="text-xs text-[color:var(--foreground)]/65">Wishlist tetap tampil di sini. Progress tabungan akan dibaca dari dashboard Tabungan.</p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <input
+                        value={startSavingForm.name}
+                        onChange={(e) => setStartSavingForm((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="Nama target tabungan"
+                        className="rounded-2xl border px-4 py-3"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                      <input
+                        value={startSavingForm.targetAmount}
+                        onChange={(e) => setStartSavingForm((prev) => ({ ...prev, targetAmount: e.target.value }))}
+                        type="number"
+                        min="1"
+                        placeholder="Target nominal tabungan"
+                        className="rounded-2xl border px-4 py-3"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                      <input
+                        value={startSavingForm.targetDate}
+                        onChange={(e) => setStartSavingForm((prev) => ({ ...prev, targetDate: e.target.value }))}
+                        type="date"
+                        className="rounded-2xl border px-4 py-3"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                      <input
+                        value={startSavingForm.note}
+                        onChange={(e) => setStartSavingForm((prev) => ({ ...prev, note: e.target.value }))}
+                        placeholder="Catatan target tabungan"
+                        className="rounded-2xl border px-4 py-3"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                    </div>
+                    {startSavingError && <p className="text-sm text-[var(--primary)]">{startSavingError}</p>}
+                    <button type="submit" className="rounded-2xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: "var(--secondary)" }}>
+                      Buat Target Tabungan
+                    </button>
+                  </form>
+                )}
 
                 {showSavingFormForId === item.id && (
                   <form onSubmit={(event) => handleSavingSubmit(event, item)} className="space-y-3 rounded-2xl border p-4" style={{ borderColor: "var(--border)" }}>
@@ -420,7 +558,6 @@ export default function WishlistPage() {
                     </button>
                   </form>
                 )}
-
                 {item.savings.length > 0 && (
                   <div className="space-y-2 border-t pt-3" style={{ borderColor: "var(--border)" }}>
                     <p className="text-sm font-semibold">Riwayat Cicilan / Tabungan Manual</p>
