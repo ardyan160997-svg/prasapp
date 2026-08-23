@@ -1,0 +1,186 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Household {
+  id            String   @id @default(cuid())
+  name          String
+  currency      String   @default("IDR")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  members       Member[]
+  categories    Category[]
+  transactions  Transaction[]
+  savingsGoals  SavingsGoal[]
+  savingsEntries SavingsEntry[]
+  plans         FinancialPlan[]
+  inviteTokens  InviteToken[]
+}
+
+model Member {
+  id          String   @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?  @unique
+  phone       String?  @unique
+  role        Role     @default(MEMBER)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  transactions Transaction[]
+  savingsEntries SavingsEntry[]
+
+  @@unique([householdId, email])
+  @@unique([householdId, phone])
+}
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  type        CategoryType
+  name        String
+  icon        String?
+  color       String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  transactions Transaction[]
+
+  @@unique([householdId, type, name])
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  householdId     String
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  type            TransactionType
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  amount          Decimal  @db.Decimal(15, 2)
+  transactionDate DateTime
+  note            String?
+  expenseMode     ExpenseMode?
+  paymentMethod   String?
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([householdId, transactionDate])
+  @@index([householdId, memberId])
+  @@index([householdId, categoryId])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum ExpenseMode {
+  NEEDS
+  WANTS
+}
+
+model SavingsGoal {
+  id            String   @id @default(cuid())
+  householdId   String
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  name          String
+  targetAmount  Decimal  @db.Decimal(15, 2)
+  targetDate    DateTime?
+  currentAmount Decimal  @default(0) @db.Decimal(15, 2)
+  status        SavingsStatus @default(ACTIVE)
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  entries       SavingsEntry[]
+  plans         FinancialPlan[]
+
+  @@index([householdId, status])
+}
+
+enum SavingsStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+model SavingsEntry {
+  id              String   @id @default(cuid())
+  householdId     String
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  savingsGoalId   String
+  savingsGoal     SavingsGoal @relation(fields: [savingsGoalId], references: [id], onDelete: Cascade)
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  amount          Decimal  @db.Decimal(15, 2)
+  entryDate       DateTime
+  note            String?
+  createdAt       DateTime @default(now())
+}
+
+model FinancialPlan {
+  id                   String   @id @default(cuid())
+  householdId          String
+  household            Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  title                String
+  estimatedAmount      Decimal  @db.Decimal(15, 2)
+  dueDate              DateTime
+  priority             Priority @default(MEDIUM)
+  status               PlanStatus @default(PLANNED)
+  linkedSavingsGoalId  String?
+  linkedSavingsGoal    SavingsGoal? @relation(fields: [linkedSavingsGoalId], references: [id], onDelete: SetNull)
+  note                 String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([householdId, dueDate])
+  @@index([householdId, status])
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PlanStatus {
+  PLANNED
+  IN_PROGRESS
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model InviteToken {
+  id          String   @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  token       String   @unique
+  role        Role     @default(MEMBER)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+}
