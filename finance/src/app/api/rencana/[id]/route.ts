@@ -72,7 +72,19 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, estimatedAmount, dueDate, priority, status, note, linkedSavingsGoalId } = body;
+    const {
+      title,
+      estimatedAmount,
+      dueDate,
+      priority,
+      status,
+      note,
+      linkedSavingsGoalId,
+      isInstallment,
+      installmentMonths,
+      installmentAmount,
+      monthlySavingAmount,
+    } = body;
     const householdId = getHouseholdId();
 
     const plan = await prisma.financialPlan.findFirst({
@@ -93,6 +105,10 @@ export async function PUT(
         status: status ?? plan.status,
         note: note ?? plan.note,
         linkedSavingsGoalId: linkedSavingsGoalId === undefined ? plan.linkedSavingsGoalId : linkedSavingsGoalId || null,
+        isInstallment: isInstallment ?? plan.isInstallment,
+        installmentMonths: installmentMonths === undefined ? plan.installmentMonths : installmentMonths,
+        installmentAmount: installmentAmount === undefined ? plan.installmentAmount : installmentAmount,
+        monthlySavingAmount: monthlySavingAmount === undefined ? plan.monthlySavingAmount : monthlySavingAmount,
       },
       include: { linkedSavingsGoal: true },
     });

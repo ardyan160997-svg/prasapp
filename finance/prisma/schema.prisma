@@ -21,6 +21,7 @@ model Household {
   savingsGoals  SavingsGoal[]
   savingsEntries SavingsEntry[]
   plans         FinancialPlan[]
+  planSavings   PlanSaving[]
   inviteTokens  InviteToken[]
 }
 
@@ -37,6 +38,7 @@ model Member {
   updatedAt   DateTime @updatedAt
   transactions Transaction[]
   savingsEntries SavingsEntry[]
+  planSavings    PlanSaving[]
 
   @@unique([householdId, email])
   @@unique([householdId, phone])
@@ -152,7 +154,14 @@ model FinancialPlan {
   status               PlanStatus @default(PLANNED)
   linkedSavingsGoalId  String?
   linkedSavingsGoal    SavingsGoal? @relation(fields: [linkedSavingsGoalId], references: [id], onDelete: SetNull)
+  planSavings          PlanSaving[]
   note                 String?
+  // Installment / cicilan fields
+  isInstallment        Boolean  @default(false)
+  installmentMonths    Int?
+  installmentAmount    Decimal? @db.Decimal(15, 2)
+  // Monthly saving for this specific plan (wishlist cicilan)
+  monthlySavingAmount  Decimal? @db.Decimal(15, 2)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -172,6 +181,24 @@ enum PlanStatus {
   READY
   COMPLETED
   CANCELLED
+}
+
+// Monthly saving per wishlist/plan (separate from general SavingsGoal)
+model PlanSaving {
+  id              String   @id @default(cuid())
+  householdId     String
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            FinancialPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  amount          Decimal  @db.Decimal(15, 2)
+  savingDate      DateTime
+  note            String?
+  createdAt       DateTime @default(now())
+
+  @@index([householdId, planId])
+  @@index([planId, savingDate])
 }
 
 model InviteToken {
