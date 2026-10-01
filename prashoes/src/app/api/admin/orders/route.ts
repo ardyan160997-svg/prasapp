@@ -8,6 +8,13 @@ type OrderItemPayload = {
   notes: string;
 };
 
+type MemberRecord = {
+  id: string;
+  member_code: string;
+  total_deep_clean_pairs: number;
+  free_wash_balance: number;
+};
+
 function generateOrderCode() {
   const random = Math.random().toString(36).slice(2, 8).toUpperCase();
   const date = new Date();
@@ -50,7 +57,9 @@ export async function POST(request: Request) {
   const status = String(body.status ?? "Pesanan dibuat").trim() || "Pesanan dibuat";
   const paymentMethod = String(body.paymentMethod ?? "COD").trim();
   const memberId = ownerType === "member" ? String(body.memberId ?? "").trim() : "";
-  const items = Array.isArray(body.items) ? body.items.filter(isValidItem) : [];
+  const items: OrderItemPayload[] = Array.isArray(body.items)
+    ? body.items.filter(isValidItem)
+    : [];
 
   if (!customerName || !whatsappNumber) {
     return NextResponse.json(
@@ -73,7 +82,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const serviceIds = Array.from(new Set(items.map((item) => item.serviceId)));
+  const serviceIds = Array.from(new Set(items.map((item: OrderItemPayload) => item.serviceId)));
 
   const { data: servicesData, error: servicesError } = await supabase
     .from("services")
@@ -95,14 +104,7 @@ export async function POST(request: Request) {
     (serviceMap.get(item.serviceId) ?? "").toLowerCase().includes("deep clean")
   ).length;
 
-  let memberRecord:
-    | {
-        id: string;
-        member_code: string;
-        total_deep_clean_pairs: number;
-        free_wash_balance: number;
-      }
-    | null = null;
+  let memberRecord: MemberRecord | null = null;
 
   if (ownerType === "member") {
     const { data: memberData, error: memberError } = await supabase
@@ -118,7 +120,7 @@ export async function POST(request: Request) {
       );
     }
 
-    memberRecord = memberData as typeof memberRecord;
+    memberRecord = memberData as unknown as MemberRecord;
   }
 
   const orderCode = generateOrderCode();
@@ -150,7 +152,7 @@ export async function POST(request: Request) {
 
   const orderId = (createdOrder as { id: string }).id;
 
-  const itemPayloads = items.map((item, index) => ({
+  const itemPayloads = items.map((item: OrderItemPayload, index: number) => ({
     order_id: orderId,
     item_number: index + 1,
     shoe_description: item.shoeDescription.trim(),
