@@ -107,33 +107,6 @@ function renderPromos() {
   }
 }
 
-function renderGallery() {
-  const container = document.getElementById("gallery-grid");
-  if (!container) return;
-
-  const items = data.galleryItems || [];
-  if (!items.length) {
-    container.innerHTML = `<div class="notice-card">Belum ada data gallery before/after.</div>`;
-    return;
-  }
-
-  container.innerHTML = items.map((item) => `
-    <article class="gallery-card" role="listitem">
-      <div class="gallery-images">
-        <div class="gallery-panel">
-          <img src="${escapeHtml(item.beforeUrl)}" alt="Before ${escapeHtml(item.label)}" loading="lazy">
-          <p class="gallery-label">BEFORE</p>
-        </div>
-        <div class="gallery-panel after">
-          <img src="${escapeHtml(item.afterUrl)}" alt="After ${escapeHtml(item.label)}" loading="lazy">
-          <p class="gallery-label">AFTER</p>
-        </div>
-      </div>
-      <div class="gallery-caption">${escapeHtml(item.label)}</div>
-    </article>
-  `).join("");
-}
-
 function renderPickupForm() {
   const wrapper = document.getElementById("pickup-form-wrapper");
   if (!wrapper) return;
@@ -411,7 +384,9 @@ function bindTracking() {
             </div>
             ${items.length ? `<div class="tracking-items-result">${items.map((item, index) => {
               const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
-              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p></div></div>`;
+              const photos = Array.isArray(item.photos) ? item.photos : [];
+              const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
+              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photo.imageUrl)}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
             }).join("")}</div>` : ""}
           </article>
         `;
@@ -466,11 +441,10 @@ function bindMobileMenu() {
 async function init() {
   document.getElementById("current-year").textContent = new Date().getFullYear();
   try {
-    const [services, promos, memberBenefits, galleryItems] = await Promise.all([
+    const [services, promos, memberBenefits] = await Promise.all([
       fetchApi("/services"),
       fetchApi("/promos"),
       fetchApi("/member-benefits"),
-      fetchApi("/gallery"),
     ]);
     data.services = normalizeRows(services, data.services).map((item) => ({
       id: item.id,
@@ -487,19 +461,12 @@ async function init() {
       discountLabel: item.discount_label || item.discountLabel,
     }));
     data.memberBenefits = normalizeRows(memberBenefits, data.memberBenefits).map((item) => item.benefit || item);
-    data.galleryItems = normalizeRows(galleryItems, data.galleryItems).map((item) => ({
-      id: item.id,
-      beforeUrl: item.before_url || item.beforeUrl,
-      afterUrl: item.after_url || item.afterUrl,
-      label: item.label,
-    }));
   } catch (error) {
     console.warn("Memakai fallback data lokal:", error.message);
   }
   renderServices();
   renderPromos();
   renderPickupForm();
-  renderGallery();
   bindTracking();
   bindMobileMenu();
 }

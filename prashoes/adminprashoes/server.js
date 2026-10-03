@@ -189,8 +189,33 @@ async function updateOrder(input) {
 async function updateOrderItem(input) {
   if (!input.id) throw new Error('Item order wajib dipilih.');
   if (!String(input.shoeDescription || '').trim()) throw new Error('Detail sepatu wajib diisi.');
-  await pool.query('UPDATE order_items SET shoe_description = $1 WHERE id = $2', [String(input.shoeDescription).trim(), input.id]);
-  return { ok: true };
+  const stages = [
+    ['received', 'Foto terima sepatu', 1],
+    ['drying', 'Foto setelah cuci / pengeringan', 2],
+    ['ready', 'Foto siap diambil', 3],
+  ];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('UPDATE order_items SET shoe_description = $1 WHERE id = $2', [String(input.shoeDescription).trim(), input.id]);
+    for (const [type, caption, order] of stages) {
+      const url = String(input.photos?.[type] || '').trim();
+      await client.query('DELETE FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2', [input.id, type]);
+      if (url) {
+        await client.query(`
+          INSERT INTO order_item_photos (order_item_id, photo_type, image_url, caption, sort_order)
+          VALUES ($1,$2,$3,$4,$5)
+        `, [input.id, type, url, caption, order]);
+      }
+    }
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function publicServices() {

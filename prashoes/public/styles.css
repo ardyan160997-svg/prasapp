@@ -664,6 +664,36 @@ button {
   font-size: 0.88rem;
 }
 
+.tracking-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.tracking-photo-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: rgba(9, 9, 11, 0.5);
+}
+
+.tracking-photo-card img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.tracking-photo-card figcaption {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--yellow-300);
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .notice-card,
 .result-card {
   padding: 1.5rem;
