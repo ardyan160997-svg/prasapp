@@ -262,21 +262,29 @@ async function createPublicPickup(input) {
   return { success: true, requestCode: rows[0]?.request_code };
 }
 
-async function publicTracking(orderCode) {
-  if (!orderCode) return null;
-  const rows = await queryRows(`
-    SELECT o.order_code, o.status, o.created_at, o.updated_at,
+const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email']);
+
+async function publicTracking(type, value) {
+  if (!TRACKING_FIELDS.has(type) || !String(value || '').trim()) return [];
+  const searchValue = String(value).trim();
+  return queryRows(`
+    SELECT
+      o.order_code AS "orderCode",
+      o.customer_name AS "customerName",
+      o.status,
+      o.created_at AS "createdAt",
+      o.updated_at AS "updatedAt",
       COALESCE((
         SELECT json_agg(json_build_object(
-          'item_number', oi.item_number,
-          'shoe_description', oi.shoe_description,
-          'service_name', s.name,
-          'item_status', oi.item_status,
+          'itemNumber', oi.item_number,
+          'shoeDescription', oi.shoe_description,
+          'serviceName', s.name,
+          'itemStatus', oi.item_status,
           'notes', oi.notes,
           'photos', COALESCE((
             SELECT json_agg(json_build_object(
-              'photo_type', oip.photo_type,
-              'image_url', oip.image_url,
+              'photoType', oip.photo_type,
+              'imageUrl', oip.image_url,
               'caption', oip.caption
             ) ORDER BY oip.sort_order, oip.created_at)
             FROM order_item_photos oip WHERE oip.order_item_id = oi.id
@@ -287,10 +295,15 @@ async function publicTracking(orderCode) {
         WHERE oi.order_id = o.id
       ), '[]'::json) AS items
     FROM orders o
-    WHERE upper(o.order_code) = upper($1)
-    LIMIT 1
-  `, [orderCode]);
-  return rows[0] || null;
+    LEFT JOIN members m ON m.id = o.member_id
+    WHERE
+      ($1 = 'name' AND lower(trim(COALESCE(m.full_name, o.customer_name))) = lower(trim($2))) OR
+      ($1 = 'member' AND upper(trim(COALESCE(m.member_code, ''))) = upper(trim($2))) OR
+      ($1 = 'whatsapp' AND regexp_replace(COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, ''), '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')) OR
+      ($1 = 'email' AND lower(trim(COALESCE(m.email, ''))) = lower(trim($2)))
+    ORDER BY o.created_at DESC
+    LIMIT 20
+  `, [type, searchValue]);
 }
 
 async function publicApi(req, res, url, parts) {
@@ -301,7 +314,9 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'gallery' && req.method === 'GET') return sendJson(res, await publicGallery());
   if (resource === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
-  if (resource === 'tracking' && req.method === 'GET') return sendJson(res, await publicTracking(url.searchParams.get('orderCode')));
+  if (resource === 'tracking' && req.method === 'GET') {
+    return sendJson(res, await publicTracking(url.searchParams.get('type'), url.searchParams.get('value')));
+  }
   return sendJson(res, { error: 'Route publik tidak ditemukan.' }, 404);
 }
 

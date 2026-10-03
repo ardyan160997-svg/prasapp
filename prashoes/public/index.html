@@ -185,14 +185,21 @@
       <div class="container">
         <div class="tracking-card">
           <h2 id="tracking-title" class="section-title">Lacak Pesanan</h2>
-          <p class="section-subtitle">Masukkan ID pesanan kamu untuk melihat status terkini.</p>
+          <p class="section-subtitle">Pilih salah satu data untuk melihat status order kamu.</p>
 
           <div class="tracking-form">
-            <label for="order-id" class="sr-only">ID Pesanan</label>
+            <label for="tracking-type" class="sr-only">Cari berdasarkan</label>
+            <select id="tracking-type" class="tracking-input tracking-select" aria-label="Cari berdasarkan">
+              <option value="name">Nama Customer</option>
+              <option value="member">Kode Member</option>
+              <option value="whatsapp">Nomor WhatsApp</option>
+              <option value="email">Email</option>
+            </select>
+            <label for="order-id" class="sr-only">Data tracking</label>
             <input
               type="text"
               id="order-id"
-              placeholder="Contoh: ORD-20241201-ABC123"
+              placeholder="Contoh: nama, MBR-XXXX, 08xxx, atau email"
               class="tracking-input"
               autocomplete="off"
             >

@@ -357,16 +357,28 @@ function bindPickupForm() {
 }
 
 function bindTracking() {
+  const type = document.getElementById("tracking-type");
   const input = document.getElementById("order-id");
   const button = document.getElementById("track-btn");
   const error = document.getElementById("tracking-error");
   const result = document.getElementById("tracking-result");
+  const placeholders = {
+    name: "Masukkan nama customer",
+    member: "Contoh: MBR-XXXX",
+    whatsapp: "Contoh: 081234567890",
+    email: "Contoh: nama@email.com",
+  };
+
+  type?.addEventListener("change", () => {
+    if (input) input.placeholder = placeholders[type.value] || placeholders.name;
+  });
 
   async function track() {
+    const searchType = type?.value || "name";
     const value = input?.value?.trim();
     if (!value) {
       if (error) {
-        error.textContent = "Masukkan ID pesanan terlebih dahulu.";
+        error.textContent = "Masukkan data pencarian terlebih dahulu.";
         error.classList.remove("hidden");
       }
       result?.classList.add("hidden");
@@ -380,24 +392,26 @@ function bindTracking() {
     }
 
     try {
-      const tracking = await fetchApi(`/tracking?orderCode=${encodeURIComponent(value)}`);
-      if (!tracking) throw new Error("Pesanan tidak ditemukan.");
-      const items = tracking.items || [];
-      result.innerHTML = `
-        <div class="tracking-card">
-          <h3>Order: ${escapeHtml(tracking.orderCode || value)}</h3>
-          <p>Status: <strong>${escapeHtml(tracking.status || "-")}</strong></p>
-          <p>Customer: ${escapeHtml(tracking.customerName || "-")}</p>
-          ${items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item.shoeDescription || "Sepatu")} — ${escapeHtml(item.itemStatus || "-")}</li>`).join("")}</ul>` : ""}
-        </div>
-      `;
+      const orders = await fetchApi(`/tracking?type=${encodeURIComponent(searchType)}&value=${encodeURIComponent(value)}`);
+      if (!Array.isArray(orders) || !orders.length) throw new Error("Pesanan tidak ditemukan.");
+      result.innerHTML = orders.map((tracking) => {
+        const items = tracking.items || [];
+        return `
+          <article class="tracking-card tracking-order-result">
+            <h3>Order: ${escapeHtml(tracking.orderCode || "-")}</h3>
+            <p>Status: <strong>${escapeHtml(tracking.status || "-")}</strong></p>
+            <p>Customer: ${escapeHtml(tracking.customerName || "-")}</p>
+            ${items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item.shoeDescription || "Sepatu")} — ${escapeHtml(item.itemStatus || "-")}</li>`).join("")}</ul>` : ""}
+          </article>
+        `;
+      }).join("");
     } catch (err) {
       result.innerHTML = `
         <div class="notice-card">
           <strong>Pesanan belum ditemukan.</strong><br>
-          Pastikan kode pesanan benar atau hubungi admin Prashoes via WhatsApp.
+          Pastikan data yang dipilih benar atau hubungi admin Prashoes via WhatsApp.
           <div style="margin-top:1rem">
-            <a class="btn btn-primary" href="${escapeHtml(data.contact?.whatsapp || "https://wa.me/6285601679005")}?text=${encodeURIComponent(`Halo Prashoes, saya mau cek status pesanan ${value}`)}" target="_blank" rel="noopener noreferrer">Cek via WhatsApp</a>
+            <a class="btn btn-primary" href="${escapeHtml(data.contact?.whatsapp || "https://wa.me/6285601679005")}?text=${encodeURIComponent(`Halo Prashoes, saya mau cek status pesanan untuk ${value}`)}" target="_blank" rel="noopener noreferrer">Cek via WhatsApp</a>
           </div>
         </div>
       `;
