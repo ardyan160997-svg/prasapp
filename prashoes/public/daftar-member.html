@@ -7,8 +7,8 @@
   <title>Daftar Member - Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
   <link rel="apple-touch-icon" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=member-register-1">
-  <link rel="stylesheet" href="daftar-member.css?v=member-register-1">
+  <link rel="stylesheet" href="styles.css?v=member-register-2">
+  <link rel="stylesheet" href="daftar-member.css?v=member-register-2">
 </head>
 <body class="member-page">
   <header class="header" role="banner">
@@ -36,12 +36,16 @@
       <div class="member-form-card" id="memberFormCard">
         <form id="memberRegistrationForm" class="member-form">
           <div class="profile-field">
-            <label for="profilePhoto" class="profile-preview" id="profilePreview">
-              <span id="profilePreviewText">Tambah foto profil</span>
+            <label for="profilePhoto" class="profile-preview" id="profilePreview" aria-label="Tambah foto profil">
+              <span id="profilePreviewText" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4 7.5h3l1.4-2h7.2l1.4 2h3a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5a2 2 0 0 1 2-2Z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+              </span>
               <img id="profilePreviewImage" alt="Preview foto profil" hidden>
             </label>
             <input id="profilePhoto" name="profilePhoto" type="file" accept="image/*" capture="environment" required>
-            <small>JPG, PNG, WEBP, atau AVIF. Maksimal 8 MB.</small>
           </div>
 
           <div class="form-group">
@@ -77,6 +81,6 @@
     </section>
   </main>
 
-  <script src="daftar-member.js?v=member-register-1"></script>
+  <script src="daftar-member.js?v=member-register-2"></script>
 </body>
 </html>
