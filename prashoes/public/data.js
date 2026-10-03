@@ -29,28 +29,14 @@ window.PRASHOES_DATA = {
       description: "Pewarnaan ulang bagian sepatu yang pudar atau tergores.",
       startingPrice: "Mulai Rp65.000",
     },
-    {
-      id: "leather-care",
-      name: "Leather Care",
-      slug: "leather-care",
-      description: "Perawatan bahan kulit dengan pembersihan, pelembap, dan proteksi.",
-      startingPrice: "Mulai Rp75.000",
-    },
-    {
-      id: "premium-package",
-      name: "Premium Package",
-      slug: "premium-package",
-      description: "Paket lengkap untuk treatment total dalam satu sesi.",
-      startingPrice: "Mulai Rp150.000",
-    },
+
   ],
   serviceOptions: [
     "Fast Clean",
     "Deep Clean",
     "Unyellowing",
     "Repaint",
-    "Leather Care",
-    "Premium Package",
+
   ],
   memberBenefits: [
     "Member baru dapat promo diskon 10% untuk order pertama.",
