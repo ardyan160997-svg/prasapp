@@ -1,6 +1,7 @@
 const data = window.PRASHOES_DATA || {};
 
-const API_BASE = "https://adminprashoes.prasapp.com/api/public";
+const ADMIN_BASE = "https://adminprashoes.prasapp.com";
+const API_BASE = `${ADMIN_BASE}/api/public`;
 
 const state = {
   pickupLatitude: null,
@@ -37,6 +38,11 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function photoUrl(value) {
+  const url = String(value || "");
+  return url.startsWith("/uploads/") ? `${ADMIN_BASE}${url}` : url;
 }
 
 function normalizePhone(value) {
@@ -386,7 +392,7 @@ function bindTracking() {
               const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
               const photos = Array.isArray(item.photos) ? item.photos : [];
               const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
-              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photo.imageUrl)}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
+              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
             }).join("")}</div>` : ""}
           </article>
         `;

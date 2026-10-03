@@ -6,9 +6,12 @@ const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = path.join(__dirname, 'dist');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -368,6 +371,7 @@ async function api(req, res, url) {
   if (route === 'public') return publicApi(req, res, url, parts);
   if (!isAuthed(req)) return sendJson(res, { error: 'Unauthorized.' }, 401);
   if (route === 'dashboard' && req.method === 'GET') return sendJson(res, await dashboard());
+  if (route === 'upload-photo' && req.method === 'POST') return uploadPhoto(req, res, url);
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
   if (route === 'order-items' && req.method === 'PATCH') return sendJson(res, await updateOrderItem(await readJson(req)));
@@ -417,11 +421,110 @@ function serveStatic(req, res, url) {
   });
 }
 
+function serveUpload(req, res, url) {
+  const uploadPath = decodeURIComponent(url.pathname).replace(/^\/uploads\//, '');
+  const filePath = path.resolve(UPLOAD_DIR, uploadPath);
+  if (!filePath.startsWith(`${UPLOAD_DIR}${path.sep}`)) return sendJson(res, { error: 'Forbidden.' }, 403);
+  fs.stat(filePath, (error, stat) => {
+    if (error || !stat.isFile()) return sendJson(res, { error: 'File tidak ditemukan.' }, 404);
+    res.writeHead(200, {
+      'content-type': mime[path.extname(filePath)] || 'application/octet-stream',
+      'content-length': stat.size,
+      'cache-control': 'public, max-age=31536000',
+      'x-content-type-options': 'nosniff',
+    });
+    fs.createReadStream(filePath).pipe(res);
+  });
+}
+
+async function uploadPhoto(req, res, url) {
+  if (!isAuthed(req)) return sendJson(res, { error: 'Unauthorized.' }, 401);
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.startsWith('multipart/form-data')) return sendJson(res, { error: 'Content-Type harus multipart/form-data.' }, 400);
+  const boundary = contentType.match(/boundary=(.+)$/)?.[1];
+  if (!boundary) return sendJson(res, { error: 'Boundary tidak ditemukan.' }, 400);
+
+  const parts = [];
+  let buffer = Buffer.alloc(0);
+  for await (const chunk of req) {
+    buffer = Buffer.concat([buffer, chunk]);
+    if (buffer.length > MAX_UPLOAD_BYTES) return sendJson(res, { error: 'File terlalu besar (maks 8MB).' }, 413);
+  }
+
+  const sections = buffer.toString('binary').split(`--${boundary}`);
+  for (let part of sections) {
+    if (!part || part === '--\r\n' || part === '--') continue;
+    if (part.startsWith('\r\n')) part = part.slice(2);
+    if (part.endsWith('\r\n')) part = part.slice(0, -2);
+    if (part.endsWith('--')) part = part.slice(0, -2);
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+    const headers = part.slice(0, headerEnd);
+    let content = part.slice(headerEnd + 4);
+    if (content.endsWith('\r\n')) content = content.slice(0, -2);
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    const typeMatch = headers.match(/Content-Type:\s*([^\r\n]+)/i);
+    if (!nameMatch) continue;
+    parts.push({
+      name: nameMatch[1],
+      filename: filenameMatch?.[1] || '',
+      contentType: typeMatch?.[1]?.trim() || '',
+      data: Buffer.from(content, 'binary'),
+    });
+  }
+
+  const filePart = parts.find(p => p.name === 'photo');
+  const itemIdPart = parts.find(p => p.name === 'itemId');
+  const stagePart = parts.find(p => p.name === 'stage');
+
+  if (!filePart || !filePart.data?.length) return sendJson(res, { error: 'File foto wajib diisi.' }, 400);
+  if (!itemIdPart) return sendJson(res, { error: 'Item ID wajib diisi.' }, 400);
+  if (!stagePart) return sendJson(res, { error: 'Stage (received/drying/ready) wajib diisi.' }, 400);
+
+  const itemId = itemIdPart.data.toString().trim();
+  const stage = stagePart.data.toString().trim();
+  const validStages = ['received', 'drying', 'ready'];
+  if (!validStages.includes(stage)) return sendJson(res, { error: 'Stage tidak valid.' }, 400);
+
+  const ext = path.extname(filePart.filename).toLowerCase();
+  if (!['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(ext)) return sendJson(res, { error: 'Format tidak didukung (jpg, png, webp, avif).' }, 400);
+
+  const safeName = `${itemId}-${stage}-${Date.now()}${ext}`;
+  const filePath = path.join(UPLOAD_DIR, safeName);
+  fs.writeFileSync(filePath, filePart.data);
+
+  const photoUrl = `/uploads/${safeName}`;
+
+  const captions = { received: 'Foto terima sepatu', drying: 'Foto setelah cuci / pengeringan', ready: 'Foto siap diambil' };
+  const orders = { received: 1, drying: 2, ready: 3 };
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2', [itemId, stage]);
+    await client.query(
+      `INSERT INTO order_item_photos (order_item_id, photo_type, image_url, caption, sort_order)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [itemId, stage, photoUrl, captions[stage], orders[stage]]
+    );
+    await client.query('COMMIT');
+    return sendJson(res, { ok: true, url: photoUrl, stage });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    fs.unlink(filePath, () => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (req.method === 'OPTIONS') return sendJson(res, {}, 204);
   try {
     if (url.pathname.startsWith('/api/')) await api(req, res, url);
+    else if (url.pathname.startsWith('/uploads/')) serveUpload(req, res, url);
     else serveStatic(req, res, url);
   } catch (error) {
     console.error(error.message);
