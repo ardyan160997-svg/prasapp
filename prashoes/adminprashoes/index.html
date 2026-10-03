@@ -6,7 +6,7 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=tracking-order-link-2">
+  <link rel="stylesheet" href="styles.css?v=payment-modal-1">
 </head>
 <body>
   <main class="app-shell">
@@ -247,6 +247,24 @@
     </div>
   </template>
 
-  <script src="app.js?v=treatment-price-edit-1"></script>
+  <div class="payment-modal hidden" id="paymentConfirmModal" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
+    <button class="payment-modal-backdrop" data-payment-cancel type="button" aria-label="Tutup konfirmasi"></button>
+    <article class="payment-modal-card">
+      <div class="payment-modal-icon">✓</div>
+      <p class="eyebrow">Konfirmasi Pembayaran</p>
+      <h2 id="paymentModalTitle">Customer sudah membayar?</h2>
+      <p class="payment-modal-copy" id="paymentModalCopy">Pastikan pembayaran sudah diterima sebelum dimasukkan ke Revenue.</p>
+      <div class="payment-modal-summary">
+        <span>Status sekarang</span>
+        <strong>Belum Bayar</strong>
+      </div>
+      <div class="payment-modal-actions">
+        <button class="ghost-btn" data-payment-cancel type="button">Belum, Batalkan</button>
+        <button class="primary-btn" id="confirmPaymentBtn" type="button">Ya, Sudah Dibayar</button>
+      </div>
+    </article>
+  </div>
+
+  <script src="app.js?v=payment-modal-1"></script>
 </body>
 </html>
