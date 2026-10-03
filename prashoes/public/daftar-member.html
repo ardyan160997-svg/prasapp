@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Daftar member Prashoes untuk mendapatkan benefit dan pickup lebih praktis.">
+  <title>Daftar Member - Prashoes</title>
+  <link rel="icon" type="image/avif" href="images/icon.avif">
+  <link rel="apple-touch-icon" href="images/icon.avif">
+  <link rel="stylesheet" href="styles.css?v=member-register-1">
+  <link rel="stylesheet" href="daftar-member.css?v=member-register-1">
+</head>
+<body class="member-page">
+  <header class="header" role="banner">
+    <div class="container header-inner">
+      <a href="index.html" class="logo" aria-label="Kembali ke beranda Prashoes">
+        <img src="images/logo-iconnav.avif" alt="Prashoes" width="180" height="48">
+      </a>
+      <a href="index.html#promo" class="btn btn-secondary">Kembali</a>
+    </div>
+  </header>
+
+  <main class="member-main">
+    <section class="container member-layout" aria-labelledby="member-title">
+      <div class="member-intro">
+        <span class="member-kicker">PRASHOES MEMBER</span>
+        <h1 id="member-title">Daftar sekali, pickup berikutnya lebih cepat.</h1>
+        <p>Data member tersimpan aman dan otomatis terbaca saat kamu mengisi form Antar Jemput.</p>
+        <ul>
+          <li>Diskon 10% untuk order pertama.</li>
+          <li>Gratis ongkir minimal 2 pasang.</li>
+          <li>Riwayat treatment tersimpan.</li>
+        </ul>
+      </div>
+
+      <div class="member-form-card" id="memberFormCard">
+        <form id="memberRegistrationForm" class="member-form">
+          <div class="profile-field">
+            <label for="profilePhoto" class="profile-preview" id="profilePreview">
+              <span id="profilePreviewText">Tambah foto profil</span>
+              <img id="profilePreviewImage" alt="Preview foto profil" hidden>
+            </label>
+            <input id="profilePhoto" name="profilePhoto" type="file" accept="image/*" capture="environment" required>
+            <small>JPG, PNG, WEBP, atau AVIF. Maksimal 8 MB.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="memberFullName" class="form-label">Nama Lengkap</label>
+            <input id="memberFullName" name="fullName" class="form-input" type="text" autocomplete="name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="memberWhatsapp" class="form-label">Nomor WhatsApp</label>
+            <input id="memberWhatsapp" name="whatsappNumber" class="form-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx" required>
+          </div>
+
+          <div class="two-col">
+            <div class="form-group">
+              <label for="memberBirthDate" class="form-label">Tanggal Lahir <span>(Opsional)</span></label>
+              <input id="memberBirthDate" name="birthDate" class="form-input" type="date">
+            </div>
+            <div class="form-group">
+              <label for="memberEmail" class="form-label">Email <span>(Opsional)</span></label>
+              <input id="memberEmail" name="email" class="form-input" type="email" autocomplete="email" placeholder="nama@email.com">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="memberAddress" class="form-label">Alamat Lengkap</label>
+            <textarea id="memberAddress" name="pickupAddress" class="form-textarea" rows="4" autocomplete="street-address" placeholder="Alamat untuk penjemputan sepatu" required></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full" id="memberSubmitButton">Daftar Member</button>
+          <p class="member-form-note">Dengan mendaftar, data ini akan dipakai untuk mempermudah layanan Antar Jemput Prashoes.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="daftar-member.js?v=member-register-1"></script>
+</body>
+</html>

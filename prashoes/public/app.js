@@ -69,6 +69,9 @@ function getMemberInfoFromStorage() {
     fullName: localStorage.getItem("prashoes_member_name") || "",
     whatsappNumber: localStorage.getItem("prashoes_member_whatsapp") || "",
     email: localStorage.getItem("prashoes_member_email") || "",
+    pickupAddress: localStorage.getItem("prashoes_member_address") || "",
+    memberCode: localStorage.getItem("prashoes_member_code") || "",
+    profilePhotoUrl: localStorage.getItem("prashoes_member_photo") || "",
     isMember: localStorage.getItem("prashoes_is_member") === "true",
   };
 }
@@ -88,6 +91,9 @@ function setMemberInfoFromPayload(payload, result = {}) {
   if (payload.fullName || result.fullName || result.customer_name) localStorage.setItem("prashoes_member_name", payload.fullName || result.fullName || result.customer_name);
   if (payload.whatsappNumber) localStorage.setItem("prashoes_member_whatsapp", payload.whatsappNumber);
   if (payload.email) localStorage.setItem("prashoes_member_email", payload.email);
+  if (payload.pickupAddress) localStorage.setItem("prashoes_member_address", payload.pickupAddress);
+  if (payload.profilePhotoUrl) localStorage.setItem("prashoes_member_photo", payload.profilePhotoUrl);
+  if (payload.memberCode || result.memberCode) localStorage.setItem("prashoes_member_code", payload.memberCode || result.memberCode);
   if (payload.fullName) localStorage.setItem("prashoes_identity_submitted", "true");
 }
 
@@ -226,6 +232,7 @@ function renderPickupForm() {
 
   const serviceOptions = data.serviceOptions || data.services?.map((service) => service.name) || [];
   const firstService = serviceOptions[0] || "";
+  const memberInfo = getMemberInfoFromStorage();
 
   wrapper.className = "pickup-card";
   wrapper.innerHTML = `
@@ -235,44 +242,35 @@ function renderPickupForm() {
     <form id="pickup-form" class="pickup-form">
       <div class="form-group">
         <label class="form-label">Status Customer</label>
-        <div class="radio-grid">
-          <label class="radio-card">
-            <input type="radio" name="isMember" value="false" checked>
-            <span>Non-member</span>
-          </label>
-          <label class="radio-card">
-            <input type="radio" name="isMember" value="true">
-            <span>Member</span>
-          </label>
+        <div class="member-status-badge ${memberInfo.isMember ? 'active' : ''}">
+          ${memberInfo.isMember ? `Member • ${escapeHtml(memberInfo.fullName)}${memberInfo.memberCode ? ` (${escapeHtml(memberInfo.memberCode)})` : ''}` : 'Non-member'}
         </div>
+        <input type="hidden" name="isMember" value="${memberInfo.isMember ? 'true' : 'false'}">
+        <input type="hidden" name="memberCode" value="${escapeHtml(memberInfo.memberCode)}">
       </div>
 
       <div class="form-group">
         <label for="fullName" class="form-label">Nama Lengkap</label>
-        <input id="fullName" name="fullName" type="text" required placeholder="Masukkan nama lengkap" class="form-input">
+        <input id="fullName" name="fullName" type="text" required placeholder="Masukkan nama lengkap" class="form-input" value="${escapeHtml(memberInfo.fullName)}">
       </div>
 
       <div class="form-group">
         <label for="whatsappNumber" class="form-label">Nomor WhatsApp</label>
-        <input id="whatsappNumber" name="whatsappNumber" type="tel" required placeholder="08xxxxxxxxxx" class="form-input">
+        <input id="whatsappNumber" name="whatsappNumber" type="tel" required placeholder="08xxxxxxxxxx" class="form-input" value="${escapeHtml(memberInfo.whatsappNumber)}">
       </div>
 
       <div class="form-group">
         <label for="email" class="form-label">Email (Opsional)</label>
-        <input id="email" name="email" type="email" placeholder="nama@email.com" class="form-input">
+        <input id="email" name="email" type="email" placeholder="nama@email.com" class="form-input" value="${escapeHtml(memberInfo.email)}">
       </div>
 
-      <div id="member-code-group" class="form-group hidden">
-        <label for="memberCode" class="form-label">Kode Member</label>
-        <input id="memberCode" name="memberCode" type="text" class="form-input">
-      </div>
 
       <div class="form-group">
         <label for="pickupAddress" class="form-label">Alamat Penjemputan</label>
         <div class="location-row">
           <button type="button" id="location-btn" class="btn-location">Pakai Lokasi Saya</button>
         </div>
-        <textarea id="pickupAddress" name="pickupAddress" required placeholder="Alamat lengkap penjemputan" rows="4" class="form-textarea"></textarea>
+        <textarea id="pickupAddress" name="pickupAddress" required placeholder="Alamat lengkap penjemputan" rows="4" class="form-textarea">${escapeHtml(memberInfo.pickupAddress)}</textarea>
         <p id="location-help" class="field-help hidden"></p>
       </div>
 
@@ -340,16 +338,10 @@ function bindPickupForm() {
   const form = document.getElementById("pickup-form");
   const locationBtn = document.getElementById("location-btn");
   const locationHelp = document.getElementById("location-help");
-  const memberGroup = document.getElementById("member-code-group");
-
   if (!form) return;
 
   form.addEventListener("input", updatePricingSummary);
-  form.addEventListener("change", () => {
-    const payload = getPickupPayload();
-    if (memberGroup) memberGroup.classList.toggle("hidden", !payload?.isMember);
-    updatePricingSummary();
-  });
+  form.addEventListener("change", updatePricingSummary);
 
   locationBtn?.addEventListener("click", () => {
     if (!navigator.geolocation) {

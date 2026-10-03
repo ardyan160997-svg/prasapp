@@ -84,6 +84,26 @@ async function queryRows(sql, params = []) {
 
 async function ensureChatTables() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS members (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      member_code text NOT NULL UNIQUE DEFAULT ('MBR-' || upper(substr(md5(random()::text), 1, 6))),
+      full_name text NOT NULL,
+      whatsapp_number text NOT NULL UNIQUE,
+      email text,
+      birth_date date,
+      profile_photo_url text,
+      pickup_address text,
+      pickup_latitude numeric,
+      pickup_longitude numeric,
+      pickup_share_url text,
+      is_active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS birth_date date`);
+  await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS profile_photo_url text`);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS chat_threads (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       session_id text NOT NULL,
@@ -323,22 +343,29 @@ async function publicGallery() {
 }
 
 async function createPublicMember(input) {
+  await ensureChatTables();
   if (!input.fullName || !input.whatsappNumber || !input.pickupAddress) throw new Error('Nama, WhatsApp, dan alamat pickup wajib diisi.');
+  const memberCode = 'MBR-' + crypto.randomBytes(3).toString('hex').toUpperCase();
   const rows = await queryRows(`
-    INSERT INTO members (full_name, whatsapp_number, email, pickup_address, pickup_latitude, pickup_longitude, pickup_share_url)
-    VALUES ($1,$2,$3,$4,$5,$6,$7)
+    INSERT INTO members (member_code, full_name, whatsapp_number, email, birth_date, profile_photo_url, pickup_address, pickup_latitude, pickup_longitude, pickup_share_url)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
     ON CONFLICT (whatsapp_number) DO UPDATE SET
       full_name = EXCLUDED.full_name,
       email = EXCLUDED.email,
+      birth_date = EXCLUDED.birth_date,
+      profile_photo_url = EXCLUDED.profile_photo_url,
       pickup_address = EXCLUDED.pickup_address,
       pickup_latitude = EXCLUDED.pickup_latitude,
       pickup_longitude = EXCLUDED.pickup_longitude,
       pickup_share_url = EXCLUDED.pickup_share_url
     RETURNING member_code
   `, [
+    memberCode,
     input.fullName,
     input.whatsappNumber,
     input.email || '',
+    input.birthDate || null,
+    input.profilePhotoUrl || '',
     input.pickupAddress,
     input.pickupLatitude || null,
     input.pickupLongitude || null,
@@ -349,9 +376,15 @@ async function createPublicMember(input) {
 
 async function createPublicPickup(input) {
   if (!input.fullName || !input.whatsappNumber || !input.pickupAddress) throw new Error('Nama, WhatsApp, dan alamat pickup wajib diisi.');
-  const memberRows = input.memberCode
-    ? await queryRows('SELECT id, member_code FROM members WHERE member_code = $1', [String(input.memberCode).toUpperCase()])
-    : [];
+  const phone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
+  const localPhone = phone.startsWith('62') ? `0${phone.slice(2)}` : phone;
+  const internationalPhone = phone.startsWith('0') ? `62${phone.slice(1)}` : phone;
+  const memberRows = await queryRows(
+    `SELECT id, member_code FROM members
+     WHERE member_code = $1 OR regexp_replace(whatsapp_number, '[^0-9]', '', 'g') = ANY($2::text[])
+     LIMIT 1`,
+    [String(input.memberCode || '').toUpperCase(), [phone, localPhone, internationalPhone].filter(Boolean)]
+  );
   const member = memberRows[0] || null;
   const rows = await queryRows(`
     INSERT INTO pickup_requests (
@@ -371,9 +404,9 @@ async function createPublicPickup(input) {
     input.pickupShareUrl || '',
     Math.max(1, Math.min(20, num(input.shoeQuantity) || 1)),
     input.serviceType || '',
-    Boolean(input.isMember),
+    Boolean(member || input.isMember),
     member?.id || null,
-    input.memberCode || '',
+    member?.member_code || input.memberCode || '',
     num(input.deliveryFee),
     num(input.discountAmount),
     input.promoLabel || '',
@@ -584,6 +617,7 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'member-benefits' && req.method === 'GET') return sendJson(res, await publicMemberBenefits());
   if (resource === 'gallery' && req.method === 'GET') return sendJson(res, await publicGallery());
   if (resource === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
+  if (resource === 'member-photo' && req.method === 'POST') return uploadMemberPhoto(req, res);
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
   if (resource === 'chat' && url.pathname.endsWith('/identity') && req.method === 'POST') return sendJson(res, await publicChatIdentity((await readJson(req)).whatsappNumber));
   if (resource === 'chat' && url.pathname.endsWith('/templates') && req.method === 'GET') return sendJson(res, await publicChatTemplates());
@@ -687,6 +721,60 @@ function serveUpload(req, res, url) {
     });
     fs.createReadStream(filePath).pipe(res);
   });
+}
+
+async function parseMultipartUpload(req) {
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.startsWith('multipart/form-data')) throw new Error('Content-Type harus multipart/form-data.');
+  const boundary = contentType.match(/boundary=(.+)$/)?.[1];
+  if (!boundary) throw new Error('Boundary tidak ditemukan.');
+
+  const parts = [];
+  let buffer = Buffer.alloc(0);
+  for await (const chunk of req) {
+    buffer = Buffer.concat([buffer, chunk]);
+    if (buffer.length > MAX_UPLOAD_BYTES) throw Object.assign(new Error('File terlalu besar (maks 8MB).'), { status: 413 });
+  }
+
+  const sections = buffer.toString('binary').split(`--${boundary}`);
+  for (let part of sections) {
+    if (!part || part === '--\r\n' || part === '--') continue;
+    if (part.startsWith('\r\n')) part = part.slice(2);
+    if (part.endsWith('\r\n')) part = part.slice(0, -2);
+    if (part.endsWith('--')) part = part.slice(0, -2);
+    const headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd === -1) continue;
+    const headers = part.slice(0, headerEnd);
+    let content = part.slice(headerEnd + 4);
+    if (content.endsWith('\r\n')) content = content.slice(0, -2);
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    const typeMatch = headers.match(/Content-Type:\s*([^\r\n]+)/i);
+    if (!nameMatch) continue;
+    parts.push({
+      name: nameMatch[1],
+      filename: filenameMatch?.[1] || '',
+      contentType: typeMatch?.[1]?.trim() || '',
+      data: Buffer.from(content, 'binary'),
+    });
+  }
+  return parts;
+}
+
+async function uploadMemberPhoto(req, res) {
+  let parts;
+  try { parts = await parseMultipartUpload(req); }
+  catch (error) { return sendJson(res, { error: error.message }, error.status || 400); }
+
+  const filePart = parts.find(p => p.name === 'photo');
+  if (!filePart || !filePart.data?.length) return sendJson(res, { error: 'File foto wajib diisi.' }, 400);
+  const ext = path.extname(filePart.filename).toLowerCase();
+  if (!['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(ext)) return sendJson(res, { error: 'Format tidak didukung (jpg, png, webp, avif).' }, 400);
+  if (!String(filePart.contentType || '').startsWith('image/')) return sendJson(res, { error: 'File harus berupa gambar.' }, 400);
+
+  const safeName = `member-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, safeName), filePart.data);
+  return sendJson(res, { ok: true, url: `/uploads/${safeName}` }, 201);
 }
 
 async function uploadPhoto(req, res, url) {
