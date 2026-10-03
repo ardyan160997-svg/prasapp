@@ -166,6 +166,33 @@ async function ensureFinanceTables() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'belum_bayar'`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
   await pool.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS treatment_price numeric NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE cashflow_transactions ADD COLUMN IF NOT EXISTS source_order_id uuid REFERENCES orders(id) ON DELETE SET NULL`);
+  await pool.query(`ALTER TABLE cashflow_transactions DROP CONSTRAINT IF EXISTS cashflow_transactions_transaction_type_check`);
+  await pool.query(`
+    ALTER TABLE cashflow_transactions
+    ADD CONSTRAINT cashflow_transactions_transaction_type_check
+    CHECK (transaction_type IN ('revenue','cost','pemasukkan','pengeluaran'))
+  `);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS cashflow_transactions_source_order_id_key ON cashflow_transactions(source_order_id) WHERE source_order_id IS NOT NULL`);
+}
+
+async function syncPaidOrderRevenue() {
+  await pool.query(`
+    UPDATE orders o SET revenue_amount = totals.amount
+    FROM (
+      SELECT order_id, COALESCE(SUM(treatment_price), 0) AS amount
+      FROM order_items GROUP BY order_id
+    ) totals
+    WHERE o.id = totals.order_id AND totals.amount > 0 AND o.revenue_amount <> totals.amount
+  `);
+  await pool.query(`
+    INSERT INTO cashflow_transactions (transaction_type, description, amount, quantity, transaction_date, source_order_id)
+    SELECT 'revenue', 'Pembayaran treatment ' || o.customer_name || ' (' || o.order_code || ')',
+      o.revenue_amount, 1, COALESCE(o.paid_at, now()), o.id
+    FROM orders o
+    WHERE o.payment_status = 'terbayar' AND o.revenue_amount > 0
+    ON CONFLICT (source_order_id) WHERE source_order_id IS NOT NULL DO NOTHING
+  `);
 }
 
 async function ensureWarrantyTables() {
@@ -192,6 +219,7 @@ async function ensureWarrantyTables() {
 async function dashboard() {
   await ensureChatTables();
   await ensureWarrantyTables();
+  await syncPaidOrderRevenue();
   const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
@@ -339,20 +367,36 @@ async function markCustomerOrdersPaid(input) {
   const orderIds = Array.isArray(input.orderIds) ? input.orderIds.filter(Boolean) : [];
   if (!orderIds.length) throw new Error('Order untuk pembayaran wajib dipilih.');
 
-  const rows = await queryRows(`
-    UPDATE orders
-    SET payment_status = 'terbayar', paid_at = COALESCE(paid_at, now())
-    WHERE id = ANY($1::uuid[])
-    RETURNING id, order_code, customer_name, revenue_amount
-  `, [orderIds]);
-  const amount = rows.reduce((sum, order) => sum + num(order.revenue_amount), 0);
-  if (amount > 0) {
-    await pool.query(`
-      INSERT INTO cashflow_transactions (transaction_type, description, amount, quantity)
-      VALUES ($1,$2,$3,$4)
-    `, ['revenue', `Pembayaran treatment ${rows[0]?.customer_name || 'customer'}`, amount, rows.length]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(`
+      UPDATE orders
+      SET payment_status = 'terbayar', paid_at = COALESCE(paid_at, now())
+      WHERE id = ANY($1::uuid[])
+      RETURNING id, order_code, customer_name, revenue_amount, paid_at
+    `, [orderIds]);
+    for (const order of result.rows) {
+      if (num(order.revenue_amount) <= 0) continue;
+      await client.query(`
+        INSERT INTO cashflow_transactions
+          (transaction_type, description, amount, quantity, transaction_date, source_order_id)
+        VALUES ('revenue', $1, $2, 1, $3, $4)
+        ON CONFLICT (source_order_id) WHERE source_order_id IS NOT NULL DO NOTHING
+      `, [`Pembayaran treatment ${order.customer_name} (${order.order_code})`, num(order.revenue_amount), order.paid_at, order.id]);
+    }
+    await client.query('COMMIT');
+    return {
+      ok: true,
+      orders: result.rows,
+      amount: result.rows.reduce((sum, order) => sum + num(order.revenue_amount), 0),
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-  return { ok: true, orders: rows, amount };
 }
 
 async function updatePickupRequest(input) {
