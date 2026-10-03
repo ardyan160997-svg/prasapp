@@ -88,6 +88,7 @@ function setMemberInfoFromPayload(payload, result = {}) {
   if (payload.fullName || result.fullName || result.customer_name) localStorage.setItem("prashoes_member_name", payload.fullName || result.fullName || result.customer_name);
   if (payload.whatsappNumber) localStorage.setItem("prashoes_member_whatsapp", payload.whatsappNumber);
   if (payload.email) localStorage.setItem("prashoes_member_email", payload.email);
+  if (payload.fullName) localStorage.setItem("prashoes_identity_submitted", "true");
 }
 
 async function fetchChatThread(sessionId) {
@@ -107,12 +108,18 @@ async function fetchChatTemplates() {
 }
 
 async function validateIdentityBeforeSend() {
-  const name = document.getElementById('chatName')?.value?.trim();
-  const whatsapp = document.getElementById('chatWhatsapp')?.value?.trim();
+  const name = document.getElementById('chatName')?.value?.trim() || getMemberInfoFromStorage().fullName;
   if (!name) { alert('Nama wajib diisi.'); return false; }
-  if (!whatsapp) { alert('WhatsApp wajib diisi.'); return false; }
   await detectChatIdentity();
   return true;
+}
+
+function collapseChatIdentity(name) {
+  const container = document.getElementById('chatIdentity');
+  const customerName = String(name || '').trim();
+  if (!container || !customerName) return;
+  container.classList.add('submitted');
+  container.innerHTML = `<span class="chat-name-badge">${escapeHtml(customerName)}</span>`;
 }
 
 async function detectChatIdentity() {
@@ -141,6 +148,7 @@ async function sendChatMessage(sessionId, message) {
     body: JSON.stringify({ sessionId, message, ...identity }),
   });
   setMemberInfoFromPayload(identity, result);
+  collapseChatIdentity(identity.fullName);
   return result;
 }
 
@@ -584,6 +592,7 @@ async function renderChatWidget() {
     'Bisa pickup ke rumah?',
     'Bahan suede bisa dibersihkan?',
   ]);
+  const hasSubmittedIdentity = identity.fullName && localStorage.getItem('prashoes_identity_submitted') === 'true';
   root.innerHTML = `
     <button class="chat-fab" id="chatFab" aria-label="Buka chat Prashoes" type="button">Chat</button>
     <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Chat Prashoes">
@@ -591,10 +600,13 @@ async function renderChatWidget() {
         <div><strong>Chat Prashoes</strong><small>Tanya layanan, harga, atau bahan sepatu.</small></div>
         <button class="chat-close" id="chatClose" type="button" aria-label="Tutup chat">×</button>
       </div>
-      <div class="chat-identity">
-        <input id="chatName" type="text" placeholder="Nama" value="${escapeHtml(identity.fullName)}">
-        <input id="chatWhatsapp" type="tel" placeholder="WhatsApp" value="${escapeHtml(identity.whatsappNumber)}">
-        <span class="chat-member-badge ${identity.isMember ? 'member' : ''}" id="chatMemberBadge">${identity.isMember ? 'Member' : 'Non-member'}</span>
+      <div class="chat-identity" id="chatIdentity">
+        ${hasSubmittedIdentity && identity.fullName
+          ? `<span class="chat-name-badge">${escapeHtml(identity.fullName)}</span>`
+          : `<input id="chatName" type="text" placeholder="Nama" value="${escapeHtml(identity.fullName)}">
+             <input id="chatWhatsapp" type="tel" placeholder="WhatsApp (opsional)" value="${escapeHtml(identity.whatsappNumber)}">
+             <span class="chat-member-badge ${identity.isMember ? 'member' : ''}" id="chatMemberBadge">${identity.isMember ? 'Member' : 'Non-member'}</span>`
+        }
       </div>
       <div class="chat-templates" id="chatTemplates">
         ${templates.map((message) => `<button type="button" data-chat-template="${escapeHtml(message)}">${escapeHtml(message)}</button>`).join('')}
