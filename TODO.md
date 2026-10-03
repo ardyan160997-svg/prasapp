@@ -1699,3 +1699,46 @@ ada pada server `localhost` yang masih memakai `IP Address/Domain` = `host.docke
 sehingga validasi server gagal. Langkah berikutnya adalah mengubah host server ke
 `178.83.188.207`, memvalidasi server, lalu membuat PostgreSQL service untuk `prastation`
 sebelum menjalankan migration dan seed.
+
+---
+
+## TASK-019 — Konversi project Prashoes ke dua aplikasi HTML
+
+- Status: completed
+- Requested route: auto
+- Selected combo: webdev-build
+- Priority: high
+- Risk: high
+- Dependencies: Admin Prashoes VPS API
+
+### Objective
+
+Mengganti project `prashoes` berbasis Next.js menjadi dua folder HTML/CSS/JS terpisah:
+public website dan dashboard admin.
+
+### Scope
+
+- `prashoes/public/` untuk `prashoes.prasapp.com`.
+- `prashoes/adminprashoes/` untuk `adminprashoes.prasapp.com`.
+- Root build/check scripts dan dokumentasi struktur deploy.
+- Penghapusan source/config/dependency Next.js dari project `prashoes`.
+
+### Requirements
+
+- Public site tetap memakai desain live static Prashoes.
+- Public pickup, tracking, layanan, promo, benefit, dan gallery memakai API VPS admin.
+- Admin UI tetap memakai PostgreSQL VPS melalui server-side Node API.
+- Tidak ada credential atau connection string di client/source.
+
+### Validation
+
+- `npm run check` berhasil.
+- `npm run build` menghasilkan `dist/public/` dan `dist/adminprashoes/`.
+- Ad-hoc verifier memastikan source Next.js hilang dan integrasi API VPS tetap ada.
+
+### Result
+
+Selesai. Project `prashoes` sekarang static HTML/CSS/JS dengan folder `public/` dan
+`adminprashoes/`. Source Next.js, React, Supabase migration, dan config framework sudah
+dihapus dari project tersebut. Public site menggunakan API public Admin Prashoes VPS,
+sedangkan admin menyimpan data melalui Node/PostgreSQL API server-side.

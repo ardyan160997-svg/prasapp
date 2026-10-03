@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
+  <title>Admin Prashoes</title>
+  <link rel="icon" type="image/avif" href="images/icon.avif">
+  <link rel="stylesheet" href="styles.css?v=payment-modal-1">
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard" aria-label="Admin Prashoes">
+        <img src="images/logo-iconnav.avif" alt="Prashoes" width="170" height="44">
+        <span>Admin Center</span>
+      </a>
+
+      <nav class="side-nav" aria-label="Navigasi Admin">
+        <a href="#dashboard" class="nav-item active" data-section="dashboard">Dashboard</a>
+        <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
+        <a href="#tracking" class="nav-item" data-section="tracking">Tracking Proses</a>
+        <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
+        <a href="#chats" class="nav-item" data-section="chats">Chat User</a>
+        <a href="#members" class="nav-item" data-section="members">Database Member</a>
+        <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
+      </nav>
+
+      <div class="sidebar-card">
+        <p class="eyebrow">Live site</p>
+        <a href="https://prashoes.prasapp.com" target="_blank" rel="noopener noreferrer">prashoes.prasapp.com</a>
+      </div>
+    </aside>
+
+    <section class="main-panel">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Prashoes Admin</p>
+          <h1>Dashboard Operasional</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost-btn" id="refreshBtn" type="button">Refresh Data</button>
+          <button class="danger-ghost hidden" id="logoutBtn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="login-card" id="loginCard">
+        <div>
+          <p class="eyebrow">Protected Admin</p>
+          <h2>Masuk Dashboard</h2>
+        </div>
+        <form id="loginForm" class="login-form">
+          <label for="adminPassword">Password Admin</label>
+          <input id="adminPassword" name="adminPassword" type="password" placeholder="Masukkan password" autocomplete="current-password" required>
+          <button type="submit" class="primary-btn">Masuk</button>
+          <p class="form-message" id="loginMessage"></p>
+        </form>
+      </section>
+
+      <section class="content hidden" id="adminContent">
+        <section class="section active" id="dashboardSection" data-section-panel="dashboard">
+          <div class="stats-grid" id="statsGrid"></div>
+          <div class="grid-2">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Order terbaru</p>
+                  <h2>Sepatu Masuk</h2>
+                </div>
+                <div class="panel-actions">
+                  <button type="button" class="pill secondary-btn" id="openOrdersBtn" aria-label="Buka form Input Sepatu Masuk">+ Input</button>
+                  <span class="pill" id="orderCountPill">0 order</span>
+                </div>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Nilai</th></tr></thead><tbody id="recentOrdersBody"></tbody></table></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Keuangan</p>
+                  <h2>Cashflow Terbaru</h2>
+                </div>
+                <span class="pill" id="cashflowCountPill">0 transaksi</span>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>Jumlah</th></tr></thead><tbody id="recentCashflowBody"></tbody></table></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="ordersSection" data-section-panel="orders">
+          <div class="split-layout">
+            <article class="panel form-panel">
+              <div class="panel-header compact">
+                <div>
+                  <p class="eyebrow">Input Order</p>
+                  <h2>Catat Sepatu Masuk</h2>
+                </div>
+              </div>
+              <form id="orderForm" class="stack-form">
+                <label>Nama Customer
+                  <div class="inline-field">
+                    <input name="customerName" required placeholder="Nama customer" list="memberNameList" autocomplete="off">
+                    <button type="button" class="ghost-btn" id="checkMemberBtn">Cek Member</button>
+                  </div>
+                </label>
+                <datalist id="memberNameList"></datalist>
+                <p class="form-message" id="memberCheckMessage"></p>
+                <div class="field-grid two">
+                  <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
+                  <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
+                  <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
+                  <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
+                  <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
+                </div>
+                <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
+                <p class="form-message" id="orderMessage"></p>
+              </form>
+            </article>
+
+            <article class="panel wide-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Data Sepatu Masuk</p>
+                  <h2>Order & Item</h2>
+                </div>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="trackingSection" data-section-panel="tracking">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Tracking Proses</p>
+                <h2>Update Status Sepatu</h2>
+              </div>
+            </div>
+            <div class="cards-list" id="trackingList"></div>
+          </article>
+        </section>
+
+        <section class="section" id="pickupsSection" data-section-panel="pickups">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Dari website public</p>
+                <h2>Pickup Request</h2>
+              </div>
+              <span class="pill" id="pickupCountPill">0 request</span>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Customer</th><th>Alamat</th><th>Layanan</th><th>Status</th><th>Catatan</th><th>Update</th></tr></thead><tbody id="pickupRequestsBody"></tbody></table></div>
+          </article>
+        </section>
+
+        <section class="section" id="chatsSection" data-section-panel="chats">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Inbox public</p>
+                <h2>Chat User</h2>
+              </div>
+              <span class="pill" id="chatCountPill">0 chat</span>
+            </div>
+            <div class="chat-admin-layout">
+              <div class="chat-thread-list" id="chatThreadList"></div>
+              <div class="chat-thread-detail" id="chatThreadDetail">
+                <div class="empty">Pilih chat untuk membaca dan membalas.</div>
+              </div>
+            </div>
+            <div class="chat-template-panel">
+              <div class="panel-header compact">
+                <div>
+                  <p class="eyebrow">Template cepat</p>
+                  <h3>Quick Chat Public</h3>
+                </div>
+              </div>
+              <form id="chatTemplateForm" class="chat-template-form">
+                <input name="message" maxlength="200" required placeholder="Contoh: Harga cuci sepatu berapa?">
+                <input name="sortOrder" type="number" min="0" value="0" aria-label="Urutan template">
+                <button class="primary-btn small" type="submit">Tambah</button>
+              </form>
+              <div class="chat-template-list" id="chatTemplateList"></div>
+              <p class="form-message" id="chatTemplateMessage"></p>
+            </div>
+          </article>
+        </section>
+
+        <section class="section" id="membersSection" data-section-panel="members">
+          <div class="split-layout">
+            <article class="panel form-panel">
+              <div class="panel-header compact"><div><p class="eyebrow">Member Baru</p><h2>Tambah Member</h2></div></div>
+              <form id="memberForm" class="stack-form">
+                <label>Nama Lengkap<input name="fullName" required></label>
+                <label>WhatsApp<input name="whatsappNumber" required></label>
+                <label>Email<input name="email" type="email"></label>
+                <label>Alamat Pickup<textarea name="pickupAddress" rows="3"></textarea></label>
+                <button class="primary-btn" type="submit">Simpan Member</button>
+                <p class="form-message" id="memberMessage"></p>
+              </form>
+            </article>
+            <article class="panel wide-panel">
+              <div class="panel-header"><div><p class="eyebrow">Database Member</p><h2>Member Terdaftar</h2></div></div>
+              <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama</th><th>WhatsApp</th><th>Reward</th><th>Free Wash</th></tr></thead><tbody id="membersBody"></tbody></table></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="cashflowSection" data-section-panel="cashflow">
+          <div class="split-layout">
+            <article class="panel form-panel">
+              <div class="panel-header compact"><div><p class="eyebrow">Revenue & Cost</p><h2>Tambah Cost Usaha</h2></div></div>
+              <form id="cashflowForm" class="stack-form">
+                <label>Tipe
+                  <select name="transactionType">
+                    <option value="cost">Cost</option>
+                    <option value="revenue">Revenue Manual</option>
+                  </select>
+                </label>
+                <label>Keterangan<input name="description" required placeholder="Contoh: Pembelian cairan pembersih"></label>
+                <div class="field-grid two">
+                  <label>Jumlah<input name="amount" type="number" min="0" step="1000" required></label>
+                  <label>QTY<input name="quantity" type="number" min="1" value="1" required></label>
+                </div>
+                <button class="primary-btn" type="submit">Simpan Transaksi</button>
+                <p class="form-message" id="cashflowMessage"></p>
+              </form>
+            </article>
+            <article class="panel wide-panel">
+              <div class="panel-header"><div><p class="eyebrow">Riwayat Keuangan</p><h2>Revenue & Cost</h2></div></div>
+              <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>Keterangan</th><th>Jumlah</th><th>QTY</th></tr></thead><tbody id="cashflowBody"></tbody></table></div>
+            </article>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <template id="orderItemTemplate">
+    <div class="order-item-row">
+      <label>Deskripsi Sepatu<input name="shoeDescription" required placeholder="Nike putih, Vans hitam, dll"></label>
+      <label>Layanan<select name="serviceId"></select></label>
+      <label>Catatan<input name="notes" placeholder="Opsional"></label>
+      <button type="button" class="danger-ghost small remove-item">Hapus</button>
+    </div>
+  </template>
+
+  <div class="payment-modal hidden" id="paymentConfirmModal" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
+    <button class="payment-modal-backdrop" data-payment-cancel type="button" aria-label="Tutup konfirmasi"></button>
+    <article class="payment-modal-card">
+      <div class="payment-modal-icon">✓</div>
+      <p class="eyebrow">Konfirmasi Pembayaran</p>
+      <h2 id="paymentModalTitle">Customer sudah membayar?</h2>
+      <p class="payment-modal-copy" id="paymentModalCopy">Pastikan pembayaran sudah diterima sebelum dimasukkan ke Revenue.</p>
+      <div class="payment-modal-summary">
+        <span>Status sekarang</span>
+        <strong>Belum Bayar</strong>
+      </div>
+      <div class="payment-modal-actions">
+        <button class="ghost-btn" data-payment-cancel type="button">Belum, Batalkan</button>
+        <button class="primary-btn" id="confirmPaymentBtn" type="button">Ya, Sudah Dibayar</button>
+      </div>
+    </article>
+  </div>
+
+  <script src="app.js?v=payment-modal-1"></script>
+</body>
+</html>

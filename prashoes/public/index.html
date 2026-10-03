@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Prashoes - Layanan cuci sepatu premium terpercaya. Perawatan profesional untuk semua jenis bahan sepatu.">
+  <title>Prashoes - Premium Shoe Care & Cleaning Service</title>
+  <link rel="preload" as="image" href="images/hero-shoe.avif">
+  <link rel="preload" as="image" href="images/logo-iconnav.avif">
+  <link rel="icon" type="image/avif" href="images/icon.avif">
+  <link rel="apple-touch-icon" href="images/icon.avif">
+  <link rel="stylesheet" href="styles.css?v=warranty-claim-1">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" role="banner">
+    <div class="container header-inner">
+      <!-- Logo -->
+      <a href="/" class="logo" aria-label="Kembali ke beranda Prashoes">
+        <img src="images/logo-iconnav.avif" alt="Prashoes" width="180" height="48" loading="eager">
+      </a>
+
+      <!-- Desktop Navigation -->
+      <nav class="nav-desktop" aria-label="Navigasi utama">
+        <a href="#lacak" class="nav-link">Lacak</a>
+        <a href="#harga" class="nav-link">Harga</a>
+        <a href="#promo" class="nav-link">Promo</a>
+        <a href="#antar-jemput" class="nav-link">Antar Jemput</a>
+        <a href="#kontak" class="nav-link">Kontak</a>
+      </nav>
+
+      <!-- Mobile menu button -->
+      <button class="mobile-menu-btn" aria-label="Buka menu" aria-expanded="false" aria-controls="mobile-menu">
+        <svg class="menu-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <svg class="close-icon hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <!-- CTA -->
+      <a href="#antar-jemput" class="btn btn-primary header-cta">Pesan Sekarang</a>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <nav id="mobile-menu" class="nav-mobile hidden" aria-label="Navigasi mobile">
+      <a href="#lacak" class="mobile-nav-link">Lacak Pesanan</a>
+      <a href="#harga" class="mobile-nav-link">Daftar Harga</a>
+      <a href="#promo" class="mobile-nav-link">Member & Promo</a>
+      <a href="#antar-jemput" class="mobile-nav-link">Antar Jemput</a>
+      <a href="#kontak" class="mobile-nav-link">Kontak</a>
+      <a href="#antar-jemput" class="btn btn-primary mobile-cta">Pesan Sekarang</a>
+    </nav>
+  </header>
+
+  <main>
+      <div id="chat-widget-root"></div>
+    <!-- Hero Section -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-bg">
+        <img src="images/hero-shoe.avif" alt="Prashoes premium shoe cleaning service — sepatu bersih dan terawat" class="hero-img">
+        <div class="hero-overlay"></div>
+        <div class="hero-vignette"></div>
+      </div>
+
+      <div class="container hero-content">
+        <!-- Badge -->
+        <div class="badge">
+          <span class="badge-dot" aria-hidden="true"></span>
+          <span>#1 Shoe Care & Cleaning Service</span>
+        </div>
+
+        <!-- Headline -->
+        <h1 id="hero-title" class="hero-title">
+          Sepatu Bersih,<br>
+          <span class="text-yellow">Percaya Diri</span> Naik.
+        </h1>
+
+        <!-- Description -->
+        <p class="hero-desc">
+          Prashoes melayani cuci sepatu profesional dengan perawatan terbaik untuk semua jenis bahan.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="hero-ctas">
+          <a href="#antar-jemput" class="btn btn-primary btn-lg">Pesan Sekarang</a>
+          <a href="#harga" class="btn btn-secondary btn-lg">Lihat Harga</a>
+        </div>
+
+        <!-- Features -->
+        <div class="hero-features" role="list" aria-label="Keunggulan Prashoes">
+          <div class="feature-item" role="listitem">
+            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>Aman untuk Semua Bahan</span>
+          </div>
+          <div class="feature-item" role="listitem">
+            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>Bersih Maksimal Hasil Premium</span>
+          </div>
+          <div class="feature-item" role="listitem">
+            <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>Antar Jemput Mudah & Cepat</span>
+          </div>
+        </div>
+
+        <!-- Benefit Cards -->
+        <div class="benefit-grid" role="list" aria-label="Benefit Prashoes">
+          <article class="benefit-card" role="listitem">
+            <div class="benefit-icon-wrapper">
+              <div class="benefit-glow"></div>
+              <div class="benefit-glow-inner"></div>
+              <svg class="benefit-sparkle-top" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-sparkle-bottom" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+              </svg>
+            </div>
+            <h3 class="benefit-title">Jaminan</h3>
+            <p class="benefit-subtitle">Bersih</p>
+            <p class="benefit-desc">Hasil maksimal sesuai bahan sepatu</p>
+          </article>
+
+          <article class="benefit-card" role="listitem">
+            <div class="benefit-icon-wrapper">
+              <div class="benefit-glow"></div>
+              <div class="benefit-glow-inner"></div>
+              <svg class="benefit-sparkle-top" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-sparkle-bottom" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+            </div>
+            <h3 class="benefit-title">Garansi</h3>
+            <p class="benefit-subtitle">Cuci Ulang</p>
+            <p class="benefit-desc">Kurang puas? Kami treatment ulang</p>
+          </article>
+
+          <article class="benefit-card" role="listitem">
+            <div class="benefit-icon-wrapper">
+              <div class="benefit-glow"></div>
+              <div class="benefit-glow-inner"></div>
+              <svg class="benefit-sparkle-top" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-sparkle-bottom" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h4M8 12a2 2 0 100-4 2 2 0 000 4zm10-6h-2m4 0h2m-6 11v-2a2 2 0 012-2h2a2 2 0 012 2v2m-6 0h.01M17 12h4m-2 0h-4m-4-8a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v3"></path>
+              </svg>
+            </div>
+            <h3 class="benefit-title">Free</h3>
+            <p class="benefit-subtitle">Konsultasi</p>
+            <p class="benefit-desc">Cek bahan & treatment terbaik</p>
+          </article>
+
+          <article class="benefit-card" role="listitem">
+            <div class="benefit-icon-wrapper">
+              <div class="benefit-glow"></div>
+              <div class="benefit-glow-inner"></div>
+              <svg class="benefit-sparkle-top" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-sparkle-bottom" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0l1.2 4.8L14 6l-4.8 1.2L8 12l-1.2-4.8L2 6l4.8-1.2z"></path></svg>
+              <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3 class="benefit-title">2–3 Hari</h3>
+            <p class="benefit-subtitle">Selesai</p>
+            <p class="benefit-desc">Estimasi cepat dan terpantau</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tracking Section -->
+    <section id="lacak" class="section tracking-section" aria-labelledby="tracking-title">
+      <div class="container">
+        <div class="tracking-card">
+          <h2 id="tracking-title" class="section-title">Lacak Pesanan</h2>
+          <p class="section-subtitle">Pilih salah satu data untuk melihat status order kamu.</p>
+
+          <div class="tracking-form">
+            <label for="tracking-type" class="sr-only">Cari berdasarkan</label>
+            <select id="tracking-type" class="tracking-input tracking-select" aria-label="Cari berdasarkan">
+              <option value="name">Nama Customer</option>
+              <option value="member">Kode Member</option>
+              <option value="whatsapp">Nomor WhatsApp</option>
+              <option value="email">Email</option>
+            </select>
+            <label for="order-id" class="sr-only">Data tracking</label>
+            <input
+              type="text"
+              id="order-id"
+              placeholder="Contoh: nama, MBR-XXXX, 08xxx, atau email"
+              class="tracking-input"
+              autocomplete="off"
+            >
+            <button type="button" class="btn btn-primary" id="track-btn">Lacak</button>
+          </div>
+
+          <div id="tracking-error" class="tracking-error hidden" role="alert"></div>
+
+          <div id="tracking-result" class="tracking-result hidden">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricelist Section -->
+    <section id="harga" class="section pricelist-section" aria-labelledby="pricelist-title">
+      <div class="container">
+        <h2 id="pricelist-title" class="section-title">Daftar Harga</h2>
+        <p class="section-subtitle">Pilih layanan yang sesuai dengan kebutuhan sepatu kamu.</p>
+
+        <div class="services-grid" id="services-grid" role="list" aria-label="Daftar layanan">
+          <!-- Populated by JS from data.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Promo & Member Section -->
+    <section id="promo" class="section promo-section" aria-labelledby="promo-title">
+      <div class="container">
+        <h2 id="promo-title" class="section-title">Member & Promo</h2>
+        <p class="section-subtitle">Bergabung jadi member dan nikmati keuntungannya.</p>
+
+        <div class="promo-grid">
+          <!-- Member Benefits -->
+          <div class="member-card">
+            <div class="member-card-header">
+              <div class="member-icon" aria-hidden="true">⭐</div>
+              <h3>Keuntungan Member</h3>
+            </div>
+            <ul class="benefits-list" id="benefits-list" role="list">
+              <!-- Populated by JS -->
+            </ul>
+            <a href="daftar-member.html" class="btn btn-primary btn-full">Daftar Member</a>
+          </div>
+
+          <!-- Promos -->
+          <div class="promos-wrapper" id="promos-wrapper">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pickup Form Section -->
+    <section id="antar-jemput" class="section pickup-section" aria-labelledby="pickup-title">
+      <div class="container">
+        <div class="pickup-card" id="pickup-form-wrapper">
+          <!-- Form state will be rendered by JS -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer id="kontak" class="footer" role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <img src="images/logo-iconnav.avif" alt="Prashoes" width="180" height="48">
+          </div>
+          <p>Layanan cuci sepatu premium terpercaya. Kami merawat sepatu kamu dengan teliti dan profesional.</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="footer-nav" aria-label="Navigasi footer">
+          <h3>Navigasi</h3>
+          <ul>
+            <li><a href="#lacak">Lacak</a></li>
+            <li><a href="#harga">Harga</a></li>
+            <li><a href="#promo">Promo</a></li>
+            <li><a href="#antar-jemput">Antar Jemput</a></li>
+          </ul>
+        </nav>
+
+        <!-- Contact -->
+        <div class="footer-contact">
+          <h3>Kontak</h3>
+          <p>Hubungi kami via WhatsApp atau kunjungi lokasi langsung.</p>
+          <a href="https://wa.me/6285601679005" target="_blank" rel="noopener noreferrer" class="btn btn-primary">WhatsApp</a>
+          <a href="https://www.google.com/maps/search/?api=1&query=Prashoes" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-map">Buka Lokasi di Google Maps</a>
+        </div>
+
+        <!-- Hours -->
+        <div class="footer-hours">
+          <h3>Jam Operasional</h3>
+          <p>Senin — Sabtu</p>
+          <p>09.00 — 18.00 WIB</p>
+          <p class="hours-note">Minggu & Hari Libur Tutup</p>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; <span id="current-year"></span> Prashoes. Semua hak dilindungi.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="data.js?v=warranty-claim-1"></script>
+  <script src="app.js?v=warranty-claim-1"></script>
+</body>
+</html>

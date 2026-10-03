@@ -1,0 +1,51 @@
+services:
+  novia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: novia-app
+    restart: unless-stopped
+    expose:
+      - '3000'
+    networks:
+      coolify:
+        aliases:
+          - novia-app
+    env_file:
+      - .env
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -s -X 'GET' -f 'http://localhost:3000/' > /dev/null || wget -q -O- 'http://localhost:3000/' > /dev/null || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
+      - traefik.http.routers.http-0-novia.entryPoints=http
+      - 'traefik.http.routers.http-0-novia.rule=Host(`novia.prasapp.com`) && PathPrefix(`/`)'
+      - traefik.http.routers.http-0-novia.service=http-0-novia
+      - traefik.http.routers.https-0-novia.entryPoints=https
+      - traefik.http.routers.https-0-novia.middlewares=gzip
+      - 'traefik.http.routers.https-0-novia.rule=Host(`novia.prasapp.com`) && PathPrefix(`/`)'
+      - traefik.http.routers.https-0-novia.service=https-0-novia
+      - traefik.http.routers.https-0-novia.tls.certresolver=letsencrypt
+      - traefik.http.routers.https-0-novia.tls=true
+      - traefik.http.services.http-0-novia.loadbalancer.server.port=3000
+      - traefik.http.services.https-0-novia.loadbalancer.server.port=3000
+      - coolify.managed=true
+      - coolify.version=4.1.2
+      - coolify.type=application
+      - coolify.name=novia
+      - coolify.resourceName=novia
+      - coolify.projectName=novia
+      - coolify.serviceName=novia
+      - coolify.environmentName=production
+
+networks:
+  coolify:
+    external: true
+    name: coolify
+    attachable: true
