@@ -165,6 +165,7 @@ async function ensureFinanceTables() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS other_cost numeric NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'belum_bayar'`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
+  await pool.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS treatment_price numeric NOT NULL DEFAULT 0`);
 }
 
 async function ensureWarrantyTables() {
@@ -367,8 +368,11 @@ async function updatePickupRequest(input) {
 }
 
 async function updateOrderItem(input) {
+  await ensureFinanceTables();
   if (!input.id) throw new Error('Item order wajib dipilih.');
   if (!String(input.shoeDescription || '').trim()) throw new Error('Detail sepatu wajib diisi.');
+  if (!input.serviceId) throw new Error('Treatment wajib dipilih.');
+  const treatmentPrice = Math.max(0, num(input.treatmentPrice));
   const stages = [
     ['received', 'Foto terima sepatu', 1],
     ['drying', 'Foto setelah cuci / pengeringan', 2],
@@ -377,7 +381,22 @@ async function updateOrderItem(input) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('UPDATE order_items SET shoe_description = $1 WHERE id = $2', [String(input.shoeDescription).trim(), input.id]);
+    const itemResult = await client.query(`
+      SELECT oi.order_id, o.payment_status
+      FROM order_items oi JOIN orders o ON o.id = oi.order_id
+      WHERE oi.id = $1 FOR UPDATE
+    `, [input.id]);
+    if (!itemResult.rows.length) throw new Error('Item order tidak ditemukan.');
+    if (itemResult.rows[0].payment_status === 'terbayar') throw new Error('Treatment dan biaya tidak dapat diubah setelah pembayaran masuk Revenue.');
+    const orderId = itemResult.rows[0].order_id;
+    await client.query(`
+      UPDATE order_items SET shoe_description = $1, service_id = $2, treatment_price = $3 WHERE id = $4
+    `, [String(input.shoeDescription).trim(), input.serviceId, treatmentPrice, input.id]);
+    await client.query(`
+      UPDATE orders SET revenue_amount = (
+        SELECT COALESCE(SUM(treatment_price), 0) FROM order_items WHERE order_id = $1
+      ) WHERE id = $1
+    `, [orderId]);
     for (const [type, caption, order] of stages) {
       const url = String(input.photos?.[type] || '').trim();
       await client.query('DELETE FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2', [input.id, type]);
