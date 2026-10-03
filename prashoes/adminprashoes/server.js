@@ -372,6 +372,7 @@ async function api(req, res, url) {
   if (!isAuthed(req)) return sendJson(res, { error: 'Unauthorized.' }, 401);
   if (route === 'dashboard' && req.method === 'GET') return sendJson(res, await dashboard());
   if (route === 'upload-photo' && req.method === 'POST') return uploadPhoto(req, res, url);
+  if (route === 'upload-photo' && req.method === 'DELETE') return deletePhoto(req, res, url);
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
   if (route === 'order-items' && req.method === 'PATCH') return sendJson(res, await updateOrderItem(await readJson(req)));
@@ -502,17 +503,60 @@ async function uploadPhoto(req, res, url) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const previous = await client.query(
+      'SELECT image_url FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2',
+      [itemId, stage]
+    );
     await client.query('DELETE FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2', [itemId, stage]);
     await client.query(
       `INSERT INTO order_item_photos (order_item_id, photo_type, image_url, caption, sort_order)
        VALUES ($1,$2,$3,$4,$5)`,
       [itemId, stage, photoUrl, captions[stage], orders[stage]]
     );
+    for (const row of previous.rows) {
+      const oldName = String(row.image_url || '').split('/').pop();
+      if (oldName) fs.unlink(path.join(UPLOAD_DIR, oldName), () => {});
+    }
     await client.query('COMMIT');
     return sendJson(res, { ok: true, url: photoUrl, stage });
   } catch (error) {
     await client.query('ROLLBACK');
     fs.unlink(filePath, () => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function deletePhoto(req, res, url) {
+  if (!isAuthed(req)) return sendJson(res, { error: 'Unauthorized.' }, 401);
+  const body = await readJson(req);
+  const itemId = body?.itemId;
+  const stage = body?.stage;
+  if (!itemId || !stage) return sendJson(res, { error: 'Item ID dan stage wajib diisi.' }, 400);
+  const validStages = ['received', 'drying', 'ready'];
+  if (!validStages.includes(stage)) return sendJson(res, { error: 'Stage tidak valid.' }, 400);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const row = await client.query(
+      'SELECT image_url FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2',
+      [itemId, stage]
+    );
+    if (row.rows.length) {
+      const urlPath = row.rows[0].image_url;
+      await client.query('DELETE FROM order_item_photos WHERE order_item_id = $1 AND photo_type = $2', [itemId, stage]);
+      const fileName = urlPath.split('/').pop();
+      if (fileName) {
+        const filePath = path.join(UPLOAD_DIR, fileName);
+        fs.unlink(filePath, () => {});
+      }
+    }
+    await client.query('COMMIT');
+    return sendJson(res, { ok: true });
+  } catch (error) {
+    await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
