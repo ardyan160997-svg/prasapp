@@ -158,7 +158,17 @@ async function ensureChatTables() {
   }
 }
 
+async function ensureFinanceTables() {
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS revenue_amount numeric NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS production_cost numeric NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS raw_material_cost numeric NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS other_cost numeric NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'belum_bayar'`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
+}
+
 async function ensureWarrantyTables() {
+  await ensureFinanceTables();
   await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at timestamptz');
   await pool.query(`
     CREATE TABLE IF NOT EXISTS warranty_claims (
@@ -225,15 +235,27 @@ async function dashboard() {
     }));
     return { ...order, order_items: items, items };
   });
-  const totalRevenue = normalizedOrders.reduce((sum, order) => sum + num(order.revenue_amount), 0);
-  const totalCost = normalizedOrders.reduce((sum, order) => sum + num(order.production_cost) + num(order.raw_material_cost) + num(order.other_cost), 0);
-  const cashIn = cashflow.filter((row) => row.transaction_type === 'pemasukkan').reduce((sum, row) => sum + num(row.amount), 0);
-  const cashOut = cashflow.filter((row) => row.transaction_type === 'pengeluaran').reduce((sum, row) => sum + num(row.amount), 0);
+  const paymentGroups = normalizedOrders.reduce((groups, order) => {
+    const key = String(order.customer_name || 'Tanpa nama').trim().toLowerCase();
+    const current = groups.get(key) || { customerName: order.customer_name || 'Tanpa nama', totalAmount: 0, paidAmount: 0, orderIds: [], unpaidOrderIds: [], status: 'belum_bayar' };
+    const amount = num(order.revenue_amount);
+    current.totalAmount += amount;
+    current.orderIds.push(order.id);
+    if (order.payment_status === 'terbayar') current.paidAmount += amount;
+    else current.unpaidOrderIds.push(order.id);
+    current.status = current.unpaidOrderIds.length ? 'belum_bayar' : 'terbayar';
+    groups.set(key, current);
+    return groups;
+  }, new Map());
+  const totalRevenue = cashflow.filter((row) => row.transaction_type === 'revenue' || row.transaction_type === 'pemasukkan').reduce((sum, row) => sum + num(row.amount), 0);
+  const totalCost = cashflow.filter((row) => row.transaction_type === 'cost' || row.transaction_type === 'pengeluaran').reduce((sum, row) => sum + num(row.amount), 0);
+  const financeRows = cashflow.map((row) => ({ ...row, transaction_type: row.transaction_type === 'pemasukkan' ? 'revenue' : row.transaction_type === 'pengeluaran' ? 'cost' : row.transaction_type }));
   return {
     services,
     members,
     orders: normalizedOrders,
-    cashflow,
+    paymentGroups: Array.from(paymentGroups.values()),
+    cashflow: financeRows,
     pickups,
     promos,
     chats,
@@ -249,13 +271,14 @@ async function dashboard() {
       totalRevenue,
       totalCost,
       totalProfit: totalRevenue - totalCost,
-      cashIn,
-      cashOut,
+      cashIn: totalRevenue,
+      cashOut: totalCost,
     },
   };
 }
 
 async function createOrder(input) {
+  await ensureFinanceTables();
   if (!input.customerName) throw new Error('Nama customer wajib diisi.');
   const items = Array.isArray(input.items) ? input.items.filter((item) => item.shoeDescription) : [];
   if (!items.length) throw new Error('Data sepatu wajib diisi.');
@@ -265,11 +288,11 @@ async function createOrder(input) {
     await client.query('BEGIN');
     const orderResult = await client.query(`
       INSERT INTO orders
-        (order_code, customer_name, whatsapp_number, member_id, status)
-      VALUES ($1,$2,$3,$4,$5)
+        (order_code, customer_name, whatsapp_number, member_id, status, revenue_amount, payment_status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       RETURNING *
     `, [
-      makeOrderCode(), input.customerName, input.whatsappNumber || '', input.memberId || null, 'Sepatu diterima',
+      makeOrderCode(), input.customerName, input.whatsappNumber || '', input.memberId || null, 'Sepatu diterima', num(input.revenueAmount), 'belum_bayar',
     ]);
     const order = orderResult.rows[0];
     for (const [index, item] of items.entries()) {
@@ -301,11 +324,34 @@ async function updateOrder(input) {
   }
   if (input.paymentMethod !== undefined) add('payment_method', input.paymentMethod);
   if (input.revenueAmount !== undefined) add('revenue_amount', num(input.revenueAmount));
+  if (input.paymentStatus !== undefined) add('payment_status', input.paymentStatus);
+  if (input.paidAt !== undefined) add('paid_at', input.paidAt);
   if (!fields.length) return { ok: true };
   values.push(input.id);
   await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
   if (input.status !== undefined) await pool.query('UPDATE order_items SET item_status = $1 WHERE order_id = $2', [input.status, input.id]);
   return { ok: true };
+}
+
+async function markCustomerOrdersPaid(input) {
+  await ensureFinanceTables();
+  const orderIds = Array.isArray(input.orderIds) ? input.orderIds.filter(Boolean) : [];
+  if (!orderIds.length) throw new Error('Order untuk pembayaran wajib dipilih.');
+
+  const rows = await queryRows(`
+    UPDATE orders
+    SET payment_status = 'terbayar', paid_at = COALESCE(paid_at, now())
+    WHERE id = ANY($1::uuid[])
+    RETURNING id, order_code, customer_name, revenue_amount
+  `, [orderIds]);
+  const amount = rows.reduce((sum, order) => sum + num(order.revenue_amount), 0);
+  if (amount > 0) {
+    await pool.query(`
+      INSERT INTO cashflow_transactions (transaction_type, description, amount, quantity)
+      VALUES ($1,$2,$3,$4)
+    `, ['revenue', `Pembayaran treatment ${rows[0]?.customer_name || 'customer'}`, amount, rows.length]);
+  }
+  return { ok: true, orders: rows, amount };
 }
 
 async function updatePickupRequest(input) {
@@ -780,12 +826,23 @@ async function api(req, res, url) {
     `, [body.fullName, body.whatsappNumber, body.email || '', body.pickupAddress || '']);
     return sendJson(res, rows[0], 201);
   }
-  if (route === 'cashflow' && req.method === 'POST') {
+  if (route === 'finance' && req.method === 'POST') {
     const body = await readJson(req);
+    const type = body.transactionType === 'cost' ? 'cost' : 'revenue';
     const rows = await queryRows(`
       INSERT INTO cashflow_transactions (transaction_type, description, amount, quantity)
       VALUES ($1,$2,$3,$4) RETURNING *
-    `, [body.transactionType, body.description || '', num(body.amount), Math.max(1, num(body.quantity) || 1)]);
+    `, [type, body.description || '', num(body.amount), Math.max(1, num(body.quantity) || 1)]);
+    return sendJson(res, rows[0], 201);
+  }
+  if (route === 'payment-status' && req.method === 'PATCH') return sendJson(res, await markCustomerOrdersPaid(await readJson(req)));
+  if (route === 'cashflow' && req.method === 'POST') {
+    const body = await readJson(req);
+    const type = body.transactionType === 'pengeluaran' ? 'cost' : 'revenue';
+    const rows = await queryRows(`
+      INSERT INTO cashflow_transactions (transaction_type, description, amount, quantity)
+      VALUES ($1,$2,$3,$4) RETURNING *
+    `, [type, body.description || '', num(body.amount), Math.max(1, num(body.quantity) || 1)]);
     return sendJson(res, rows[0], 201);
   }
   return sendJson(res, { error: 'Route tidak ditemukan.' }, 404);

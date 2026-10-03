@@ -23,7 +23,7 @@
         <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
         <a href="#chats" class="nav-item" data-section="chats">Chat User</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
-        <a href="#cashflow" class="nav-item" data-section="cashflow">Pemasukan & Pengeluaran</a>
+        <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
       </nav>
 
       <div class="sidebar-card">
@@ -111,6 +111,7 @@
                   <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
                   <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
                   <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
+                  <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
                 </div>
                 <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
                 <p class="form-message" id="orderMessage"></p>
@@ -124,7 +125,7 @@
                   <h2>Order & Item</h2>
                 </div>
               </div>
-              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
             </article>
           </div>
         </section>
@@ -210,12 +211,12 @@
         <section class="section" id="cashflowSection" data-section-panel="cashflow">
           <div class="split-layout">
             <article class="panel form-panel">
-              <div class="panel-header compact"><div><p class="eyebrow">Cashflow</p><h2>Tambah Transaksi</h2></div></div>
+              <div class="panel-header compact"><div><p class="eyebrow">Revenue & Cost</p><h2>Tambah Cost Usaha</h2></div></div>
               <form id="cashflowForm" class="stack-form">
                 <label>Tipe
                   <select name="transactionType">
-                    <option value="pemasukkan">Pemasukan</option>
-                    <option value="pengeluaran">Pengeluaran</option>
+                    <option value="cost">Cost</option>
+                    <option value="revenue">Revenue Manual</option>
                   </select>
                 </label>
                 <label>Keterangan<input name="description" required placeholder="Contoh: Pembelian cairan pembersih"></label>
@@ -228,7 +229,7 @@
               </form>
             </article>
             <article class="panel wide-panel">
-              <div class="panel-header"><div><p class="eyebrow">Riwayat Keuangan</p><h2>Pemasukan & Pengeluaran</h2></div></div>
+              <div class="panel-header"><div><p class="eyebrow">Riwayat Keuangan</p><h2>Revenue & Cost</h2></div></div>
               <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>Keterangan</th><th>Jumlah</th><th>QTY</th></tr></thead><tbody id="cashflowBody"></tbody></table></div>
             </article>
           </div>
@@ -246,6 +247,6 @@
     </div>
   </template>
 
-  <script src="app.js?v=tracking-order-link-2"></script>
+  <script src="app.js?v=revenue-cost-payment-1"></script>
 </body>
 </html>
