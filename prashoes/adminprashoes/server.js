@@ -189,6 +189,18 @@ async function updateOrder(input) {
   return { ok: true };
 }
 
+async function updatePickupRequest(input) {
+  if (!input.id || !input.status) throw new Error('Pickup ID dan status wajib diisi.');
+  const validStatuses = ['Menunggu konfirmasi', 'Dikonfirmasi', 'Kurir menuju lokasi', 'Sudah dijemput', 'Dibatalkan'];
+  if (!validStatuses.includes(input.status)) throw new Error('Status pickup tidak valid.');
+  const rows = await queryRows(
+    'UPDATE pickup_requests SET status = $1, updated_at = now() WHERE id = $2 RETURNING *',
+    [input.status, input.id]
+  );
+  if (!rows.length) throw new Error('Pickup request tidak ditemukan.');
+  return rows[0];
+}
+
 async function updateOrderItem(input) {
   if (!input.id) throw new Error('Item order wajib dipilih.');
   if (!String(input.shoeDescription || '').trim()) throw new Error('Detail sepatu wajib diisi.');
@@ -375,6 +387,7 @@ async function api(req, res, url) {
   if (route === 'upload-photo' && req.method === 'DELETE') return deletePhoto(req, res, url);
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
+  if (route === 'pickup-requests' && req.method === 'PATCH') return sendJson(res, await updatePickupRequest(await readJson(req)));
   if (route === 'order-items' && req.method === 'PATCH') return sendJson(res, await updateOrderItem(await readJson(req)));
   if (route === 'orders' && req.method === 'DELETE') {
     const id = url.searchParams.get('id');
