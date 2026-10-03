@@ -10,6 +10,7 @@ const TABLES = [
   'pickup_requests',
   'chat_threads',
   'chat_messages',
+  'chat_templates',
   'orders',
   'order_items',
   'order_item_photos',

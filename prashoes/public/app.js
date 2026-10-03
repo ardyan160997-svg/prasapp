@@ -67,7 +67,6 @@ function getOrCreateChatSessionId() {
 function getMemberInfoFromStorage() {
   return {
     fullName: localStorage.getItem("prashoes_member_name") || "",
-    memberCode: localStorage.getItem("prashoes_member_code") || "",
     whatsappNumber: localStorage.getItem("prashoes_member_whatsapp") || "",
     email: localStorage.getItem("prashoes_member_email") || "",
     isMember: localStorage.getItem("prashoes_is_member") === "true",
@@ -79,31 +78,70 @@ function getChatIdentity() {
   return {
     fullName: document.getElementById("chatName")?.value?.trim() || stored.fullName,
     whatsappNumber: document.getElementById("chatWhatsapp")?.value?.trim() || stored.whatsappNumber,
-    memberCode: document.getElementById("chatMemberCode")?.value?.trim() || stored.memberCode,
     email: stored.email,
-    isMember: document.getElementById("chatIsMember")?.checked || stored.isMember,
   };
 }
 
 function setMemberInfoFromPayload(payload, result = {}) {
-  localStorage.setItem("prashoes_is_member", String(Boolean(payload.isMember)));
-  if (payload.fullName) localStorage.setItem("prashoes_member_name", payload.fullName);
+  const isMember = Boolean(result.isMember ?? result.is_member ?? payload.isMember);
+  localStorage.setItem("prashoes_is_member", String(isMember));
+  if (payload.fullName || result.fullName || result.customer_name) localStorage.setItem("prashoes_member_name", payload.fullName || result.fullName || result.customer_name);
   if (payload.whatsappNumber) localStorage.setItem("prashoes_member_whatsapp", payload.whatsappNumber);
   if (payload.email) localStorage.setItem("prashoes_member_email", payload.email);
-  if (payload.memberCode || result.memberCode) localStorage.setItem("prashoes_member_code", payload.memberCode || result.memberCode);
 }
 
 async function fetchChatThread(sessionId) {
   return fetchApi(`/chat?sessionId=${encodeURIComponent(sessionId)}`);
 }
 
+async function fetchChatTemplates() {
+  const templates = await fetchApi('/chat/templates');
+  return Array.isArray(templates) && templates.length
+    ? templates.map((item) => item.message || item).filter(Boolean)
+    : [
+      'Harga cuci sepatu berapa?',
+      'Berapa lama proses cuci sepatu?',
+      'Bisa pickup ke rumah?',
+      'Bahan suede bisa dibersihkan?',
+    ];
+}
+
+async function validateIdentityBeforeSend() {
+  const name = document.getElementById('chatName')?.value?.trim();
+  const whatsapp = document.getElementById('chatWhatsapp')?.value?.trim();
+  if (!name) { alert('Nama wajib diisi.'); return false; }
+  if (!whatsapp) { alert('WhatsApp wajib diisi.'); return false; }
+  await detectChatIdentity();
+  return true;
+}
+
+async function detectChatIdentity() {
+  const whatsappNumber = document.getElementById('chatWhatsapp')?.value?.trim();
+  const badge = document.getElementById('chatMemberBadge');
+  if (!badge || !whatsappNumber) return;
+  try {
+    const result = await fetchApi('/chat/identity', {
+      method: 'POST',
+      body: JSON.stringify({ whatsappNumber }),
+    });
+    const identity = getChatIdentity();
+    setMemberInfoFromPayload({ ...identity, isMember: result.isMember }, result);
+    badge.textContent = result.isMember ? `Member${result.fullName ? ` • ${result.fullName}` : ''}` : 'Non-member';
+    badge.classList.toggle('member', Boolean(result.isMember));
+  } catch {
+    badge.textContent = 'Non-member';
+    badge.classList.remove('member');
+  }
+}
+
 async function sendChatMessage(sessionId, message) {
   const identity = getChatIdentity();
-  setMemberInfoFromPayload(identity);
-  return fetchApi("/chat", {
+  const result = await fetchApi("/chat", {
     method: "POST",
     body: JSON.stringify({ sessionId, message, ...identity }),
   });
+  setMemberInfoFromPayload(identity, result);
+  return result;
 }
 
 function normalizePhone(value) {
@@ -535,11 +573,17 @@ function toggleChatPanel(open) {
   }
 }
 
-function renderChatWidget() {
+async function renderChatWidget() {
   const root = document.getElementById("chat-widget-root");
   if (!root) return;
   state.chatSessionId = getOrCreateChatSessionId();
   const identity = getMemberInfoFromStorage();
+  const templates = await fetchChatTemplates().catch(() => [
+    'Harga cuci sepatu berapa?',
+    'Berapa lama proses cuci sepatu?',
+    'Bisa pickup ke rumah?',
+    'Bahan suede bisa dibersihkan?',
+  ]);
   root.innerHTML = `
     <button class="chat-fab" id="chatFab" aria-label="Buka chat Prashoes" type="button">Chat</button>
     <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Chat Prashoes">
@@ -550,8 +594,10 @@ function renderChatWidget() {
       <div class="chat-identity">
         <input id="chatName" type="text" placeholder="Nama" value="${escapeHtml(identity.fullName)}">
         <input id="chatWhatsapp" type="tel" placeholder="WhatsApp" value="${escapeHtml(identity.whatsappNumber)}">
-        <label><input id="chatIsMember" type="checkbox" ${identity.isMember ? "checked" : ""}> Member</label>
-        <input id="chatMemberCode" type="text" placeholder="Kode member (opsional)" value="${escapeHtml(identity.memberCode)}">
+        <span class="chat-member-badge ${identity.isMember ? 'member' : ''}" id="chatMemberBadge">${identity.isMember ? 'Member' : 'Non-member'}</span>
+      </div>
+      <div class="chat-templates" id="chatTemplates">
+        ${templates.map((message) => `<button type="button" data-chat-template="${escapeHtml(message)}">${escapeHtml(message)}</button>`).join('')}
       </div>
       <div class="chat-messages" id="chatMessages"></div>
       <form class="chat-input-form" id="chatInputForm">
@@ -562,10 +608,22 @@ function renderChatWidget() {
   `;
   document.getElementById("chatFab")?.addEventListener("click", () => toggleChatPanel(true));
   document.getElementById("chatClose")?.addEventListener("click", () => toggleChatPanel(false));
+  document.getElementById("chatWhatsapp")?.addEventListener("blur", detectChatIdentity);
+  document.getElementById("chatTemplates")?.addEventListener("click", async (event) => {
+    const button = event.target.closest('[data-chat-template]');
+    if (!button) return;
+    const ok = await validateIdentityBeforeSend();
+    if (!ok) return;
+    state.chatThread = await sendChatMessage(state.chatSessionId, button.dataset.chatTemplate);
+    renderChatMessages();
+  });
   document.getElementById("chatInputForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const ok = await validateIdentityBeforeSend();
+    if (!ok) return;
     await handleChatSend(event.target);
   });
+  if (identity.whatsappNumber) detectChatIdentity();
   loadChatHistory();
 }
 

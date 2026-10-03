@@ -6,7 +6,7 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=chat-inbox-1">
+  <link rel="stylesheet" href="styles.css?v=chat-templates-1">
 </head>
 <body>
   <main class="app-shell">
@@ -169,6 +169,21 @@
                 <div class="empty">Pilih chat untuk membaca dan membalas.</div>
               </div>
             </div>
+            <div class="chat-template-panel">
+              <div class="panel-header compact">
+                <div>
+                  <p class="eyebrow">Template cepat</p>
+                  <h3>Quick Chat Public</h3>
+                </div>
+              </div>
+              <form id="chatTemplateForm" class="chat-template-form">
+                <input name="message" maxlength="200" required placeholder="Contoh: Harga cuci sepatu berapa?">
+                <input name="sortOrder" type="number" min="0" value="0" aria-label="Urutan template">
+                <button class="primary-btn small" type="submit">Tambah</button>
+              </form>
+              <div class="chat-template-list" id="chatTemplateList"></div>
+              <p class="form-message" id="chatTemplateMessage"></p>
+            </div>
           </article>
         </section>
 
@@ -231,6 +246,6 @@
     </div>
   </template>
 
-  <script src="app.js?v=chat-inbox-1"></script>
+  <script src="app.js?v=chat-templates-1"></script>
 </body>
 </html>

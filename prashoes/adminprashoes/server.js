@@ -111,11 +111,36 @@ async function ensureChatTables() {
       CONSTRAINT chat_messages_sender_type_check CHECK (sender_type IN ('public','admin'))
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_templates (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      message text NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  // seed default templates if empty
+  const cnt = await pool.query('SELECT count(*) FROM chat_templates');
+  if (Number(cnt.rows[0]?.count || 0) === 0) {
+    const defaults = [
+      ['Harga cuci sepatu berapa?', 10],
+      ['Berapa lama proses cuci sepatu?', 20],
+      ['Bisa pickup ke rumah?', 30],
+      ['Bahan suede bisa dibersihkan?', 40],
+      ['Jam buka outlet?', 50],
+      ['Alamat outlet di mana?', 60],
+    ];
+    for (const [msg, order] of defaults) {
+      await pool.query('INSERT INTO chat_templates (message, sort_order) VALUES ($1,$2)', [msg, order]);
+    }
+  }
 }
 
 async function dashboard() {
   await ensureChatTables();
-  const [services, members, orders, cashflow, pickups, promos, chats] = await Promise.all([
+  const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
     queryRows(`
@@ -148,6 +173,7 @@ async function dashboard() {
       FROM chat_threads ct
       ORDER BY ct.last_message_at DESC, ct.created_at DESC
     `),
+    queryRows('SELECT * FROM chat_templates ORDER BY sort_order ASC, created_at ASC'),
   ]);
 
   const normalizedOrders = orders.map((order) => {
@@ -170,6 +196,7 @@ async function dashboard() {
     pickups,
     promos,
     chats,
+    chatTemplates,
     stats: {
       chatThreads: chats.length,
       openChats: chats.filter((row) => row.status === 'open').length,
@@ -359,6 +386,28 @@ function normalizeSessionId(value) {
   return String(value || '').trim().slice(0, 96);
 }
 
+async function publicChatIdentity(whatsappNumber) {
+  const phone = String(whatsappNumber || '').replace(/[^0-9]/g, '');
+  if (!phone) return { isMember: false };
+  const localPhone = phone.startsWith('62') ? `0${phone.slice(2)}` : phone;
+  const internationalPhone = phone.startsWith('0') ? `62${phone.slice(1)}` : phone;
+  const rows = await queryRows(`
+    SELECT member_code, full_name
+    FROM members
+    WHERE regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($1, $2, $3)
+    LIMIT 1
+  `, [phone, localPhone, internationalPhone]);
+  const member = rows[0];
+  return member
+    ? { isMember: true, memberCode: member.member_code, fullName: member.full_name }
+    : { isMember: false };
+}
+
+async function publicChatTemplates() {
+  await ensureChatTables();
+  return queryRows('SELECT id, message FROM chat_templates WHERE is_active = true ORDER BY sort_order ASC, created_at ASC');
+}
+
 async function publicChatThread(sessionId) {
   await ensureChatTables();
   if (!sessionId) return null;
@@ -383,15 +432,15 @@ async function createPublicChatMessage(input) {
   if (message.length > 1000) throw new Error('Pesan maksimal 1000 karakter.');
 
   const normalizedPhone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
-  const memberCode = String(input.memberCode || '').trim().toUpperCase();
-  const memberRows = memberCode || normalizedPhone
+  const localPhone = normalizedPhone.startsWith('62') ? `0${normalizedPhone.slice(2)}` : normalizedPhone;
+  const internationalPhone = normalizedPhone.startsWith('0') ? `62${normalizedPhone.slice(1)}` : normalizedPhone;
+  const memberRows = normalizedPhone
     ? await queryRows(`
       SELECT id, member_code, full_name, whatsapp_number, email
       FROM members
-      WHERE ($1 <> '' AND upper(member_code) = $1)
-         OR ($2 <> '' AND regexp_replace(whatsapp_number, '[^0-9]', '', 'g') = $2)
+      WHERE regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($1, $2, $3)
       LIMIT 1
-    `, [memberCode, normalizedPhone])
+    `, [normalizedPhone, localPhone, internationalPhone])
     : [];
   const member = memberRows[0] || null;
   const customerName = String(input.fullName || member?.full_name || '').trim();
@@ -415,7 +464,7 @@ async function createPublicChatMessage(input) {
         last_message_at = now(),
         updated_at = now()
       RETURNING *
-    `, [sessionId, member?.id || null, member?.member_code || memberCode, customerName, whatsappNumber, email, Boolean(member)]);
+    `, [sessionId, member?.id || null, member?.member_code || '', customerName, whatsappNumber, email, Boolean(member)]);
     const thread = threadRows.rows[0];
     await client.query(
       'INSERT INTO chat_messages (thread_id, sender_type, message) VALUES ($1,$2,$3)',
@@ -449,6 +498,39 @@ async function updateChatThread(input) {
   const rows = await queryRows('UPDATE chat_threads SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', [input.status, input.threadId]);
   if (!rows.length) throw new Error('Thread chat tidak ditemukan.');
   return rows[0];
+}
+
+async function getChatTemplates() {
+  await ensureChatTables();
+  return queryRows('SELECT * FROM chat_templates ORDER BY sort_order ASC, created_at ASC');
+}
+
+async function createChatTemplate(input) {
+  await ensureChatTables();
+  const message = String(input.message || '').trim();
+  if (!message) throw new Error('Pesan template wajib diisi.');
+  if (message.length > 200) throw new Error('Template maksimal 200 karakter.');
+  const sortOrder = num(input.sortOrder);
+  const rows = await queryRows('INSERT INTO chat_templates (message, sort_order) VALUES ($1,$2) RETURNING *', [message, sortOrder]);
+  return rows[0];
+}
+
+async function updateChatTemplate(input) {
+  await ensureChatTables();
+  const id = input.id;
+  const message = String(input.message || '').trim();
+  const sortOrder = num(input.sortOrder);
+  const isActive = Boolean(input.isActive);
+  if (!id || !message) throw new Error('ID dan pesan wajib diisi.');
+  const rows = await queryRows('UPDATE chat_templates SET message = $1, sort_order = $2, is_active = $3, updated_at = now() WHERE id = $4 RETURNING *', [message, sortOrder, isActive, id]);
+  if (!rows.length) throw new Error('Template tidak ditemukan.');
+  return rows[0];
+}
+
+async function deleteChatTemplate(id) {
+  await ensureChatTables();
+  await queryRows('DELETE FROM chat_templates WHERE id = $1', [id]);
+  return { ok: true };
 }
 
 const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email']);
@@ -503,6 +585,8 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'gallery' && req.method === 'GET') return sendJson(res, await publicGallery());
   if (resource === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
+  if (resource === 'chat' && url.pathname.endsWith('/identity') && req.method === 'POST') return sendJson(res, await publicChatIdentity((await readJson(req)).whatsappNumber));
+  if (resource === 'chat' && url.pathname.endsWith('/templates') && req.method === 'GET') return sendJson(res, await publicChatTemplates());
   if (resource === 'chat' && req.method === 'GET') return sendJson(res, await publicChatThread(normalizeSessionId(url.searchParams.get('sessionId'))) || { messages: [] });
   if (resource === 'chat' && req.method === 'POST') return sendJson(res, await createPublicChatMessage(await readJson(req)), 201);
   if (resource === 'tracking' && req.method === 'GET') {
@@ -534,6 +618,14 @@ async function api(req, res, url) {
   if (route === 'pickup-requests' && req.method === 'PATCH') return sendJson(res, await updatePickupRequest(await readJson(req)));
   if (route === 'chat' && req.method === 'POST') return sendJson(res, await createAdminChatReply(await readJson(req)), 201);
   if (route === 'chat' && req.method === 'PATCH') return sendJson(res, await updateChatThread(await readJson(req)));
+  if (route === 'chat-templates' && req.method === 'GET') return sendJson(res, await getChatTemplates());
+  if (route === 'chat-templates' && req.method === 'POST') return sendJson(res, await createChatTemplate(await readJson(req)), 201);
+  if (route === 'chat-templates' && req.method === 'PATCH') return sendJson(res, await updateChatTemplate(await readJson(req)));
+  if (route === 'chat-templates' && req.method === 'DELETE') {
+    const id = url.searchParams.get('id');
+    if (!id) throw new Error('Template ID wajib ada.');
+    return sendJson(res, await deleteChatTemplate(id));
+  }
   if (route === 'order-items' && req.method === 'PATCH') return sendJson(res, await updateOrderItem(await readJson(req)));
   if (route === 'orders' && req.method === 'DELETE') {
     const id = url.searchParams.get('id');
