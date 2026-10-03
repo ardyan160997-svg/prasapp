@@ -2,7 +2,6 @@ const ADMIN_BASE = 'https://adminprashoes.prasapp.com';
 const API_BASE = `${ADMIN_BASE}/api/public`;
 const form = document.getElementById('memberRegistrationForm');
 const photoInput = document.getElementById('profilePhoto');
-const previewImage = document.getElementById('profilePreviewImage');
 const previewText = document.getElementById('profilePreviewText');
 
 function escapeHtml(value) {
@@ -50,9 +49,7 @@ photoInput?.addEventListener('change', () => {
     photoInput.value = '';
     return;
   }
-  previewImage.src = URL.createObjectURL(file);
-  previewImage.hidden = false;
-  previewText.hidden = true;
+  previewText?.classList.add('has-photo');
 });
 
 form?.addEventListener('submit', async (event) => {
