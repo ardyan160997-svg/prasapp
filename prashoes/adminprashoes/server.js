@@ -104,14 +104,14 @@ async function dashboard() {
     queryRows('SELECT id FROM promos WHERE is_active = true'),
   ]);
 
-  const normalizedOrders = orders.map((order) => ({
-    ...order,
-    order_items: (order.order_items || []).map((item) => ({
+  const normalizedOrders = orders.map((order) => {
+    const items = (order.order_items || []).map((item) => ({
       ...item,
       services: item.services?.name ? item.services : null,
       order_item_photos: item.order_item_photos || [],
-    })),
-  }));
+    }));
+    return { ...order, order_items: items, items };
+  });
   const totalRevenue = normalizedOrders.reduce((sum, order) => sum + num(order.revenue_amount), 0);
   const totalCost = normalizedOrders.reduce((sum, order) => sum + num(order.production_cost) + num(order.raw_material_cost) + num(order.other_cost), 0);
   const cashIn = cashflow.filter((row) => row.transaction_type === 'pemasukkan').reduce((sum, row) => sum + num(row.amount), 0);
@@ -183,6 +183,13 @@ async function updateOrder(input) {
   values.push(input.id);
   await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
   if (input.status !== undefined) await pool.query('UPDATE order_items SET item_status = $1 WHERE order_id = $2', [input.status, input.id]);
+  return { ok: true };
+}
+
+async function updateOrderItem(input) {
+  if (!input.id) throw new Error('Item order wajib dipilih.');
+  if (!String(input.shoeDescription || '').trim()) throw new Error('Detail sepatu wajib diisi.');
+  await pool.query('UPDATE order_items SET shoe_description = $1 WHERE id = $2', [String(input.shoeDescription).trim(), input.id]);
   return { ok: true };
 }
 
@@ -338,6 +345,7 @@ async function api(req, res, url) {
   if (route === 'dashboard' && req.method === 'GET') return sendJson(res, await dashboard());
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
+  if (route === 'order-items' && req.method === 'PATCH') return sendJson(res, await updateOrderItem(await readJson(req)));
   if (route === 'orders' && req.method === 'DELETE') {
     const id = url.searchParams.get('id');
     if (!id) throw new Error('Order ID wajib ada.');

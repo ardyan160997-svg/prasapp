@@ -401,7 +401,10 @@ function bindTracking() {
             <h3>Order: ${escapeHtml(tracking.orderCode || "-")}</h3>
             <p>Status: <strong>${escapeHtml(tracking.status || "-")}</strong></p>
             <p>Customer: ${escapeHtml(tracking.customerName || "-")}</p>
-            ${items.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item.shoeDescription || "Sepatu")} — ${escapeHtml(item.itemStatus || "-")}</li>`).join("")}</ul>` : ""}
+            ${items.length ? `<ul>${items.map((item) => {
+              const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
+              return `<li><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><br><small>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</small></li>`;
+            }).join("")}</ul>` : ""}
           </article>
         `;
       }).join("");

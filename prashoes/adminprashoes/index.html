@@ -20,6 +20,7 @@
         <a href="#dashboard" class="nav-item active" data-section="dashboard">Dashboard</a>
         <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
         <a href="#tracking" class="nav-item" data-section="tracking">Tracking Proses</a>
+        <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
         <a href="#cashflow" class="nav-item" data-section="cashflow">Pemasukan & Pengeluaran</a>
       </nav>
@@ -104,9 +105,10 @@
                 </label>
                 <datalist id="memberNameList"></datalist>
                 <p class="form-message" id="memberCheckMessage"></p>
-                <div class="field-grid three">
+                <div class="field-grid two">
                   <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
                   <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
+                  <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
                   <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
                 </div>
                 <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
@@ -135,6 +137,19 @@
               </div>
             </div>
             <div class="cards-list" id="trackingList"></div>
+          </article>
+        </section>
+
+        <section class="section" id="pickupsSection" data-section-panel="pickups">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Dari website public</p>
+                <h2>Pickup Request</h2>
+              </div>
+              <span class="pill" id="pickupCountPill">0 request</span>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Customer</th><th>Alamat</th><th>Layanan</th><th>Status</th><th>Catatan</th></tr></thead><tbody id="pickupRequestsBody"></tbody></table></div>
           </article>
         </section>
 
@@ -197,6 +212,6 @@
     </div>
   </template>
 
-  <script src="app.js?v=d4a881e"></script>
+  <script src="app.js?v=order-item-edit-1"></script>
 </body>
 </html>
