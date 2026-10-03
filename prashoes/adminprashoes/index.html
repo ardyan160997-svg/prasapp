@@ -6,7 +6,7 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=photo-controls-1">
+  <link rel="stylesheet" href="styles.css?v=chat-inbox-1">
 </head>
 <body>
   <main class="app-shell">
@@ -21,6 +21,7 @@
         <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
         <a href="#tracking" class="nav-item" data-section="tracking">Tracking Proses</a>
         <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
+        <a href="#chats" class="nav-item" data-section="chats">Chat User</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
         <a href="#cashflow" class="nav-item" data-section="cashflow">Pemasukan & Pengeluaran</a>
       </nav>
@@ -153,6 +154,24 @@
           </article>
         </section>
 
+        <section class="section" id="chatsSection" data-section-panel="chats">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Inbox public</p>
+                <h2>Chat User</h2>
+              </div>
+              <span class="pill" id="chatCountPill">0 chat</span>
+            </div>
+            <div class="chat-admin-layout">
+              <div class="chat-thread-list" id="chatThreadList"></div>
+              <div class="chat-thread-detail" id="chatThreadDetail">
+                <div class="empty">Pilih chat untuk membaca dan membalas.</div>
+              </div>
+            </div>
+          </article>
+        </section>
+
         <section class="section" id="membersSection" data-section-panel="members">
           <div class="split-layout">
             <article class="panel form-panel">
@@ -212,6 +231,6 @@
     </div>
   </template>
 
-  <script src="app.js?v=pickup-status-1"></script>
+  <script src="app.js?v=chat-inbox-1"></script>
 </body>
 </html>

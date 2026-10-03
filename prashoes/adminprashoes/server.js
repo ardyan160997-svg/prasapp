@@ -13,6 +13,8 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+const CHAT_STATUSES = ['open', 'closed'];
+
 const mime = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -80,8 +82,40 @@ async function queryRows(sql, params = []) {
   return result.rows;
 }
 
+async function ensureChatTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_threads (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      session_id text NOT NULL,
+      member_id uuid REFERENCES members(id) ON DELETE SET NULL,
+      member_code text NOT NULL DEFAULT '',
+      customer_name text NOT NULL DEFAULT '',
+      whatsapp_number text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      is_member boolean NOT NULL DEFAULT false,
+      status text NOT NULL DEFAULT 'open',
+      last_message_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT chat_threads_status_check CHECK (status IN ('open','closed')),
+      CONSTRAINT chat_threads_session_id_key UNIQUE (session_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      thread_id uuid NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+      sender_type text NOT NULL,
+      message text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT chat_messages_sender_type_check CHECK (sender_type IN ('public','admin'))
+    )
+  `);
+}
+
 async function dashboard() {
-  const [services, members, orders, cashflow, pickups, promos] = await Promise.all([
+  await ensureChatTables();
+  const [services, members, orders, cashflow, pickups, promos, chats] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
     queryRows(`
@@ -105,6 +139,15 @@ async function dashboard() {
     queryRows('SELECT * FROM cashflow_transactions ORDER BY transaction_date DESC'),
     queryRows('SELECT * FROM pickup_requests ORDER BY created_at DESC'),
     queryRows('SELECT id FROM promos WHERE is_active = true'),
+    queryRows(`
+      SELECT ct.*,
+        COALESCE((
+          SELECT json_agg(cm ORDER BY cm.created_at ASC)
+          FROM chat_messages cm WHERE cm.thread_id = ct.id
+        ), '[]'::json) AS messages
+      FROM chat_threads ct
+      ORDER BY ct.last_message_at DESC, ct.created_at DESC
+    `),
   ]);
 
   const normalizedOrders = orders.map((order) => {
@@ -126,7 +169,10 @@ async function dashboard() {
     cashflow,
     pickups,
     promos,
+    chats,
     stats: {
+      chatThreads: chats.length,
+      openChats: chats.filter((row) => row.status === 'open').length,
       pickupRequests: pickups.length,
       orders: normalizedOrders.length,
       members: members.length,
@@ -309,6 +355,102 @@ async function createPublicPickup(input) {
   return { success: true, requestCode: rows[0]?.request_code };
 }
 
+function normalizeSessionId(value) {
+  return String(value || '').trim().slice(0, 96);
+}
+
+async function publicChatThread(sessionId) {
+  await ensureChatTables();
+  if (!sessionId) return null;
+  const rows = await queryRows(`
+    SELECT ct.*,
+      COALESCE((
+        SELECT json_agg(cm ORDER BY cm.created_at ASC)
+        FROM chat_messages cm WHERE cm.thread_id = ct.id
+      ), '[]'::json) AS messages
+    FROM chat_threads ct
+    WHERE ct.session_id = $1
+  `, [sessionId]);
+  return rows[0] || null;
+}
+
+async function createPublicChatMessage(input) {
+  await ensureChatTables();
+  const sessionId = normalizeSessionId(input.sessionId);
+  const message = String(input.message || '').trim();
+  if (!sessionId) throw new Error('Session chat tidak valid.');
+  if (!message) throw new Error('Pesan wajib diisi.');
+  if (message.length > 1000) throw new Error('Pesan maksimal 1000 karakter.');
+
+  const normalizedPhone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
+  const memberCode = String(input.memberCode || '').trim().toUpperCase();
+  const memberRows = memberCode || normalizedPhone
+    ? await queryRows(`
+      SELECT id, member_code, full_name, whatsapp_number, email
+      FROM members
+      WHERE ($1 <> '' AND upper(member_code) = $1)
+         OR ($2 <> '' AND regexp_replace(whatsapp_number, '[^0-9]', '', 'g') = $2)
+      LIMIT 1
+    `, [memberCode, normalizedPhone])
+    : [];
+  const member = memberRows[0] || null;
+  const customerName = String(input.fullName || member?.full_name || '').trim();
+  const whatsappNumber = String(input.whatsappNumber || member?.whatsapp_number || '').trim();
+  const email = String(input.email || member?.email || '').trim();
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const threadRows = await client.query(`
+      INSERT INTO chat_threads (session_id, member_id, member_code, customer_name, whatsapp_number, email, is_member, status, last_message_at, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,'open',now(),now())
+      ON CONFLICT (session_id) DO UPDATE SET
+        member_id = COALESCE(EXCLUDED.member_id, chat_threads.member_id),
+        member_code = COALESCE(NULLIF(EXCLUDED.member_code, ''), chat_threads.member_code),
+        customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), chat_threads.customer_name),
+        whatsapp_number = COALESCE(NULLIF(EXCLUDED.whatsapp_number, ''), chat_threads.whatsapp_number),
+        email = COALESCE(NULLIF(EXCLUDED.email, ''), chat_threads.email),
+        is_member = chat_threads.is_member OR EXCLUDED.is_member,
+        status = 'open',
+        last_message_at = now(),
+        updated_at = now()
+      RETURNING *
+    `, [sessionId, member?.id || null, member?.member_code || memberCode, customerName, whatsappNumber, email, Boolean(member)]);
+    const thread = threadRows.rows[0];
+    await client.query(
+      'INSERT INTO chat_messages (thread_id, sender_type, message) VALUES ($1,$2,$3)',
+      [thread.id, 'public', message]
+    );
+    await client.query('COMMIT');
+    return await publicChatThread(sessionId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function createAdminChatReply(input) {
+  await ensureChatTables();
+  const message = String(input.message || '').trim();
+  if (!input.threadId || !message) throw new Error('Thread dan pesan wajib diisi.');
+  if (message.length > 1000) throw new Error('Pesan maksimal 1000 karakter.');
+  const rows = await queryRows('SELECT id FROM chat_threads WHERE id = $1', [input.threadId]);
+  if (!rows.length) throw new Error('Thread chat tidak ditemukan.');
+  await queryRows('INSERT INTO chat_messages (thread_id, sender_type, message) VALUES ($1,$2,$3) RETURNING id', [input.threadId, 'admin', message]);
+  await pool.query('UPDATE chat_threads SET status = $1, last_message_at = now(), updated_at = now() WHERE id = $2', ['open', input.threadId]);
+  return { ok: true };
+}
+
+async function updateChatThread(input) {
+  await ensureChatTables();
+  if (!input.threadId || !CHAT_STATUSES.includes(input.status)) throw new Error('Status chat tidak valid.');
+  const rows = await queryRows('UPDATE chat_threads SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', [input.status, input.threadId]);
+  if (!rows.length) throw new Error('Thread chat tidak ditemukan.');
+  return rows[0];
+}
+
 const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email']);
 
 async function publicTracking(type, value) {
@@ -361,6 +503,8 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'gallery' && req.method === 'GET') return sendJson(res, await publicGallery());
   if (resource === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
+  if (resource === 'chat' && req.method === 'GET') return sendJson(res, await publicChatThread(normalizeSessionId(url.searchParams.get('sessionId'))) || { messages: [] });
+  if (resource === 'chat' && req.method === 'POST') return sendJson(res, await createPublicChatMessage(await readJson(req)), 201);
   if (resource === 'tracking' && req.method === 'GET') {
     return sendJson(res, await publicTracking(url.searchParams.get('type'), url.searchParams.get('value')));
   }
@@ -388,6 +532,8 @@ async function api(req, res, url) {
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
   if (route === 'pickup-requests' && req.method === 'PATCH') return sendJson(res, await updatePickupRequest(await readJson(req)));
+  if (route === 'chat' && req.method === 'POST') return sendJson(res, await createAdminChatReply(await readJson(req)), 201);
+  if (route === 'chat' && req.method === 'PATCH') return sendJson(res, await updateChatThread(await readJson(req)));
   if (route === 'order-items' && req.method === 'PATCH') return sendJson(res, await updateOrderItem(await readJson(req)));
   if (route === 'orders' && req.method === 'DELETE') {
     const id = url.searchParams.get('id');

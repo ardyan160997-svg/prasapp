@@ -8,6 +8,8 @@ const TABLES = [
   'gallery',
   'members',
   'pickup_requests',
+  'chat_threads',
+  'chat_messages',
   'orders',
   'order_items',
   'order_item_photos',

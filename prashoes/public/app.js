@@ -6,8 +6,12 @@ const API_BASE = `${ADMIN_BASE}/api/public`;
 const state = {
   pickupLatitude: null,
   pickupLongitude: null,
-  pickupShareUrl: "",
-  locationMessage: "",
+  pickupShareUrl: '',
+  locationMessage: '',
+  chatSessionId: null,
+  chatOpen: false,
+  chatThread: null,
+  chatPollTimer: null,
 };
 
 async function fetchApi(path, options = {}) {
@@ -43,6 +47,63 @@ function escapeHtml(value) {
 function photoUrl(value) {
   const url = String(value || "");
   return url.startsWith("/uploads/") ? `${ADMIN_BASE}${url}` : url;
+}
+
+function dt(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
+}
+
+function getOrCreateChatSessionId() {
+  const key = "prashoes_chat_session";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = `sess_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function getMemberInfoFromStorage() {
+  return {
+    fullName: localStorage.getItem("prashoes_member_name") || "",
+    memberCode: localStorage.getItem("prashoes_member_code") || "",
+    whatsappNumber: localStorage.getItem("prashoes_member_whatsapp") || "",
+    email: localStorage.getItem("prashoes_member_email") || "",
+    isMember: localStorage.getItem("prashoes_is_member") === "true",
+  };
+}
+
+function getChatIdentity() {
+  const stored = getMemberInfoFromStorage();
+  return {
+    fullName: document.getElementById("chatName")?.value?.trim() || stored.fullName,
+    whatsappNumber: document.getElementById("chatWhatsapp")?.value?.trim() || stored.whatsappNumber,
+    memberCode: document.getElementById("chatMemberCode")?.value?.trim() || stored.memberCode,
+    email: stored.email,
+    isMember: document.getElementById("chatIsMember")?.checked || stored.isMember,
+  };
+}
+
+function setMemberInfoFromPayload(payload, result = {}) {
+  localStorage.setItem("prashoes_is_member", String(Boolean(payload.isMember)));
+  if (payload.fullName) localStorage.setItem("prashoes_member_name", payload.fullName);
+  if (payload.whatsappNumber) localStorage.setItem("prashoes_member_whatsapp", payload.whatsappNumber);
+  if (payload.email) localStorage.setItem("prashoes_member_email", payload.email);
+  if (payload.memberCode || result.memberCode) localStorage.setItem("prashoes_member_code", payload.memberCode || result.memberCode);
+}
+
+async function fetchChatThread(sessionId) {
+  return fetchApi(`/chat?sessionId=${encodeURIComponent(sessionId)}`);
+}
+
+async function sendChatMessage(sessionId, message) {
+  const identity = getChatIdentity();
+  setMemberInfoFromPayload(identity);
+  return fetchApi("/chat", {
+    method: "POST",
+    body: JSON.stringify({ sessionId, message, ...identity }),
+  });
 }
 
 function normalizePhone(value) {
@@ -305,6 +366,7 @@ function bindPickupForm() {
           promoLabel: pricing.promoLabel,
         }),
       });
+      setMemberInfoFromPayload(payload, result);
 
       const wrapper = document.getElementById("pickup-form-wrapper");
       if (wrapper) {
@@ -416,6 +478,97 @@ function bindTracking() {
   });
 }
 
+function renderChatMessages() {
+  const container = document.getElementById("chatMessages");
+  if (!container) return;
+  const messages = state.chatThread?.messages || [];
+  if (!messages.length) {
+    container.innerHTML = `<div class="chat-empty">Halo! Ada yang bisa kami bantu seputar layanan cuci sepatu?</div>`;
+    return;
+  }
+  container.innerHTML = messages.map((message) => `
+    <div class="chat-bubble ${message.sender_type === "admin" ? "admin" : "user"}">
+      <span>${message.sender_type === "admin" ? "Admin Prashoes" : "Anda"}</span>
+      <p>${escapeHtml(message.message)}</p>
+      <small>${dt(message.created_at)}</small>
+    </div>
+  `).join("");
+  container.scrollTop = container.scrollHeight;
+}
+
+async function loadChatHistory() {
+  if (!state.chatSessionId) return;
+  try {
+    state.chatThread = await fetchChatThread(state.chatSessionId);
+    renderChatMessages();
+  } catch {
+    renderChatMessages();
+  }
+}
+
+async function handleChatSend(form) {
+  const message = new FormData(form).get("message")?.trim();
+  if (!message) return;
+  const button = form.querySelector("button");
+  const textarea = form.querySelector("textarea");
+  if (button) button.disabled = true;
+  try {
+    state.chatThread = await sendChatMessage(state.chatSessionId, message);
+    if (textarea) textarea.value = "";
+    renderChatMessages();
+  } catch (error) {
+    alert(error.message || "Gagal mengirim pesan.");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function toggleChatPanel(open) {
+  state.chatOpen = open;
+  document.getElementById("chatPanel")?.classList.toggle("hidden", !open);
+  document.getElementById("chatFab")?.classList.toggle("hidden", open);
+  clearInterval(state.chatPollTimer);
+  state.chatPollTimer = null;
+  if (open) {
+    loadChatHistory();
+    state.chatPollTimer = setInterval(loadChatHistory, 10000);
+  }
+}
+
+function renderChatWidget() {
+  const root = document.getElementById("chat-widget-root");
+  if (!root) return;
+  state.chatSessionId = getOrCreateChatSessionId();
+  const identity = getMemberInfoFromStorage();
+  root.innerHTML = `
+    <button class="chat-fab" id="chatFab" aria-label="Buka chat Prashoes" type="button">Chat</button>
+    <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Chat Prashoes">
+      <div class="chat-header">
+        <div><strong>Chat Prashoes</strong><small>Tanya layanan, harga, atau bahan sepatu.</small></div>
+        <button class="chat-close" id="chatClose" type="button" aria-label="Tutup chat">×</button>
+      </div>
+      <div class="chat-identity">
+        <input id="chatName" type="text" placeholder="Nama" value="${escapeHtml(identity.fullName)}">
+        <input id="chatWhatsapp" type="tel" placeholder="WhatsApp" value="${escapeHtml(identity.whatsappNumber)}">
+        <label><input id="chatIsMember" type="checkbox" ${identity.isMember ? "checked" : ""}> Member</label>
+        <input id="chatMemberCode" type="text" placeholder="Kode member (opsional)" value="${escapeHtml(identity.memberCode)}">
+      </div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <form class="chat-input-form" id="chatInputForm">
+        <textarea name="message" rows="2" maxlength="1000" placeholder="Tulis pesan..." required></textarea>
+        <button class="btn btn-primary" type="submit">Kirim</button>
+      </form>
+    </div>
+  `;
+  document.getElementById("chatFab")?.addEventListener("click", () => toggleChatPanel(true));
+  document.getElementById("chatClose")?.addEventListener("click", () => toggleChatPanel(false));
+  document.getElementById("chatInputForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await handleChatSend(event.target);
+  });
+  loadChatHistory();
+}
+
 function bindMobileMenu() {
   const button = document.querySelector(".mobile-menu-btn");
   const menu = document.getElementById("mobile-menu");
@@ -473,6 +626,7 @@ async function init() {
   renderServices();
   renderPromos();
   renderPickupForm();
+  renderChatWidget();
   bindTracking();
   bindMobileMenu();
 }
