@@ -397,14 +397,22 @@ function bindTracking() {
       result.innerHTML = orders.map((tracking) => {
         const items = tracking.items || [];
         return `
-          <article class="tracking-card tracking-order-result">
-            <h3>Order: ${escapeHtml(tracking.orderCode || "-")}</h3>
-            <p>Status: <strong>${escapeHtml(tracking.status || "-")}</strong></p>
-            <p>Customer: ${escapeHtml(tracking.customerName || "-")}</p>
-            ${items.length ? `<ul>${items.map((item) => {
+          <article class="tracking-order-result">
+            <div class="tracking-result-head">
+              <div>
+                <span class="tracking-kicker">Order ditemukan</span>
+                <h3>${escapeHtml(tracking.orderCode || "-")}</h3>
+              </div>
+              <span class="tracking-status-pill">${escapeHtml(tracking.status || "-")}</span>
+            </div>
+            <div class="tracking-customer-chip">
+              <span>Customer</span>
+              <strong>${escapeHtml(tracking.customerName || "-")}</strong>
+            </div>
+            ${items.length ? `<div class="tracking-items-result">${items.map((item, index) => {
               const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
-              return `<li><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><br><small>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</small></li>`;
-            }).join("")}</ul>` : ""}
+              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p></div></div>`;
+            }).join("")}</div>` : ""}
           </article>
         `;
       }).join("");
