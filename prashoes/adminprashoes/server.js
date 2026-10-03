@@ -158,8 +158,29 @@ async function ensureChatTables() {
   }
 }
 
+async function ensureWarrantyTables() {
+  await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS completed_at timestamptz');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS warranty_claims (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      order_item_id uuid NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+      customer_name text NOT NULL,
+      whatsapp_number text NOT NULL DEFAULT '',
+      treatment_name text NOT NULL,
+      warranty_days integer NOT NULL,
+      reason text NOT NULL DEFAULT '',
+      status text NOT NULL DEFAULT 'Menunggu review',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT warranty_claims_item_key UNIQUE (order_item_id)
+    )
+  `);
+}
+
 async function dashboard() {
   await ensureChatTables();
+  await ensureWarrantyTables();
   const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
@@ -268,11 +289,16 @@ async function createOrder(input) {
 }
 
 async function updateOrder(input) {
+  await ensureWarrantyTables();
   if (!input.id) throw new Error('Order ID wajib ada.');
   const fields = [];
   const values = [];
   const add = (column, value) => { values.push(value); fields.push(`${column} = $${values.length}`); };
-  if (input.status !== undefined) add('status', input.status);
+  if (input.status !== undefined) {
+    add('status', input.status);
+    if (input.status === 'Selesai') add('completed_at', new Date().toISOString());
+    else add('completed_at', null);
+  }
   if (input.paymentMethod !== undefined) add('payment_method', input.paymentMethod);
   if (input.revenueAmount !== undefined) add('revenue_amount', num(input.revenueAmount));
   if (!fields.length) return { ok: true };
@@ -570,21 +596,30 @@ const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email']);
 
 async function publicTracking(type, value) {
   if (!TRACKING_FIELDS.has(type) || !String(value || '').trim()) return [];
+  await ensureWarrantyTables();
   const searchValue = String(value).trim();
-  return queryRows(`
+  const rows = await queryRows(`
     SELECT
+      o.id AS "orderId",
       o.order_code AS "orderCode",
       o.customer_name AS "customerName",
+      COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, '') AS "whatsappNumber",
       o.status,
       o.created_at AS "createdAt",
       o.updated_at AS "updatedAt",
+      o.completed_at AS "completedAt",
       COALESCE((
         SELECT json_agg(json_build_object(
+          'orderItemId', oi.id,
           'itemNumber', oi.item_number,
           'shoeDescription', oi.shoe_description,
           'serviceName', s.name,
           'itemStatus', oi.item_status,
           'notes', oi.notes,
+          'warrantyClaim', (
+            SELECT json_build_object('id', wc.id, 'status', wc.status, 'createdAt', wc.created_at)
+            FROM warranty_claims wc WHERE wc.order_item_id = oi.id LIMIT 1
+          ),
           'photos', COALESCE((
             SELECT json_agg(json_build_object(
               'photoType', oip.photo_type,
@@ -608,6 +643,71 @@ async function publicTracking(type, value) {
     ORDER BY o.created_at DESC
     LIMIT 20
   `, [type, searchValue]);
+
+  return rows.map((order) => {
+    const completedAt = order.completedAt || order.updatedAt;
+    const completedTime = completedAt ? new Date(completedAt).getTime() : 0;
+    const isCompleted = order.status === 'Selesai' && completedTime > 0;
+    const items = (order.items || []).map((item) => {
+      const treatmentText = `${item.serviceName || ''} ${item.shoeDescription || ''}`.toLowerCase();
+      const isExtended = treatmentText.includes('unyellowing') || treatmentText.includes('repaint');
+      const warrantyDays = isExtended ? 7 : 2;
+      const expiresAt = isCompleted ? new Date(completedTime + warrantyDays * 24 * 60 * 60 * 1000).toISOString() : null;
+      return {
+        ...item,
+        warranty: {
+          days: warrantyDays,
+          type: isExtended ? 'Unyellowing/Repaint' : 'Cuci',
+          eligible: isCompleted && Date.now() <= new Date(expiresAt).getTime() && !item.warrantyClaim,
+          expiresAt,
+        },
+      };
+    });
+    return { ...order, items };
+  });
+}
+
+async function createWarrantyClaim(input) {
+  if (!input.orderItemId) throw new Error('orderItemId wajib diisi.');
+  if (!input.customerName) throw new Error('customerName wajib diisi.');
+  if (!input.treatmentName) throw new Error('treatmentName wajib diisi.');
+  if (!input.warrantyDays) throw new Error('warrantyDays wajib diisi.');
+
+  await ensureWarrantyTables();
+
+  const itemRows = await queryRows(`
+    SELECT
+      oi.id AS "itemId",
+      oi.order_id AS "orderId",
+      oi.shoe_description AS "shoeDescription",
+      oi.item_status AS "itemStatus",
+      o.completed_at AS "completedAt",
+      o.customer_name AS "orderCustomerName",
+      COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, '') AS "orderWhatsapp"
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    LEFT JOIN members m ON m.id = o.member_id
+    WHERE oi.id = $1
+  `, [input.orderItemId]);
+
+  if (!itemRows.length) throw new Error('Item order tidak ditemukan.');
+
+  const item = itemRows[0];
+  if (!item.completedAt) throw new Error('Order belum selesai, garansi belum aktif.');
+
+  const daysSinceCompleted = Math.floor((Date.now() - new Date(item.completedAt).getTime()) / (1000 * 60 * 60 * 24));
+  if (daysSinceCompleted > input.warrantyDays) throw new Error(`Masa garansi ${input.warrantyDays} hari telah berakhir.`);
+
+  const existing = await queryRows('SELECT id FROM warranty_claims WHERE order_item_id = $1', [input.orderItemId]);
+  if (existing.length) throw new Error('Klaim garansi untuk item ini sudah pernah diajukan.');
+
+  const rows = await queryRows(`
+    INSERT INTO warranty_claims (order_id, order_item_id, customer_name, whatsapp_number, treatment_name, warranty_days, reason)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING id, status, created_at
+  `, [item.orderId, item.itemId, input.customerName, input.whatsappNumber || item.orderWhatsapp, input.treatmentName, input.warrantyDays, input.reason || '']);
+
+  return { ok: true, claim: rows[0] };
 }
 
 async function publicApi(req, res, url, parts) {
@@ -625,6 +725,10 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'chat' && req.method === 'POST') return sendJson(res, await createPublicChatMessage(await readJson(req)), 201);
   if (resource === 'tracking' && req.method === 'GET') {
     return sendJson(res, await publicTracking(url.searchParams.get('type'), url.searchParams.get('value')));
+  }
+  if (resource === 'warranty-claim' && req.method === 'POST') {
+    const body = await readJson(req);
+    return sendJson(res, await createWarrantyClaim(body), 201);
   }
   return sendJson(res, { error: 'Route publik tidak ditemukan.' }, 404);
 }

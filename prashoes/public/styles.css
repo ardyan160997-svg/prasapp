@@ -694,6 +694,42 @@ button {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.warranty-box {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.85rem 0;
+  border: 1px solid rgba(250, 204, 21, 0.22);
+  border-radius: 1rem;
+  background: rgba(250, 204, 21, 0.08);
+  padding: 0.85rem;
+}
+
+.warranty-box strong {
+  color: var(--white);
+}
+
+.warranty-box span {
+  color: var(--zinc-300);
+  font-size: 0.88rem;
+}
+
+.warranty-box .btn {
+  width: max-content;
+  min-height: 2.5rem;
+  padding: 0.65rem 1rem;
+}
+
+.warranty-box.claimed {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.warranty-box.expired,
+.warranty-box.waiting {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .notice-card,
 .result-card {
   padding: 1.5rem;

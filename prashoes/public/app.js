@@ -49,6 +49,26 @@ function photoUrl(value) {
   return url.startsWith("/uploads/") ? `${ADMIN_BASE}${url}` : url;
 }
 
+function formatShortDate(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+}
+
+function warrantyBlock(tracking, item) {
+  const warranty = item.warranty || {};
+  if (!warranty.days) return "";
+  if (item.warrantyClaim) {
+    return `<div class="warranty-box claimed"><strong>Klaim garansi diajukan</strong><span>Status: ${escapeHtml(item.warrantyClaim.status || "Menunggu review")}</span></div>`;
+  }
+  if (warranty.eligible) {
+    return `<div class="warranty-box"><strong>Garansi ${escapeHtml(warranty.type)} aktif ${Number(warranty.days)} hari</strong><span>Berlaku sampai ${escapeHtml(formatShortDate(warranty.expiresAt))}</span><button class="btn btn-secondary warranty-claim-btn" type="button" data-warranty-claim="${escapeHtml(item.orderItemId)}" data-customer-name="${escapeHtml(tracking.customerName || "")}" data-whatsapp-number="${escapeHtml(tracking.whatsappNumber || "")}" data-treatment-name="${escapeHtml(warranty.type)}" data-warranty-days="${Number(warranty.days)}">Klaim Garansi</button></div>`;
+  }
+  if (tracking.status === "Selesai") {
+    return `<div class="warranty-box expired"><strong>Garansi ${escapeHtml(warranty.type)} berakhir</strong><span>Batas klaim sampai ${escapeHtml(formatShortDate(warranty.expiresAt))}</span></div>`;
+  }
+  return `<div class="warranty-box waiting"><strong>Garansi aktif setelah order selesai</strong><span>${escapeHtml(warranty.type)}: ${Number(warranty.days)} hari setelah barang diterima customer.</span></div>`;
+}
+
 function dt(iso) {
   const d = new Date(iso);
   return d.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
@@ -492,7 +512,7 @@ function bindTracking() {
               const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
               const photos = Array.isArray(item.photos) ? item.photos : [];
               const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
-              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
+              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${warrantyBlock(tracking, item)}${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
             }).join("")}</div>` : ""}
           </article>
         `;
@@ -509,6 +529,33 @@ function bindTracking() {
       `;
     }
   }
+
+  result?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-warranty-claim]");
+    if (!button) return;
+    const reason = prompt("Tulis kendala yang ingin diklaim garansi:", "");
+    if (reason === null) return;
+    button.disabled = true;
+    button.textContent = "Mengirim klaim...";
+    try {
+      await fetchApi("/warranty-claim", {
+        method: "POST",
+        body: JSON.stringify({
+          orderItemId: button.dataset.warrantyClaim,
+          customerName: button.dataset.customerName,
+          whatsappNumber: button.dataset.whatsappNumber,
+          treatmentName: button.dataset.treatmentName,
+          warrantyDays: Number(button.dataset.warrantyDays || 0),
+          reason,
+        }),
+      });
+      button.closest(".warranty-box").outerHTML = '<div class="warranty-box claimed"><strong>Klaim garansi diajukan</strong><span>Admin Prashoes akan menghubungi kamu.</span></div>';
+    } catch (error) {
+      alert(error.message || "Klaim garansi gagal.");
+      button.disabled = false;
+      button.textContent = "Klaim Garansi";
+    }
+  });
 
   button?.addEventListener("click", track);
   input?.addEventListener("keydown", (event) => {

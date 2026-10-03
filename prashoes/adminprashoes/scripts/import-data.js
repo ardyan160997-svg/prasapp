@@ -11,6 +11,7 @@ const TABLES = [
   'chat_threads',
   'chat_messages',
   'chat_templates',
+  'warranty_claims',
   'orders',
   'order_items',
   'order_item_photos',
