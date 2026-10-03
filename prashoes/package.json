@@ -1,36 +1,11 @@
 {
-  "name": "prashoes",
-  "version": "0.1.0",
+  "name": "prashoes-html-sites",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack -H 0.0.0.0 -p 3000",
-    "build": "next build --webpack",
-    "start": "next start -H 0.0.0.0 -p 3000",
-    "lint": "eslint",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.6.1",
-    "@supabase/supabase-js": "^2.110.1",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "three": "^0.185.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.1.10"
+    "build": "npm run build:public && npm run build:admin",
+    "build:public": "rm -rf dist/public && mkdir -p dist/public && cp -R public/. dist/public/",
+    "build:admin": "cd adminprashoes && npm run build && cd .. && rm -rf dist/adminprashoes && mkdir -p dist/adminprashoes && cp -R adminprashoes/dist/. dist/adminprashoes/",
+    "check": "node --check public/app.js && cd adminprashoes && npm run check"
   }
 }
