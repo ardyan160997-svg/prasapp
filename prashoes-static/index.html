@@ -6,7 +6,7 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=payment-modal-1">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main class="app-shell">
@@ -20,11 +20,8 @@
         <a href="#dashboard" class="nav-item active" data-section="dashboard">Dashboard</a>
         <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
         <a href="#tracking" class="nav-item" data-section="tracking">Tracking Proses</a>
-        <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
-        <a href="#chats" class="nav-item" data-section="chats">Chat User</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
-        <a href="#review-claims" class="nav-item" data-section="review-claims">Review Claims</a>
-        <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
+        <a href="#cashflow" class="nav-item" data-section="cashflow">Pemasukan & Pengeluaran</a>
       </nav>
 
       <div class="sidebar-card">
@@ -68,10 +65,7 @@
                   <p class="eyebrow">Order terbaru</p>
                   <h2>Sepatu Masuk</h2>
                 </div>
-                <div class="panel-actions">
-                  <button type="button" class="pill secondary-btn" id="openOrdersBtn" aria-label="Buka form Input Sepatu Masuk">+ Input</button>
-                  <span class="pill" id="orderCountPill">0 order</span>
-                </div>
+                <span class="pill" id="orderCountPill">0 order</span>
               </div>
               <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Nilai</th></tr></thead><tbody id="recentOrdersBody"></tbody></table></div>
             </article>
@@ -107,12 +101,10 @@
                 </label>
                 <datalist id="memberNameList"></datalist>
                 <p class="form-message" id="memberCheckMessage"></p>
-                <div class="field-grid two">
+                <div class="field-grid three">
                   <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
                   <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
-                  <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
                   <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
-                  <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
                 </div>
                 <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
                 <p class="form-message" id="orderMessage"></p>
@@ -126,7 +118,7 @@
                   <h2>Order & Item</h2>
                 </div>
               </div>
-              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
             </article>
           </div>
         </section>
@@ -143,52 +135,6 @@
           </article>
         </section>
 
-        <section class="section" id="pickupsSection" data-section-panel="pickups">
-          <article class="panel wide-panel">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Dari website public</p>
-                <h2>Pickup Request</h2>
-              </div>
-              <span class="pill" id="pickupCountPill">0 request</span>
-            </div>
-            <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Customer</th><th>Alamat</th><th>Layanan</th><th>Status</th><th>Catatan</th><th>Update</th></tr></thead><tbody id="pickupRequestsBody"></tbody></table></div>
-          </article>
-        </section>
-
-        <section class="section" id="chatsSection" data-section-panel="chats">
-          <article class="panel wide-panel">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Inbox public</p>
-                <h2>Chat User</h2>
-              </div>
-              <span class="pill" id="chatCountPill">0 chat</span>
-            </div>
-            <div class="chat-admin-layout">
-              <div class="chat-thread-list" id="chatThreadList"></div>
-              <div class="chat-thread-detail" id="chatThreadDetail">
-                <div class="empty">Pilih chat untuk membaca dan membalas.</div>
-              </div>
-            </div>
-            <div class="chat-template-panel">
-              <div class="panel-header compact">
-                <div>
-                  <p class="eyebrow">Template cepat</p>
-                  <h3>Quick Chat Public</h3>
-                </div>
-              </div>
-              <form id="chatTemplateForm" class="chat-template-form">
-                <input name="message" maxlength="200" required placeholder="Contoh: Harga cuci sepatu berapa?">
-                <input name="sortOrder" type="number" min="0" value="0" aria-label="Urutan template">
-                <button class="primary-btn small" type="submit">Tambah</button>
-              </form>
-              <div class="chat-template-list" id="chatTemplateList"></div>
-              <p class="form-message" id="chatTemplateMessage"></p>
-            </div>
-          </article>
-        </section>
-
         <section class="section" id="membersSection" data-section-panel="members">
           <div class="split-layout">
             <article class="panel form-panel">
@@ -196,9 +142,8 @@
               <form id="memberForm" class="stack-form">
                 <label>Nama Lengkap<input name="fullName" required></label>
                 <label>WhatsApp<input name="whatsappNumber" required></label>
-                <label>Email<input name="email" type="email" required></label>
-                <label>Alamat Pickup<textarea name="pickupAddress" rows="3" required></textarea></label>
-                <label><span><input name="marketingConsent" type="checkbox" value="true"> Setuju menerima email/WhatsApp promo, berita, dan event.</span></label>
+                <label>Email<input name="email" type="email"></label>
+                <label>Alamat Pickup<textarea name="pickupAddress" rows="3"></textarea></label>
                 <button class="primary-btn" type="submit">Simpan Member</button>
                 <p class="form-message" id="memberMessage"></p>
               </form>
@@ -210,28 +155,15 @@
           </div>
         </section>
 
-        <section class="section" id="reviewClaimsSection" data-section-panel="review-claims">
-          <article class="panel wide-panel">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Voucher Review</p>
-                <h2>Review Claims</h2>
-              </div>
-              <span class="pill" id="reviewClaimCountPill">0 klaim</span>
-            </div>
-            <div class="table-wrap"><table><thead><tr><th>Member</th><th>Screenshot</th><th>Status</th><th>Voucher</th><th>Aksi</th></tr></thead><tbody id="reviewClaimsBody"></tbody></table></div>
-          </article>
-        </section>
-
         <section class="section" id="cashflowSection" data-section-panel="cashflow">
           <div class="split-layout">
             <article class="panel form-panel">
-              <div class="panel-header compact"><div><p class="eyebrow">Revenue & Cost</p><h2>Tambah Cost Usaha</h2></div></div>
+              <div class="panel-header compact"><div><p class="eyebrow">Cashflow</p><h2>Tambah Transaksi</h2></div></div>
               <form id="cashflowForm" class="stack-form">
                 <label>Tipe
                   <select name="transactionType">
-                    <option value="cost">Cost</option>
-                    <option value="revenue">Revenue Manual</option>
+                    <option value="pemasukkan">Pemasukan</option>
+                    <option value="pengeluaran">Pengeluaran</option>
                   </select>
                 </label>
                 <label>Keterangan<input name="description" required placeholder="Contoh: Pembelian cairan pembersih"></label>
@@ -244,7 +176,7 @@
               </form>
             </article>
             <article class="panel wide-panel">
-              <div class="panel-header"><div><p class="eyebrow">Riwayat Keuangan</p><h2>Revenue & Cost</h2></div></div>
+              <div class="panel-header"><div><p class="eyebrow">Riwayat Keuangan</p><h2>Pemasukan & Pengeluaran</h2></div></div>
               <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>Keterangan</th><th>Jumlah</th><th>QTY</th></tr></thead><tbody id="cashflowBody"></tbody></table></div>
             </article>
           </div>
@@ -262,24 +194,6 @@
     </div>
   </template>
 
-  <div class="payment-modal hidden" id="paymentConfirmModal" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
-    <button class="payment-modal-backdrop" data-payment-cancel type="button" aria-label="Tutup konfirmasi"></button>
-    <article class="payment-modal-card">
-      <div class="payment-modal-icon">✓</div>
-      <p class="eyebrow">Konfirmasi Pembayaran</p>
-      <h2 id="paymentModalTitle">Customer sudah membayar?</h2>
-      <p class="payment-modal-copy" id="paymentModalCopy">Pastikan pembayaran sudah diterima sebelum dimasukkan ke Revenue.</p>
-      <div class="payment-modal-summary">
-        <span>Status sekarang</span>
-        <strong>Belum Bayar</strong>
-      </div>
-      <div class="payment-modal-actions">
-        <button class="ghost-btn" data-payment-cancel type="button">Belum, Batalkan</button>
-        <button class="primary-btn" id="confirmPaymentBtn" type="button">Ya, Sudah Dibayar</button>
-      </div>
-    </article>
-  </div>
-
-  <script src="app.js?v=voucher-review-1"></script>
+  <script src="app.js"></script>
 </body>
 </html>

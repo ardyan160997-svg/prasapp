@@ -1,0 +1,172 @@
+{
+  "services": [
+    {
+      "id": "50cca0e6-f9cc-49a1-bb5a-5a7cc2abd438",
+      "name": "Fast Clean",
+      "slug": "fast-clean",
+      "description": "Pembersihan cepat untuk sepatu sehari-hari. Cocok untuk perawatan rutin.",
+      "starting_price": "Mulai Rp25.000",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "d5a5096f-5037-488b-a60e-019844dd0c70",
+      "name": "Deep Clean",
+      "slug": "deep-clean",
+      "description": "Pembersihan menyeluruh bagian upper, midsole, outsole, dan insole.",
+      "starting_price": "Mulai Rp45.000",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "d4d4407e-2ba5-4025-bc99-2569b5cdf8c6",
+      "name": "Unyellowing",
+      "slug": "unyellowing",
+      "description": "Perawatan khusus untuk mengembalikan warna sol yang menguning.",
+      "starting_price": "Mulai Rp55.000",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "7a6caa67-9c10-4a1f-907d-51e2322ada6f",
+      "name": "Repaint",
+      "slug": "repaint",
+      "description": "Pewarnaan ulang bagian sepatu yang sudah pudar atau tergores.",
+      "starting_price": "Mulai Rp65.000",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "34ae2116-e810-467f-aea8-4ccfd7128b1f",
+      "name": "Leather Care",
+      "slug": "leather-care",
+      "description": "Perawatan khusus bahan kulit termasuk pembersihan, pelembap, dan proteksi.",
+      "starting_price": "Mulai Rp75.000",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "c84f4a77-2846-4029-8430-596e28dbdee4",
+      "name": "Premium Package",
+      "slug": "premium-package",
+      "description": "Paket lengkap: deep clean, unyellowing, repaint, dan leather care dalam satu sesi.",
+      "starting_price": "Mulai Rp150.000",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    }
+  ],
+  "promos": [
+    {
+      "id": "3f61ca23-7b50-48b9-a43b-e10b26776372",
+      "title": "Promo Member Baru",
+      "description": "Daftar sekarang dan langsung dapat diskon 10% untuk layanan pertama.",
+      "discount_label": "Diskon 10%",
+      "is_active": true,
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "fea84009-bf35-44d7-802a-d9b75912f56c",
+      "title": "Paket Teman",
+      "description": "Ajak 2 teman dan dapatkan harga spesial untuk 3 sepatu sekaligus.",
+      "discount_label": "Harga Spesial",
+      "is_active": true,
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00"
+    }
+  ],
+  "member_benefits": [
+    {
+      "id": "284012e0-3471-4ded-b49a-f46e1d7c431b",
+      "benefit": "Diskon khusus member aktif.",
+      "sort_order": 1,
+      "created_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "584fbff3-01c9-4ed6-8342-f8068348b764",
+      "benefit": "Prioritas antrean saat periode ramai.",
+      "sort_order": 2,
+      "created_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "8a640e82-6387-4add-968d-9c7b26c39944",
+      "benefit": "Riwayat treatment sepatu tersimpan.",
+      "sort_order": 3,
+      "created_at": "2026-10-01T09:39:56.316106+00:00"
+    },
+    {
+      "id": "efbd01b6-a18a-4389-bfd4-8c0ea48b0546",
+      "benefit": "Voucher ulang tahun dan promo bulanan.",
+      "sort_order": 4,
+      "created_at": "2026-10-01T09:39:56.316106+00:00"
+    }
+  ],
+  "gallery": [],
+  "members": [],
+  "pickup_requests": [],
+  "orders": [
+    {
+      "id": "d01e216c-241a-44af-8ffe-56758352a13f",
+      "order_code": "PRS001",
+      "status": "Sepatu diterima dan sedang diperiksa.",
+      "customer_name": "Budi",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00",
+      "revenue_amount": 0,
+      "production_cost": 0,
+      "raw_material_cost": 0,
+      "other_cost": 0,
+      "finance_notes": "",
+      "payment_method": "",
+      "promo_label": "",
+      "member_id": null,
+      "whatsapp_number": "",
+      "delivery_fee": 0,
+      "discount_amount": 0,
+      "final_amount": 0
+    },
+    {
+      "id": "fafebc1a-433b-48c9-8d55-565054a05ae1",
+      "order_code": "PRS002",
+      "status": "Proses deep clean sedang berjalan.",
+      "customer_name": "Siti",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00",
+      "revenue_amount": 0,
+      "production_cost": 0,
+      "raw_material_cost": 0,
+      "other_cost": 0,
+      "finance_notes": "",
+      "payment_method": "",
+      "promo_label": "",
+      "member_id": null,
+      "whatsapp_number": "",
+      "delivery_fee": 0,
+      "discount_amount": 0,
+      "final_amount": 0
+    },
+    {
+      "id": "a37b5714-d118-4f6a-82c0-df610acc3720",
+      "order_code": "PRS003",
+      "status": "Sepatu selesai dan siap diantar.",
+      "customer_name": "Ahmad",
+      "created_at": "2026-10-01T09:39:56.316106+00:00",
+      "updated_at": "2026-10-01T09:39:56.316106+00:00",
+      "revenue_amount": 0,
+      "production_cost": 0,
+      "raw_material_cost": 0,
+      "other_cost": 0,
+      "finance_notes": "",
+      "payment_method": "",
+      "promo_label": "",
+      "member_id": null,
+      "whatsapp_number": "",
+      "delivery_fee": 0,
+      "discount_amount": 0,
+      "final_amount": 0
+    }
+  ],
+  "order_items": [],
+  "order_item_photos": [],
+  "cashflow_transactions": []
+}
