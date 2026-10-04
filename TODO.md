@@ -1771,5 +1771,6 @@ Mengecilkan tombol floating chat agar lebih ringkas, tetap rata kanan, dan nyama
 
 ### Result
 
-Selesai. Padding, gap, font, ikon, bayangan, serta jarak kanan/bawah tombol chat diperkecil
-tanpa mengubah ukuran panel chat. Perubahan sudah dideploy ke Cloudflare Pages.
+Selesai. Floating chat dibuat icon-only berbentuk tombol bulat 3rem agar tidak melebar,
+tetap rata kanan bawah, tetap accessible via `aria-label`, dan panel chat tidak diubah.
+Perubahan sudah dideploy ke Cloudflare Pages.
