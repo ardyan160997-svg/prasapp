@@ -23,6 +23,7 @@
         <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
         <a href="#chats" class="nav-item" data-section="chats">Chat User</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
+        <a href="#review-claims" class="nav-item" data-section="review-claims">Review Claims</a>
         <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
       </nav>
 
@@ -195,8 +196,9 @@
               <form id="memberForm" class="stack-form">
                 <label>Nama Lengkap<input name="fullName" required></label>
                 <label>WhatsApp<input name="whatsappNumber" required></label>
-                <label>Email<input name="email" type="email"></label>
-                <label>Alamat Pickup<textarea name="pickupAddress" rows="3"></textarea></label>
+                <label>Email<input name="email" type="email" required></label>
+                <label>Alamat Pickup<textarea name="pickupAddress" rows="3" required></textarea></label>
+                <label><span><input name="marketingConsent" type="checkbox" value="true"> Setuju menerima email/WhatsApp promo, berita, dan event.</span></label>
                 <button class="primary-btn" type="submit">Simpan Member</button>
                 <p class="form-message" id="memberMessage"></p>
               </form>
@@ -206,6 +208,19 @@
               <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama</th><th>WhatsApp</th><th>Reward</th><th>Free Wash</th></tr></thead><tbody id="membersBody"></tbody></table></div>
             </article>
           </div>
+        </section>
+
+        <section class="section" id="reviewClaimsSection" data-section-panel="review-claims">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Voucher Review</p>
+                <h2>Review Claims</h2>
+              </div>
+              <span class="pill" id="reviewClaimCountPill">0 klaim</span>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Member</th><th>Screenshot</th><th>Status</th><th>Voucher</th><th>Aksi</th></tr></thead><tbody id="reviewClaimsBody"></tbody></table></div>
+          </article>
         </section>
 
         <section class="section" id="cashflowSection" data-section-panel="cashflow">
@@ -265,6 +280,6 @@
     </article>
   </div>
 
-  <script src="app.js?v=payment-modal-1"></script>
+  <script src="app.js?v=voucher-review-1"></script>
 </body>
 </html>

@@ -63,8 +63,8 @@
               <input id="memberBirthDate" name="birthDate" class="form-input" type="date">
             </div>
             <div class="form-group">
-              <label for="memberEmail" class="form-label">Email <span>(Opsional)</span></label>
-              <input id="memberEmail" name="email" class="form-input" type="email" autocomplete="email" placeholder="nama@email.com">
+              <label for="memberEmail" class="form-label">Email</label>
+              <input id="memberEmail" name="email" class="form-input" type="email" autocomplete="email" placeholder="nama@email.com" required>
             </div>
           </div>
 
@@ -73,6 +73,11 @@
             <textarea id="memberAddress" name="pickupAddress" class="form-textarea" rows="4" autocomplete="street-address" placeholder="Alamat untuk penjemputan sepatu" required></textarea>
           </div>
 
+          <label class="marketing-consent">
+            <input id="marketingConsent" name="marketingConsent" type="checkbox">
+            <span>Saya setuju menerima email atau WhatsApp tentang promo, berita, dan event Prashoes. Persetujuan ini opsional.</span>
+          </label>
+
           <button type="submit" class="btn btn-primary btn-full" id="memberSubmitButton">Daftar Member</button>
           <p class="member-form-note">Dengan mendaftar, data ini akan dipakai untuk mempermudah layanan Antar Jemput Prashoes.</p>
         </form>
@@ -80,6 +85,6 @@
     </section>
   </main>
 
-  <script src="daftar-member.js?v=member-register-3"></script>
+  <script src="daftar-member.js?v=voucher-member-1"></script>
 </body>
 </html>
