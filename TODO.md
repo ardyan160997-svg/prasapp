@@ -1742,3 +1742,34 @@ Selesai. Project `prashoes` sekarang static HTML/CSS/JS dengan folder `public/` 
 `adminprashoes/`. Source Next.js, React, Supabase migration, dan config framework sudah
 dihapus dari project tersebut. Public site menggunakan API public Admin Prashoes VPS,
 sedangkan admin menyimpan data melalui Node/PostgreSQL API server-side.
+
+---
+
+## TASK-020 — Kecilkan floating chat Prashoes
+
+- Status: completed
+- Requested route: auto
+- Selected combo: quick-edit
+- Priority: low
+- Risk: low
+- Dependencies: TASK-019
+
+### Objective
+
+Mengecilkan tombol floating chat agar lebih ringkas, tetap rata kanan, dan nyaman dilihat.
+
+### Scope
+
+- `prashoes/public/styles.css`
+- `prashoes/public/index.html`
+
+### Validation
+
+- `npm run check` berhasil.
+- `npm run build:public` berhasil.
+- Ad-hoc verifier memastikan tombol, ikon, posisi kanan, cache bust source, dan artifact dist sesuai.
+
+### Result
+
+Selesai. Padding, gap, font, ikon, bayangan, serta jarak kanan/bawah tombol chat diperkecil
+tanpa mengubah ukuran panel chat. Perubahan sudah dideploy ke Cloudflare Pages.
