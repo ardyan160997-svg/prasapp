@@ -686,7 +686,7 @@ function toggleChatPanel(open) {
   state.chatPollTimer = null;
   if (open) {
     loadChatHistory();
-    state.chatPollTimer = setInterval(loadChatHistory, 10000);
+    state.chatPollTimer = setInterval(loadChatHistory, 5000);
   }
 }
 
