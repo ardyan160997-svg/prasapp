@@ -692,6 +692,8 @@ button {
 
 .seo-service-intro {
   max-width: 780px;
+  margin: 0 auto;
+  text-align: center;
 }
 
 .seo-service-grid {
