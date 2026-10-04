@@ -164,6 +164,15 @@ button {
   display: block;
   width: 150px;
   flex: 0 0 auto;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.header.footer-logo-visible .logo {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.4rem);
 }
 
 .logo img,

@@ -754,6 +754,18 @@ async function renderChatWidget() {
   loadChatHistory();
 }
 
+function bindHeaderLogoVisibility() {
+  const header = document.querySelector(".header");
+  const footerLogo = document.querySelector(".footer-logo");
+  if (!header || !footerLogo || !("IntersectionObserver" in window)) return;
+
+  const observer = new IntersectionObserver(([entry]) => {
+    header.classList.toggle("footer-logo-visible", entry.isIntersecting);
+  }, { threshold: 0.35 });
+
+  observer.observe(footerLogo);
+}
+
 function bindMobileMenu() {
   const button = document.querySelector(".mobile-menu-btn");
   const menu = document.getElementById("mobile-menu");
@@ -814,6 +826,7 @@ async function init() {
   renderChatWidget();
   bindTracking();
   bindMobileMenu();
+  bindHeaderLogoVisibility();
 }
 
 document.addEventListener("DOMContentLoaded", init);
