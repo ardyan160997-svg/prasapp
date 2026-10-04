@@ -708,7 +708,6 @@ async function renderChatWidget() {
         <path d="M12 3.5a7.5 7.5 0 0 0-7.5 7.5v3.1c0 .86.7 1.56 1.56 1.56h1.2v-5.2h-1.1A5.86 5.86 0 0 1 12 5.1a5.86 5.86 0 0 1 5.84 5.36h-1.1v5.2h1.08a4.54 4.54 0 0 1-4.13 2.65h-1.2a1.1 1.1 0 0 0 0 2.2h1.2a6.75 6.75 0 0 0 6.6-5.32 1.56 1.56 0 0 0 1.21-1.52V11A7.5 7.5 0 0 0 12 3.5Z" />
         <path d="M12 7.4a3.2 3.2 0 0 0-3.2 3.2v.35a3.2 3.2 0 0 0 6.4 0v-.35A3.2 3.2 0 0 0 12 7.4Zm-5.2 11.1c.9-2.05 2.9-3.35 5.2-3.35 1.28 0 2.45.4 3.39 1.1a6.04 6.04 0 0 1-1.7.46h-1.2a2.7 2.7 0 0 0-2.55 1.79H6.8Z" />
       </svg>
-      <span>Chat</span>
     </button>
     <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Chat Prashoes">
       <div class="chat-header">
