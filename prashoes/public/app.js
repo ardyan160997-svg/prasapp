@@ -495,6 +495,21 @@ function bindTracking() {
       if (!Array.isArray(orders) || !orders.length) throw new Error("Pesanan tidak ditemukan.");
       result.innerHTML = orders.map((tracking) => {
         const items = tracking.items || [];
+        const reviewCta = tracking.status === "Selesai" ? `
+          <div class="tracking-review-cta">
+            <div>
+              <strong>Puas dengan hasil treatment?</strong>
+              <p>Kasih rating untuk bantu Prashoes makin dipercaya.</p>
+            </div>
+            <a class="btn btn-primary" href="https://g.page/r/CdOtP09kbngiEBM/review" target="_blank" rel="noopener noreferrer">Beri Review di Google</a>
+          </div>
+        ` : "";
+        const itemsHtml = items.length ? `<div class="tracking-items-result">${items.map((item, index) => {
+          const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
+          const photos = Array.isArray(item.photos) ? item.photos : [];
+          const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
+          return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${warrantyBlock(tracking, item)}${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
+        }).join("")}</div>` : "";
         return `
           <article class="tracking-order-result">
             <div class="tracking-result-head">
@@ -508,12 +523,8 @@ function bindTracking() {
               <span>Customer</span>
               <strong>${escapeHtml(tracking.customerName || "-")}</strong>
             </div>
-            ${items.length ? `<div class="tracking-items-result">${items.map((item, index) => {
-              const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
-              const photos = Array.isArray(item.photos) ? item.photos : [];
-              const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
-              return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${warrantyBlock(tracking, item)}${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
-            }).join("")}</div>` : ""}
+            ${reviewCta}
+            ${itemsHtml}
           </article>
         `;
       }).join("");
