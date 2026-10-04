@@ -536,8 +536,8 @@ function bindTracking() {
               <span>Customer</span>
               <strong>${escapeHtml(tracking.customerName || "-")}</strong>
             </div>
-            ${reviewCta}
             ${itemsHtml}
+            ${reviewCta}
             ${reviewClaim}
           </article>
         `;
