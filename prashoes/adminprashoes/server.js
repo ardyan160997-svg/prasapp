@@ -103,7 +103,6 @@ async function ensureChatTables() {
   `);
   await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS birth_date date`);
   await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS profile_photo_url text`);
-  await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS marketing_consent boolean NOT NULL DEFAULT false`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS chat_threads (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -157,59 +156,6 @@ async function ensureChatTables() {
       await pool.query('INSERT INTO chat_templates (message, sort_order) VALUES ($1,$2)', [msg, order]);
     }
   }
-}
-
-async function ensureVoucherTables() {
-  await ensureChatTables();
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS vouchers (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-      code text NOT NULL UNIQUE,
-      discount_percent integer NOT NULL,
-      source text NOT NULL,
-      status text NOT NULL DEFAULT 'active',
-      expires_at timestamptz NOT NULL,
-      used_at timestamptz,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      CONSTRAINT vouchers_discount_check CHECK (discount_percent IN (10,20)),
-      CONSTRAINT vouchers_source_check CHECK (source IN ('registration','review')),
-      CONSTRAINT vouchers_status_check CHECK (status IN ('active','used','expired'))
-    )
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS vouchers_member_source_key
-    ON vouchers(member_id, source)
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS review_claims (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-      screenshot_url text NOT NULL,
-      status text NOT NULL DEFAULT 'pending',
-      admin_note text NOT NULL DEFAULT '',
-      created_at timestamptz NOT NULL DEFAULT now(),
-      reviewed_at timestamptz,
-      CONSTRAINT review_claims_member_key UNIQUE (member_id),
-      CONSTRAINT review_claims_status_check CHECK (status IN ('pending','approved','rejected'))
-    )
-  `);
-}
-
-function voucherCode(prefix) {
-  return `${prefix}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-}
-
-async function issueVoucher(client, memberId, source, discountPercent) {
-  const prefix = source === 'review' ? 'PRAS20' : 'PRAS10';
-  const code = voucherCode(prefix);
-  const result = await client.query(`
-    INSERT INTO vouchers (member_id, code, discount_percent, source, expires_at)
-    VALUES ($1,$2,$3,$4,now() + interval '7 days')
-    ON CONFLICT (member_id, source) DO UPDATE SET code = vouchers.code
-    RETURNING *
-  `, [memberId, code, discountPercent, source]);
-  return result.rows[0];
 }
 
 async function ensureFinanceTables() {
@@ -272,10 +218,9 @@ async function ensureWarrantyTables() {
 
 async function dashboard() {
   await ensureChatTables();
-  await ensureVoucherTables();
   await ensureWarrantyTables();
   await syncPaidOrderRevenue();
-  const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates, vouchers, reviewClaims] = await Promise.all([
+  const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
     queryRows(`
@@ -309,16 +254,6 @@ async function dashboard() {
       ORDER BY ct.last_message_at DESC, ct.created_at DESC
     `),
     queryRows('SELECT * FROM chat_templates ORDER BY sort_order ASC, created_at ASC'),
-    queryRows(`
-      SELECT v.*, m.full_name, m.whatsapp_number, m.email
-      FROM vouchers v JOIN members m ON m.id = v.member_id
-      ORDER BY v.created_at DESC
-    `),
-    queryRows(`
-      SELECT rc.*, m.full_name, m.whatsapp_number, m.email
-      FROM review_claims rc JOIN members m ON m.id = rc.member_id
-      ORDER BY rc.created_at DESC
-    `),
   ]);
 
   const normalizedOrders = orders.map((order) => {
@@ -354,8 +289,6 @@ async function dashboard() {
     promos,
     chats,
     chatTemplates,
-    vouchers,
-    reviewClaims,
     stats: {
       chatThreads: chats.length,
       openChats: chats.filter((row) => row.status === 'open').length,
@@ -545,49 +478,35 @@ async function publicGallery() {
 }
 
 async function createPublicMember(input) {
-  await ensureVoucherTables();
-  if (!input.fullName || !input.whatsappNumber || !input.email || !input.pickupAddress) throw new Error('Nama, WhatsApp, email, dan alamat pickup wajib diisi.');
+  await ensureChatTables();
+  if (!input.fullName || !input.whatsappNumber || !input.pickupAddress) throw new Error('Nama, WhatsApp, dan alamat pickup wajib diisi.');
   const memberCode = 'MBR-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const rows = await client.query(`
-      INSERT INTO members (member_code, full_name, whatsapp_number, email, birth_date, profile_photo_url, pickup_address, pickup_latitude, pickup_longitude, pickup_share_url, marketing_consent)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-      ON CONFLICT (whatsapp_number) DO UPDATE SET
-        full_name = EXCLUDED.full_name,
-        email = EXCLUDED.email,
-        birth_date = EXCLUDED.birth_date,
-        profile_photo_url = EXCLUDED.profile_photo_url,
-        pickup_address = EXCLUDED.pickup_address,
-        pickup_latitude = EXCLUDED.pickup_latitude,
-        pickup_longitude = EXCLUDED.pickup_longitude,
-        pickup_share_url = EXCLUDED.pickup_share_url,
-        marketing_consent = EXCLUDED.marketing_consent
-      RETURNING id, member_code
-    `, [
-      memberCode,
-      input.fullName,
-      input.whatsappNumber,
-      input.email,
-      input.birthDate || null,
-      input.profilePhotoUrl || '',
-      input.pickupAddress,
-      input.pickupLatitude || null,
-      input.pickupLongitude || null,
-      input.pickupShareUrl || '',
-      Boolean(input.marketingConsent),
-    ]);
-    const member = rows.rows[0];
-    const voucher = await issueVoucher(client, member.id, 'registration', 10);
-    await client.query('COMMIT');
-    return { success: true, memberCode: member.member_code, voucher };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  const rows = await queryRows(`
+    INSERT INTO members (member_code, full_name, whatsapp_number, email, birth_date, profile_photo_url, pickup_address, pickup_latitude, pickup_longitude, pickup_share_url)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    ON CONFLICT (whatsapp_number) DO UPDATE SET
+      full_name = EXCLUDED.full_name,
+      email = EXCLUDED.email,
+      birth_date = EXCLUDED.birth_date,
+      profile_photo_url = EXCLUDED.profile_photo_url,
+      pickup_address = EXCLUDED.pickup_address,
+      pickup_latitude = EXCLUDED.pickup_latitude,
+      pickup_longitude = EXCLUDED.pickup_longitude,
+      pickup_share_url = EXCLUDED.pickup_share_url
+    RETURNING member_code
+  `, [
+    memberCode,
+    input.fullName,
+    input.whatsappNumber,
+    input.email || '',
+    input.birthDate || null,
+    input.profilePhotoUrl || '',
+    input.pickupAddress,
+    input.pickupLatitude || null,
+    input.pickupLongitude || null,
+    input.pickupShareUrl || '',
+  ]);
+  return { success: true, memberCode: rows[0]?.member_code };
 }
 
 async function createPublicPickup(input) {
@@ -857,74 +776,6 @@ async function publicTracking(type, value) {
   });
 }
 
-async function createReviewClaim(input) {
-  await ensureVoucherTables();
-  const phone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
-  if (!phone && !input.memberCode) throw new Error('Nomor WhatsApp atau kode member wajib diisi.');
-  const screenshotUrl = String(input.screenshotUrl || '').trim();
-  if (!/^\/uploads\/review-[a-zA-Z0-9._-]+$/.test(screenshotUrl)) throw new Error('Screenshot review wajib diupload melalui Prashoes.');
-  const localPhone = phone.startsWith('62') ? `0${phone.slice(2)}` : phone;
-  const internationalPhone = phone.startsWith('0') ? `62${phone.slice(1)}` : phone;
-  const members = await queryRows(`
-    SELECT id, member_code FROM members
-    WHERE member_code = $1 OR regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($2,$3,$4)
-    LIMIT 1
-  `, [String(input.memberCode || '').toUpperCase(), phone, localPhone, internationalPhone]);
-  const member = members[0];
-  if (!member) throw new Error('Member tidak ditemukan. Daftar member dulu untuk klaim voucher review.');
-  const existing = await queryRows('SELECT status FROM review_claims WHERE member_id = $1 LIMIT 1', [member.id]);
-  if (existing[0]?.status === 'approved') throw new Error('Voucher review untuk member ini sudah pernah diterbitkan.');
-  const rows = await queryRows(`
-    INSERT INTO review_claims (member_id, screenshot_url)
-    VALUES ($1,$2)
-    ON CONFLICT (member_id) DO UPDATE SET screenshot_url = EXCLUDED.screenshot_url, status = 'pending', admin_note = '', created_at = now(), reviewed_at = null
-    RETURNING *
-  `, [member.id, screenshotUrl]);
-  return { success: true, claim: rows[0] };
-}
-
-async function updateReviewClaim(input) {
-  await ensureVoucherTables();
-  if (!input.id || !['approved','rejected'].includes(input.status)) throw new Error('Review claim dan status wajib valid.');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await client.query(`
-      UPDATE review_claims
-      SET status = $1, admin_note = $2, reviewed_at = now()
-      WHERE id = $3
-      RETURNING *
-    `, [input.status, input.adminNote || '', input.id]);
-    const claim = result.rows[0];
-    if (!claim) throw new Error('Review claim tidak ditemukan.');
-    let voucher = null;
-    if (input.status === 'approved') voucher = await issueVoucher(client, claim.member_id, 'review', 20);
-    await client.query('COMMIT');
-    return { ok: true, claim, voucher };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-async function validateVoucher(input) {
-  await ensureVoucherTables();
-  const code = String(input.code || '').trim().toUpperCase();
-  if (!code) throw new Error('Kode voucher wajib diisi.');
-  await pool.query(`UPDATE vouchers SET status = 'expired' WHERE status = 'active' AND expires_at < now()`);
-  const rows = await queryRows(`
-    SELECT v.*, m.full_name, m.whatsapp_number
-    FROM vouchers v JOIN members m ON m.id = v.member_id
-    WHERE v.code = $1
-    LIMIT 1
-  `, [code]);
-  const voucher = rows[0];
-  if (!voucher || voucher.status !== 'active') throw new Error('Voucher tidak valid atau sudah kedaluwarsa.');
-  return { valid: true, voucher };
-}
-
 async function createWarrantyClaim(input) {
   if (!input.orderItemId) throw new Error('orderItemId wajib diisi.');
   if (!input.customerName) throw new Error('customerName wajib diisi.');
@@ -976,9 +827,6 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'gallery' && req.method === 'GET') return sendJson(res, await publicGallery());
   if (resource === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
   if (resource === 'member-photo' && req.method === 'POST') return uploadMemberPhoto(req, res);
-  if (resource === 'review-screenshot' && req.method === 'POST') return uploadReviewScreenshot(req, res);
-  if (resource === 'review-claim' && req.method === 'POST') return sendJson(res, await createReviewClaim(await readJson(req)), 201);
-  if (resource === 'voucher-check' && req.method === 'POST') return sendJson(res, await validateVoucher(await readJson(req)));
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
   if (resource === 'chat' && url.pathname.endsWith('/identity') && req.method === 'POST') return sendJson(res, await publicChatIdentity((await readJson(req)).whatsappNumber));
   if (resource === 'chat' && url.pathname.endsWith('/templates') && req.method === 'GET') return sendJson(res, await publicChatTemplates());
@@ -1032,7 +880,15 @@ async function api(req, res, url) {
     await pool.query('DELETE FROM orders WHERE id = $1', [id]);
     return sendJson(res, { ok: true });
   }
-  if (route === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
+  if (route === 'members' && req.method === 'POST') {
+    const body = await readJson(req);
+    if (!body.fullName || !body.whatsappNumber) throw new Error('Nama dan WhatsApp wajib diisi.');
+    const rows = await queryRows(`
+      INSERT INTO members (full_name, whatsapp_number, email, pickup_address)
+      VALUES ($1,$2,$3,$4) RETURNING *
+    `, [body.fullName, body.whatsappNumber, body.email || '', body.pickupAddress || '']);
+    return sendJson(res, rows[0], 201);
+  }
   if (route === 'finance' && req.method === 'POST') {
     const body = await readJson(req);
     const type = body.transactionType === 'cost' ? 'cost' : 'revenue';
@@ -1043,8 +899,6 @@ async function api(req, res, url) {
     return sendJson(res, rows[0], 201);
   }
   if (route === 'payment-status' && req.method === 'PATCH') return sendJson(res, await markCustomerOrdersPaid(await readJson(req)));
-  if (route === 'review-claims' && req.method === 'PATCH') return sendJson(res, await updateReviewClaim(await readJson(req)));
-  if (route === 'voucher-check' && req.method === 'POST') return sendJson(res, await validateVoucher(await readJson(req)));
   if (route === 'cashflow' && req.method === 'POST') {
     const body = await readJson(req);
     const type = body.transactionType === 'pengeluaran' ? 'cost' : 'revenue';
@@ -1131,7 +985,7 @@ async function parseMultipartUpload(req) {
   return parts;
 }
 
-async function uploadPublicImage(req, res, prefix) {
+async function uploadMemberPhoto(req, res) {
   let parts;
   try { parts = await parseMultipartUpload(req); }
   catch (error) { return sendJson(res, { error: error.message }, error.status || 400); }
@@ -1142,17 +996,9 @@ async function uploadPublicImage(req, res, prefix) {
   if (!['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(ext)) return sendJson(res, { error: 'Format tidak didukung (jpg, png, webp, avif).' }, 400);
   if (!String(filePart.contentType || '').startsWith('image/')) return sendJson(res, { error: 'File harus berupa gambar.' }, 400);
 
-  const safeName = `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+  const safeName = `member-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, safeName), filePart.data);
   return sendJson(res, { ok: true, url: `/uploads/${safeName}` }, 201);
-}
-
-async function uploadMemberPhoto(req, res) {
-  return uploadPublicImage(req, res, 'member');
-}
-
-async function uploadReviewScreenshot(req, res) {
-  return uploadPublicImage(req, res, 'review');
 }
 
 async function uploadPhoto(req, res, url) {

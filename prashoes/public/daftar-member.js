@@ -34,7 +34,6 @@ function saveMember(payload, result) {
   localStorage.setItem('prashoes_member_photo', payload.profilePhotoUrl);
   localStorage.setItem('prashoes_member_code', result.memberCode || '');
   localStorage.setItem('prashoes_identity_submitted', 'true');
-  localStorage.setItem('prashoes_registration_voucher', result.voucher?.code || '');
 }
 
 photoInput?.addEventListener('change', () => {
@@ -70,7 +69,6 @@ form?.addEventListener('submit', async (event) => {
       whatsappNumber: String(data.get('whatsappNumber') || '').trim(),
       birthDate: String(data.get('birthDate') || ''),
       email: String(data.get('email') || '').trim(),
-      marketingConsent: data.get('marketingConsent') === 'on',
       pickupAddress: String(data.get('pickupAddress') || '').trim(),
       profilePhotoUrl: uploaded.url,
     };
@@ -85,10 +83,8 @@ form?.addEventListener('submit', async (event) => {
       <div class="member-success">
         <img class="member-success-avatar" src="${ADMIN_BASE}${escapeHtml(uploaded.url)}" alt="Foto profil ${escapeHtml(payload.fullName)}">
         <h2>Selamat, ${escapeHtml(payload.fullName)}!</h2>
-        <p>Kamu sudah terdaftar sebagai member Prashoes dan mendapat voucher 10% yang berlaku 7 hari.</p>
-        <span class="member-code">Member: ${escapeHtml(result.memberCode || 'MEMBER')}</span>
-        <span class="member-code">Voucher: ${escapeHtml(result.voucher?.code || '-')}</span>
-        <p>Berlaku sampai ${result.voucher?.expires_at ? new Date(result.voucher.expires_at).toLocaleDateString('id-ID') : '-'}</p>
+        <p>Kamu sudah terdaftar sebagai member Prashoes.</p>
+        <span class="member-code">${escapeHtml(result.memberCode || 'MEMBER')}</span>
         <a href="index.html#antar-jemput" class="btn btn-primary btn-full">Lanjut Antar Jemput</a>
       </div>
     `;

@@ -7,8 +7,6 @@ const TABLES = [
   'member_benefits',
   'gallery',
   'members',
-  'vouchers',
-  'review_claims',
   'pickup_requests',
   'chat_threads',
   'chat_messages',

@@ -646,36 +646,6 @@ button {
   font-size: 0.9rem;
 }
 
-.tracking-review-claim {
-  margin-bottom: 1rem;
-  border: 1px solid rgba(250, 204, 21, 0.18);
-  border-radius: var(--radius-2xl);
-  background: rgba(24, 24, 27, 0.72);
-  padding: 1rem;
-}
-
-.tracking-review-claim summary {
-  color: var(--yellow-300);
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.review-claim-form {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.review-claim-form p {
-  margin: 0;
-  color: var(--zinc-400);
-}
-
-.review-claim-msg {
-  color: var(--yellow-300) !important;
-  min-height: 1.25rem;
-}
-
 .review-section {
   padding: 4rem 0;
   background: radial-gradient(circle at top right, rgba(250, 204, 21, 0.12), transparent 34%), var(--zinc-950);

@@ -15,11 +15,10 @@ const state = {
 };
 
 async function fetchApi(path, options = {}) {
-  const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      ...(isFormData ? {} : { "content-type": "application/json" }),
+      "content-type": "application/json",
       ...(options.headers || {}),
     },
   });
@@ -505,18 +504,6 @@ function bindTracking() {
             <a class="btn btn-primary" href="https://g.page/r/CdOtP09kbngiEBM/review" target="_blank" rel="noopener noreferrer">Beri Review di Google</a>
           </div>
         ` : "";
-        const reviewClaim = tracking.status === "Selesai" ? `
-          <details class="tracking-review-claim">
-            <summary>Klaim Voucher 20% Review</summary>
-            <div class="review-claim-form">
-              <p>Sudah kasih review 5 bintang di Google Maps? Upload screenshot untuk klaim voucher 20% yang berlaku 7 hari.</p>
-              <input type="file" accept="image/*" capture="environment" data-review-screenshot-input>
-              <input type="hidden" data-review-screenshot-url>
-              <button class="btn btn-primary" data-submit-review-claim data-customer-name="${escapeHtml(tracking.customerName || '')}" data-whatsapp-number="${escapeHtml(tracking.whatsappNumber || '')}" type="button" disabled>Kirim Klaim Review</button>
-              <p class="review-claim-msg" data-review-claim-msg></p>
-            </div>
-          </details>
-        ` : "";
         const itemsHtml = items.length ? `<div class="tracking-items-result">${items.map((item, index) => {
           const parts = String(item.shoeDescription || "").split(" • ").filter(Boolean);
           const photos = Array.isArray(item.photos) ? item.photos : [];
@@ -538,7 +525,6 @@ function bindTracking() {
             </div>
             ${reviewCta}
             ${itemsHtml}
-            ${reviewClaim}
           </article>
         `;
       }).join("");
@@ -555,52 +541,7 @@ function bindTracking() {
     }
   }
 
-  result?.addEventListener("change", async (event) => {
-    const input = event.target.closest("[data-review-screenshot-input]");
-    if (!input || !input.files?.[0]) return;
-    const form = input.closest(".review-claim-form");
-    const msg = form?.querySelector("[data-review-claim-msg]");
-    const hidden = form?.querySelector("[data-review-screenshot-url]");
-    const submit = form?.querySelector("[data-submit-review-claim]");
-    const fd = new FormData();
-    fd.append("photo", input.files[0]);
-    if (msg) msg.textContent = "Mengupload screenshot...";
-    try {
-      const upload = await fetchApi("/review-screenshot", { method: "POST", body: fd });
-      if (hidden) hidden.value = upload.url || "";
-      if (submit) submit.disabled = !upload.url;
-      if (msg) msg.textContent = "Screenshot tersimpan. Klik Kirim Klaim Review.";
-    } catch (error) {
-      if (msg) msg.textContent = error.message || "Upload screenshot gagal.";
-    }
-  });
-
   result?.addEventListener("click", async (event) => {
-    const reviewButton = event.target.closest("[data-submit-review-claim]");
-    if (reviewButton) {
-      const form = reviewButton.closest(".review-claim-form");
-      const msg = form?.querySelector("[data-review-claim-msg]");
-      const screenshotUrl = form?.querySelector("[data-review-screenshot-url]")?.value || "";
-      if (!screenshotUrl) return;
-      reviewButton.disabled = true;
-      if (msg) msg.textContent = "Mengirim klaim review...";
-      try {
-        await fetchApi("/review-claim", {
-          method: "POST",
-          body: JSON.stringify({
-            screenshotUrl,
-            customerName: reviewButton.dataset.customerName,
-            whatsappNumber: reviewButton.dataset.whatsappNumber,
-          }),
-        });
-        if (msg) msg.textContent = "Klaim terkirim. Admin akan cek screenshot dan menerbitkan voucher 20%.";
-      } catch (error) {
-        if (msg) msg.textContent = error.message || "Klaim review gagal.";
-        reviewButton.disabled = false;
-      }
-      return;
-    }
-
     const button = event.target.closest("[data-warranty-claim]");
     if (!button) return;
     const reason = prompt("Tulis kendala yang ingin diklaim garansi:", "");
