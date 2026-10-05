@@ -6,14 +6,14 @@ window.PRASHOES_DATA = {
       name: "Fast Clean",
       slug: "fast-clean",
       description: "Pembersihan cepat untuk sepatu harian yang butuh refresh ringan.",
-      startingPrice: "Mulai Rp25.000",
+      startingPrice: "Mulai Rp20.000",
     },
     {
       id: "deep-clean",
       name: "Deep Clean",
       slug: "deep-clean",
       description: "Pembersihan menyeluruh untuk upper, midsole, outsole, dan insole.",
-      startingPrice: "Mulai Rp45.000",
+      startingPrice: "Mulai Rp25.000",
     },
     {
       id: "unyellowing",
@@ -93,7 +93,7 @@ window.PRASHOES_DATA = {
   galleryItems: [],
   contact: {
     whatsapp: "https://wa.me/6285601679005",
-    maps: "https://www.google.com/maps/search/?api=1&query=Prashoes",
+    maps: "https://maps.app.goo.gl/ZwnFTU2fRiPQ21A79",
     hours: "Senin — Sabtu: 09.00 — 18.00 WIB\nMinggu & Hari Libur: Tutup",
   },
   pricing: {
