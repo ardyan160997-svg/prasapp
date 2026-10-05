@@ -646,10 +646,62 @@ function bindTracking() {
 
     const button = event.target.closest("[data-warranty-claim]");
     if (!button) return;
-    const reason = prompt("Tulis kendala yang ingin diklaim garansi:", "");
-    if (reason === null) return;
-    button.disabled = true;
-    button.textContent = "Mengirim klaim...";
+    openWarrantyClaimDialog(button);
+  });
+
+  button?.addEventListener("click", track);
+  input?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") track();
+  });
+}
+
+function openWarrantyClaimDialog(button) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "warranty-dialog";
+  dialog.innerHTML = `
+    <div class="warranty-dialog-content">
+      <div class="warranty-dialog-header">
+        <strong>Klaim Garansi</strong>
+        <button class="warranty-dialog-close" type="button" aria-label="Tutup">✕</button>
+      </div>
+      <p class="warranty-dialog-desc">Tulis kendala yang ingin diklaim garansi:</p>
+      <textarea class="warranty-dialog-textarea" placeholder="Contoh: noda tidak hilang, warna memudar, dll." required></textarea>
+      <p class="warranty-dialog-error" aria-live="polite"></p>
+      <div class="warranty-dialog-actions">
+        <button class="btn btn-secondary" type="button" data-warranty-cancel>Batal</button>
+        <button class="btn btn-primary" type="button" data-warranty-submit>Kirim Klaim</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+
+  const close = () => {
+    dialog.close();
+    dialog.remove();
+  };
+
+  const cancelBtn = dialog.querySelector("[data-warranty-cancel]");
+  const submitBtn = dialog.querySelector("[data-warranty-submit]");
+  const closeBtn = dialog.querySelector(".warranty-dialog-close");
+  const textarea = dialog.querySelector(".warranty-dialog-textarea");
+  const errorEl = dialog.querySelector(".warranty-dialog-error");
+
+  cancelBtn?.addEventListener("click", close);
+  closeBtn?.addEventListener("click", close);
+  dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) close();
+  });
+
+  submitBtn?.addEventListener("click", async () => {
+    const reason = textarea.value.trim();
+    if (!reason) {
+      if (errorEl) errorEl.textContent = "Isi alasan klaim dulu.";
+      textarea.focus();
+      return;
+    }
+    if (errorEl) errorEl.textContent = "";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Mengirim...";
     try {
       await fetchApi("/warranty-claim", {
         method: "POST",
@@ -662,18 +714,17 @@ function bindTracking() {
           reason,
         }),
       });
+      close();
       button.closest(".warranty-box").outerHTML = '<div class="warranty-box claimed"><strong>Klaim garansi diajukan</strong><span>Admin Prashoes akan menghubungi kamu.</span></div>';
     } catch (error) {
-      alert(error.message || "Klaim garansi gagal.");
-      button.disabled = false;
-      button.textContent = "Klaim Garansi";
+      if (errorEl) errorEl.textContent = error.message || "Klaim garansi gagal.";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Kirim Klaim";
     }
   });
 
-  button?.addEventListener("click", track);
-  input?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") track();
-  });
+  dialog.showModal();
+  textarea.focus();
 }
 
 function renderChatMessages() {
