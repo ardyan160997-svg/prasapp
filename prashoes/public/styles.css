@@ -794,6 +794,83 @@ button {
   box-shadow: var(--shadow-soft);
 }
 
+.tracking-card,
+.pickup-card,
+.member-card,
+.seo-service-card,
+.review-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.tracking-card { --section-bg: url("images/trackingorder.avif"); }
+.pickup-card:not(.success) { --section-bg: url("images/antarjemput.avif"); }
+.member-card { --section-bg: url("images/daftarmember.avif"); }
+.seo-service-card:nth-child(1) { --section-bg: url("images/sesuaibahan.avif"); }
+.seo-service-card:nth-child(2) { --section-bg: url("images/antarjemputseo.avif"); }
+.seo-service-card:nth-child(3) { --section-bg: url("images/trackingorderseo.avif"); }
+.review-card { --section-bg: url("images/review.avif"); }
+
+.tracking-card::before,
+.pickup-card:not(.success)::before,
+.member-card::before,
+.seo-service-card::before,
+.review-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(180deg, rgba(9, 9, 11, 0.58), rgba(9, 9, 11, 0.94)), var(--section-bg);
+  background-position: center;
+  background-size: cover;
+  opacity: 0.86;
+  transition: transform 250ms ease, opacity 250ms ease;
+  pointer-events: none;
+}
+
+.tracking-card::after,
+.pickup-card:not(.success)::after,
+.member-card::after,
+.seo-service-card::after,
+.review-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(250, 204, 21, 0.18), transparent 38%);
+  pointer-events: none;
+}
+
+.tracking-card > *,
+.pickup-card > *,
+.member-card > *,
+.seo-service-card > *,
+.review-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tracking-card:hover::before,
+.pickup-card:not(.success):hover::before,
+.member-card:hover::before,
+.seo-service-card:hover::before,
+.review-card:hover::before {
+  opacity: 0.94;
+  transform: scale(1.03);
+}
+
+.tracking-card .tracking-input,
+.pickup-card .form-input,
+.pickup-card .form-select,
+.pickup-card .form-textarea {
+  background: rgba(9, 9, 11, 0.78);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.tracking-card .tracking-input::placeholder,
+.pickup-card .form-input::placeholder,
+.pickup-card .form-textarea::placeholder {
+  color: var(--zinc-400);
+}
+
 .section-label {
   color: var(--yellow-300) !important;
   font-size: 0.78rem;
