@@ -6,7 +6,7 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=payment-modal-1">
+  <link rel="stylesheet" href="styles.css?v=payment-proof-1">
 </head>
 <body>
   <main class="app-shell">
@@ -24,6 +24,7 @@
         <a href="#chats" class="nav-item" data-section="chats">Chat User</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
         <a href="#review-claims" class="nav-item" data-section="review-claims">Review Claims</a>
+        <a href="#payment-proofs" class="nav-item" data-section="payment-proofs">Bukti Pembayaran</a>
         <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
       </nav>
 
@@ -223,6 +224,19 @@
           </article>
         </section>
 
+        <section class="section" id="paymentProofsSection" data-section-panel="payment-proofs">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Verifikasi pembayaran</p>
+                <h2>Bukti Transfer / QRIS</h2>
+              </div>
+              <span class="pill" id="paymentProofCountPill">0 bukti</span>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Bukti</th><th>Status</th><th>Nilai</th><th>Aksi</th></tr></thead><tbody id="paymentProofsBody"></tbody></table></div>
+          </article>
+        </section>
+
         <section class="section" id="cashflowSection" data-section-panel="cashflow">
           <div class="split-layout">
             <article class="panel form-panel">
@@ -280,6 +294,6 @@
     </article>
   </div>
 
-  <script src="app.js?v=voucher-review-1"></script>
+  <script src="app.js?v=payment-proof-1"></script>
 </body>
 </html>

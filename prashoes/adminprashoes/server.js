@@ -218,8 +218,24 @@ async function ensureFinanceTables() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS raw_material_cost numeric NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS other_cost numeric NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'belum_bayar'`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'cod'`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
   await pool.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS treatment_price numeric NOT NULL DEFAULT 0`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_proofs (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      proof_url text NOT NULL,
+      method text NOT NULL DEFAULT 'qris',
+      status text NOT NULL DEFAULT 'pending',
+      admin_note text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      reviewed_at timestamptz,
+      CONSTRAINT payment_proofs_order_key UNIQUE (order_id),
+      CONSTRAINT payment_proofs_method_check CHECK (method IN ('qris','transfer')),
+      CONSTRAINT payment_proofs_status_check CHECK (status IN ('pending','approved','rejected'))
+    )
+  `);
   await pool.query(`ALTER TABLE cashflow_transactions ADD COLUMN IF NOT EXISTS source_order_id uuid REFERENCES orders(id) ON DELETE SET NULL`);
   await pool.query(`ALTER TABLE cashflow_transactions DROP CONSTRAINT IF EXISTS cashflow_transactions_transaction_type_check`);
   await pool.query(`
@@ -275,7 +291,7 @@ async function dashboard() {
   await ensureVoucherTables();
   await ensureWarrantyTables();
   await syncPaidOrderRevenue();
-  const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates, vouchers, reviewClaims] = await Promise.all([
+  const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates, vouchers, reviewClaims, paymentProofs] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
     queryRows(`
@@ -319,6 +335,11 @@ async function dashboard() {
       FROM review_claims rc JOIN members m ON m.id = rc.member_id
       ORDER BY rc.created_at DESC
     `),
+    queryRows(`
+      SELECT pp.*, o.order_code, o.customer_name, o.whatsapp_number, o.revenue_amount, o.payment_status, o.paid_at
+      FROM payment_proofs pp JOIN orders o ON o.id = pp.order_id
+      ORDER BY pp.created_at DESC
+    `),
   ]);
 
   const normalizedOrders = orders.map((order) => {
@@ -356,6 +377,7 @@ async function dashboard() {
     chatTemplates,
     vouchers,
     reviewClaims,
+    paymentProofs,
     stats: {
       chatThreads: chats.length,
       openChats: chats.filter((row) => row.status === 'open').length,
@@ -782,7 +804,7 @@ async function deleteChatTemplate(id) {
   return { ok: true };
 }
 
-const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email']);
+const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email', 'order']);
 
 async function publicTracking(type, value) {
   if (!TRACKING_FIELDS.has(type) || !String(value || '').trim()) return [];
@@ -795,9 +817,17 @@ async function publicTracking(type, value) {
       o.customer_name AS "customerName",
       COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, '') AS "whatsappNumber",
       o.status,
+      o.payment_status AS "paymentStatus",
+      o.payment_method AS "paymentMethod",
+      o.revenue_amount AS "revenueAmount",
+      o.paid_at AS "paidAt",
       o.created_at AS "createdAt",
       o.updated_at AS "updatedAt",
       o.completed_at AS "completedAt",
+      (
+        SELECT json_build_object('id', pp.id, 'proofUrl', pp.proof_url, 'status', pp.status, 'method', pp.method, 'createdAt', pp.created_at, 'reviewedAt', pp.reviewed_at)
+        FROM payment_proofs pp WHERE pp.order_id = o.id LIMIT 1
+      ) AS "paymentProof",
       COALESCE((
         SELECT json_agg(json_build_object(
           'orderItemId', oi.id,
@@ -825,11 +855,16 @@ async function publicTracking(type, value) {
       ), '[]'::json) AS items
     FROM orders o
     LEFT JOIN members m ON m.id = o.member_id
-    WHERE
+    WHERE (
       ($1 = 'name' AND lower(trim(COALESCE(m.full_name, o.customer_name))) = lower(trim($2))) OR
       ($1 = 'member' AND upper(trim(COALESCE(m.member_code, ''))) = upper(trim($2))) OR
       ($1 = 'whatsapp' AND regexp_replace(COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, ''), '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')) OR
-      ($1 = 'email' AND lower(trim(COALESCE(m.email, ''))) = lower(trim($2)))
+      ($1 = 'email' AND lower(trim(COALESCE(m.email, ''))) = lower(trim($2))) OR
+      ($1 = 'order' AND upper(trim(o.order_code)) = upper(trim($2)))
+    )
+    AND (
+      $1 = 'order' OR o.payment_status <> 'terbayar' OR o.paid_at IS NULL OR o.paid_at >= now() - interval '2 days'
+    )
     ORDER BY o.created_at DESC
     LIMIT 20
   `, [type, searchValue]);
@@ -968,6 +1003,76 @@ async function createWarrantyClaim(input) {
   return { ok: true, claim: rows[0] };
 }
 
+async function createPaymentProof(input) {
+  await ensureFinanceTables();
+  const orderId = String(input.orderId || '').trim();
+  const proofUrl = String(input.proofUrl || '').trim();
+  if (!orderId) throw new Error('Order wajib dipilih.');
+  if (!/^\/uploads\/payment-[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp|avif)$/i.test(proofUrl)) throw new Error('Bukti pembayaran tidak valid.');
+
+  const rows = await queryRows(`
+    INSERT INTO payment_proofs (order_id, proof_url, method, status, admin_note, reviewed_at)
+    SELECT id, $2, 'qris', 'pending', '', NULL FROM orders
+    WHERE id = $1 AND payment_status <> 'terbayar'
+    ON CONFLICT (order_id) DO UPDATE SET
+      proof_url = EXCLUDED.proof_url,
+      method = 'qris',
+      status = 'pending',
+      admin_note = '',
+      reviewed_at = NULL,
+      created_at = now()
+    RETURNING *
+  `, [orderId, proofUrl]);
+  if (!rows.length) throw new Error('Order tidak ditemukan atau sudah lunas.');
+  await pool.query(`UPDATE orders SET payment_method = 'qris', payment_status = 'menunggu_verifikasi' WHERE id = $1`, [orderId]);
+  return { ok: true, proof: rows[0] };
+}
+
+async function reviewPaymentProof(input) {
+  await ensureFinanceTables();
+  const id = String(input.id || '').trim();
+  const action = String(input.action || '').trim();
+  if (!id || !['approve', 'reject'].includes(action)) throw new Error('Aksi bukti pembayaran tidak valid.');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const proofResult = await client.query(`
+      SELECT pp.*, o.order_code, o.customer_name, o.revenue_amount
+      FROM payment_proofs pp JOIN orders o ON o.id = pp.order_id
+      WHERE pp.id = $1 FOR UPDATE
+    `, [id]);
+    if (!proofResult.rows.length) throw new Error('Bukti pembayaran tidak ditemukan.');
+    const proof = proofResult.rows[0];
+
+    if (action === 'reject') {
+      await client.query(`UPDATE payment_proofs SET status = 'rejected', admin_note = $1, reviewed_at = now() WHERE id = $2`, [String(input.adminNote || 'Bukti pembayaran ditolak.'), id]);
+      await client.query(`UPDATE orders SET payment_status = 'belum_bayar' WHERE id = $1 AND payment_status <> 'terbayar'`, [proof.order_id]);
+    } else {
+      const paidResult = await client.query(`
+        UPDATE orders SET payment_method = 'qris', payment_status = 'terbayar', paid_at = COALESCE(paid_at, now())
+        WHERE id = $1 RETURNING id, order_code, customer_name, revenue_amount, paid_at
+      `, [proof.order_id]);
+      const order = paidResult.rows[0];
+      await client.query(`UPDATE payment_proofs SET status = 'approved', admin_note = $1, reviewed_at = now() WHERE id = $2`, [String(input.adminNote || ''), id]);
+      if (order && num(order.revenue_amount) > 0) {
+        await client.query(`
+          INSERT INTO cashflow_transactions (transaction_type, description, amount, quantity, transaction_date, source_order_id)
+          VALUES ('revenue', $1, $2, 1, $3, $4)
+          ON CONFLICT (source_order_id) WHERE source_order_id IS NOT NULL DO NOTHING
+        `, [`Pembayaran QRIS ${order.customer_name} (${order.order_code})`, num(order.revenue_amount), order.paid_at, order.id]);
+      }
+    }
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function publicApi(req, res, url, parts) {
   const resource = parts[1] || '';
   if (resource === 'services' && req.method === 'GET') return sendJson(res, await publicServices());
@@ -977,6 +1082,8 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'members' && req.method === 'POST') return sendJson(res, await createPublicMember(await readJson(req)), 201);
   if (resource === 'member-photo' && req.method === 'POST') return uploadMemberPhoto(req, res);
   if (resource === 'review-screenshot' && req.method === 'POST') return uploadReviewScreenshot(req, res);
+  if (resource === 'payment-proof-upload' && req.method === 'POST') return uploadPublicImage(req, res, 'payment');
+  if (resource === 'payment-proof' && req.method === 'POST') return sendJson(res, await createPaymentProof(await readJson(req)), 201);
   if (resource === 'review-claim' && req.method === 'POST') return sendJson(res, await createReviewClaim(await readJson(req)), 201);
   if (resource === 'voucher-check' && req.method === 'POST') return sendJson(res, await validateVoucher(await readJson(req)));
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
@@ -1043,6 +1150,7 @@ async function api(req, res, url) {
     return sendJson(res, rows[0], 201);
   }
   if (route === 'payment-status' && req.method === 'PATCH') return sendJson(res, await markCustomerOrdersPaid(await readJson(req)));
+  if (route === 'payment-proofs' && req.method === 'PATCH') return sendJson(res, await reviewPaymentProof(await readJson(req)));
   if (route === 'review-claims' && req.method === 'PATCH') return sendJson(res, await updateReviewClaim(await readJson(req)));
   if (route === 'voucher-check' && req.method === 'POST') return sendJson(res, await validateVoucher(await readJson(req)));
   if (route === 'cashflow' && req.method === 'POST') {

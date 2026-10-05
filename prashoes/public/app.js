@@ -71,8 +71,38 @@ function warrantyBlock(tracking, item) {
 }
 
 function dt(iso) {
+  if (!iso) return "-";
   const d = new Date(iso);
   return d.toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
+}
+
+function downloadReceipt(button) {
+  const orderCode = button.dataset.orderCode || "order";
+  const customerName = button.dataset.customerName || "Customer";
+  const amount = rupiah(button.dataset.amount || 0);
+  const paidAt = dt(button.dataset.paidAt);
+  const method = String(button.dataset.paymentMethod || "Pembayaran").toUpperCase();
+  const body = [
+    "NOTA PEMBAYARAN PRASHOES",
+    "================================",
+    `Nomor Order : ${orderCode}`,
+    `Customer    : ${customerName}`,
+    `Metode      : ${method}`,
+    `Tanggal     : ${paidAt}`,
+    `Total       : ${amount}`,
+    "================================",
+    "Status: LUNAS",
+    "Terima kasih sudah mempercayakan treatment sepatu ke Prashoes.",
+  ].join("\n");
+  const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `nota-${orderCode}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function getOrCreateChatSessionId() {
@@ -533,8 +563,23 @@ function bindTracking() {
           const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
           return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${warrantyBlock(tracking, item)}${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
         }).join("")}</div>` : "";
+        const isPaid = tracking.paymentStatus === "terbayar";
+        const proof = tracking.paymentProof || null;
         const paymentName = `payment-${escapeHtml(tracking.orderCode || tracking.customerName || 'order')}`;
-        const paymentConfirm = `
+        const paymentConfirm = isPaid ? `
+          <div class="tracking-payment-confirm paid">
+            <div class="payment-paid-status">
+              <span class="payment-paid-icon">✓</span>
+              <div><strong>Sudah Terbayar / Lunas</strong><p>Dibayar ${escapeHtml(dt(tracking.paidAt))} melalui ${escapeHtml(String(tracking.paymentMethod || "Pembayaran").toUpperCase())}.</p></div>
+            </div>
+            <button class="btn btn-primary" type="button" data-download-receipt
+              data-order-code="${escapeHtml(tracking.orderCode || '')}"
+              data-customer-name="${escapeHtml(tracking.customerName || '')}"
+              data-amount="${Number(tracking.revenueAmount || 0)}"
+              data-paid-at="${escapeHtml(tracking.paidAt || '')}"
+              data-payment-method="${escapeHtml(tracking.paymentMethod || '')}">Cetak / Download Nota</button>
+          </div>
+        ` : `
           <div class="tracking-payment-confirm">
             <div class="tracking-payment-head">
               <div>
@@ -555,6 +600,14 @@ function bindTracking() {
             <div class="qris-box hidden" data-qris-box>
               <img src="images/qris.avif" alt="QRIS Prashoes" loading="lazy">
               <a class="btn btn-primary" href="images/qris.avif" download="qris-prashoes.avif">Download QRIS</a>
+              <div class="payment-proof-upload">
+                <strong>Sudah transfer?</strong>
+                <p>Upload screenshot pembayaran untuk diperiksa admin.</p>
+                <input type="file" accept="image/*" capture="environment" data-payment-proof-input>
+                <input type="hidden" data-payment-proof-url>
+                <button class="btn btn-secondary" type="button" data-submit-payment-proof data-order-id="${escapeHtml(tracking.orderId || '')}" disabled>Kirim Bukti Pembayaran</button>
+                <p class="payment-proof-message" data-payment-proof-message>${proof ? `Status bukti: ${escapeHtml(proof.status || 'pending')}` : ''}</p>
+              </div>
             </div>
           </div>
         `;
@@ -596,6 +649,27 @@ function bindTracking() {
     if (paymentMethod) {
       const box = paymentMethod.closest(".tracking-payment-confirm")?.querySelector("[data-qris-box]");
       if (box) box.classList.toggle("hidden", paymentMethod.value !== "qris" || !paymentMethod.checked);
+      return;
+    }
+
+    const proofInput = event.target.closest("[data-payment-proof-input]");
+    if (proofInput) {
+      if (!proofInput.files?.[0]) return;
+      const form = proofInput.closest(".payment-proof-upload");
+      const msg = form?.querySelector("[data-payment-proof-message]");
+      const hidden = form?.querySelector("[data-payment-proof-url]");
+      const submit = form?.querySelector("[data-submit-payment-proof]");
+      const fd = new FormData();
+      fd.append("photo", proofInput.files[0]);
+      if (msg) msg.textContent = "Mengupload bukti pembayaran...";
+      try {
+        const upload = await fetchApi("/payment-proof-upload", { method: "POST", body: fd });
+        if (hidden) hidden.value = upload.url || "";
+        if (submit) submit.disabled = !upload.url;
+        if (msg) msg.textContent = "Bukti tersimpan. Klik Kirim Bukti Pembayaran.";
+      } catch (error) {
+        if (msg) msg.textContent = error.message || "Upload bukti gagal.";
+      }
       return;
     }
 
@@ -641,6 +715,33 @@ function bindTracking() {
         if (msg) msg.textContent = error.message || "Klaim review gagal.";
         reviewButton.disabled = false;
       }
+      return;
+    }
+
+    const proofButton = event.target.closest("[data-submit-payment-proof]");
+    if (proofButton) {
+      const form = proofButton.closest(".payment-proof-upload");
+      const msg = form?.querySelector("[data-payment-proof-message]");
+      const proofUrl = form?.querySelector("[data-payment-proof-url]")?.value || "";
+      if (!proofUrl) return;
+      proofButton.disabled = true;
+      if (msg) msg.textContent = "Mengirim bukti pembayaran...";
+      try {
+        await fetchApi("/payment-proof", {
+          method: "POST",
+          body: JSON.stringify({ orderId: proofButton.dataset.orderId, proofUrl }),
+        });
+        if (msg) msg.textContent = "Bukti terkirim. Admin akan cek, lalu status menjadi Lunas setelah disetujui.";
+      } catch (error) {
+        if (msg) msg.textContent = error.message || "Bukti pembayaran gagal dikirim.";
+        proofButton.disabled = false;
+      }
+      return;
+    }
+
+    const receiptButton = event.target.closest("[data-download-receipt]");
+    if (receiptButton) {
+      downloadReceipt(receiptButton);
       return;
     }
 
