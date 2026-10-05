@@ -204,11 +204,16 @@ function calculatePickupPricing({ shoeQuantity, serviceType, isMember }) {
   };
 }
 
+function servicePriceValue(service) {
+  const numericPrice = Number(String(service?.startingPrice || "").replace(/[^0-9]/g, ""));
+  return Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice : Number.MAX_SAFE_INTEGER;
+}
+
 function renderServices() {
   const container = document.getElementById("services-grid");
   if (!container) return;
 
-  const services = data.services || [];
+  const services = [...(data.services || [])].sort((left, right) => servicePriceValue(left) - servicePriceValue(right));
   if (!services.length) {
     container.innerHTML = `<div class="notice-card">Belum ada data layanan.</div>`;
     return;
