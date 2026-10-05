@@ -706,6 +706,80 @@ button {
   min-height: 1.25rem;
 }
 
+.tracking-payment-confirm {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(250, 204, 21, 0.22);
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(135deg, rgba(24, 24, 27, 0.94), rgba(9, 9, 11, 0.9));
+  padding: 1rem;
+}
+
+.tracking-payment-head strong {
+  color: var(--white);
+}
+
+.tracking-payment-head p {
+  margin: 0.25rem 0 0;
+  color: var(--zinc-400);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.payment-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.payment-toggle label {
+  cursor: pointer;
+}
+
+.payment-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.payment-toggle span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--zinc-200);
+  font-weight: 800;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.payment-toggle input:checked + span {
+  border-color: rgba(250, 204, 21, 0.7);
+  background: var(--yellow-400);
+  color: var(--black);
+}
+
+.qris-box {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.94);
+  padding: 1rem;
+}
+
+.qris-box img {
+  width: min(100%, 260px);
+  border-radius: var(--radius-xl);
+}
+
+.qris-box .btn {
+  width: min(100%, 260px);
+}
+
 .seo-service-section {
   padding: 4rem 0;
   background: var(--zinc-900);

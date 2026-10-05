@@ -533,6 +533,31 @@ function bindTracking() {
           const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
           return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${warrantyBlock(tracking, item)}${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
         }).join("")}</div>` : "";
+        const paymentName = `payment-${escapeHtml(tracking.orderCode || tracking.customerName || 'order')}`;
+        const paymentConfirm = `
+          <div class="tracking-payment-confirm">
+            <div class="tracking-payment-head">
+              <div>
+                <strong>Konfirmasi Pembayaran</strong>
+                <p>Pilih metode pembayaran. Untuk QRIS, scan atau download gambar QRIS.</p>
+              </div>
+            </div>
+            <div class="payment-toggle" role="radiogroup" aria-label="Pilihan pembayaran">
+              <label>
+                <input type="radio" name="${paymentName}" value="cod" checked data-payment-method>
+                <span>COD</span>
+              </label>
+              <label>
+                <input type="radio" name="${paymentName}" value="qris" data-payment-method>
+                <span>QRIS</span>
+              </label>
+            </div>
+            <div class="qris-box hidden" data-qris-box>
+              <img src="images/qris.avif" alt="QRIS Prashoes" loading="lazy">
+              <a class="btn btn-primary" href="images/qris.avif" download="qris-prashoes.avif">Download QRIS</a>
+            </div>
+          </div>
+        `;
         return `
           <article class="tracking-order-result">
             <div class="tracking-result-head">
@@ -549,6 +574,7 @@ function bindTracking() {
             ${itemsHtml}
             ${reviewCta}
             ${reviewClaim}
+            ${paymentConfirm}
           </article>
         `;
       }).join("");
@@ -566,6 +592,13 @@ function bindTracking() {
   }
 
   result?.addEventListener("change", async (event) => {
+    const paymentMethod = event.target.closest("[data-payment-method]");
+    if (paymentMethod) {
+      const box = paymentMethod.closest(".tracking-payment-confirm")?.querySelector("[data-qris-box]");
+      if (box) box.classList.toggle("hidden", paymentMethod.value !== "qris" || !paymentMethod.checked);
+      return;
+    }
+
     const input = event.target.closest("[data-review-screenshot-input]");
     if (!input || !input.files?.[0]) return;
     const form = input.closest(".review-claim-form");
