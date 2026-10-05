@@ -214,13 +214,18 @@ function renderServices() {
     return;
   }
 
-  container.innerHTML = services.map((service) => `
-    <article class="service-card" role="listitem">
-      <h3>${escapeHtml(service.name)}</h3>
-      <p class="service-price">${escapeHtml(service.startingPrice)}</p>
-      <p class="service-desc">${escapeHtml(service.description)}</p>
-    </article>
-  `).join("");
+  container.innerHTML = services.map((service) => {
+    const background = service.image ? ` style="--service-bg: url('${escapeHtml(service.image)}');"` : "";
+    return `
+      <article class="service-card" role="listitem"${background}>
+        <div class="service-card-content">
+          <h3>${escapeHtml(service.name)}</h3>
+          <p class="service-price">${escapeHtml(service.startingPrice)}</p>
+          <p class="service-desc">${escapeHtml(service.description)}</p>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderPromos() {
@@ -802,13 +807,18 @@ async function init() {
       fetchApi("/promos"),
       fetchApi("/member-benefits"),
     ]);
-    data.services = normalizeRows(services, data.services).map((item) => ({
-      id: item.id,
-      name: item.name,
-      slug: item.slug,
-      description: item.description,
-      startingPrice: item.starting_price || item.startingPrice,
-    }));
+    const localServicesBySlug = new Map((window.PRASHOES_DATA?.services || []).map((service) => [service.slug, service]));
+    data.services = normalizeRows(services, data.services).map((item) => {
+      const localService = localServicesBySlug.get(item.slug) || {};
+      return {
+        id: item.id,
+        name: item.name,
+        slug: item.slug,
+        description: item.description,
+        startingPrice: item.starting_price || item.startingPrice,
+        image: item.image || item.image_url || localService.image,
+      };
+    });
     data.serviceOptions = data.services.map((service) => service.name);
     data.promos = normalizeRows(promos, data.promos).map((item) => ({
       id: item.id,

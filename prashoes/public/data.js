@@ -7,6 +7,7 @@ window.PRASHOES_DATA = {
       slug: "fast-clean",
       description: "Pembersihan cepat untuk sepatu harian yang butuh refresh ringan.",
       startingPrice: "Mulai Rp20.000",
+      image: "images/fastclean.avif"
     },
     {
       id: "deep-clean",
@@ -14,6 +15,7 @@ window.PRASHOES_DATA = {
       slug: "deep-clean",
       description: "Pembersihan menyeluruh untuk upper, midsole, outsole, dan insole.",
       startingPrice: "Mulai Rp25.000",
+      image: "images/deepcleen.avif"
     },
     {
       id: "unyellowing",
@@ -21,6 +23,7 @@ window.PRASHOES_DATA = {
       slug: "unyellowing",
       description: "Treatment khusus untuk mengembalikan sol yang menguning.",
       startingPrice: "Mulai Rp55.000",
+      image: "images/unyellowing.avif"
     },
     {
       id: "repaint",
@@ -28,6 +31,7 @@ window.PRASHOES_DATA = {
       slug: "repaint",
       description: "Pewarnaan ulang bagian sepatu yang pudar atau tergores.",
       startingPrice: "Mulai Rp65.000",
+      image: "images/reglue.avif"
     },
 
   ],
