@@ -103,7 +103,24 @@ async function ensureChatTables() {
   `);
   await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS birth_date date`);
   await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS profile_photo_url text`);
+  await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS email text`);
   await pool.query(`ALTER TABLE members ADD COLUMN IF NOT EXISTS marketing_consent boolean NOT NULL DEFAULT false`);
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM (
+          SELECT lower(trim(email)) AS normalized_email
+          FROM members
+          WHERE COALESCE(trim(email), '') <> ''
+          GROUP BY lower(trim(email))
+          HAVING count(*) > 1
+        ) duplicate_emails
+      ) THEN
+        EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS members_email_unique_lower ON members (lower(trim(email))) WHERE COALESCE(trim(email), '''') <> ''''';
+      END IF;
+    END $$;
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS chat_threads (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -569,6 +586,17 @@ async function publicGallery() {
 async function createPublicMember(input) {
   await ensureVoucherTables();
   if (!input.fullName || !input.whatsappNumber || !input.email || !input.pickupAddress) throw new Error('Nama, WhatsApp, email, dan alamat pickup wajib diisi.');
+  const email = String(input.email || '').trim().toLowerCase();
+  const phone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
+  const localPhone = phone.startsWith('62') ? `0${phone.slice(2)}` : phone;
+  const internationalPhone = phone.startsWith('0') ? `62${phone.slice(1)}` : phone;
+  const emailOwner = await queryRows(`
+    SELECT id, whatsapp_number FROM members
+    WHERE lower(trim(email)) = $1
+      AND regexp_replace(whatsapp_number, '[^0-9]', '', 'g') <> ALL($2::text[])
+    LIMIT 1
+  `, [email, [phone, localPhone, internationalPhone].filter(Boolean)]);
+  if (emailOwner.length) throw new Error('Email sudah terdaftar sebagai member. Satu email hanya bisa mendapatkan voucher/discount satu kali.');
   const memberCode = 'MBR-' + crypto.randomBytes(3).toString('hex').toUpperCase();
   const client = await pool.connect();
   try {
@@ -591,7 +619,7 @@ async function createPublicMember(input) {
       memberCode,
       input.fullName,
       input.whatsappNumber,
-      input.email,
+      email,
       input.birthDate || null,
       input.profilePhotoUrl || '',
       input.pickupAddress,
@@ -816,6 +844,7 @@ async function publicTracking(type, value) {
       o.order_code AS "orderCode",
       o.customer_name AS "customerName",
       COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, '') AS "whatsappNumber",
+      COALESCE(m.email, '') AS "email",
       o.status,
       o.payment_status AS "paymentStatus",
       o.payment_method AS "paymentMethod",
@@ -895,16 +924,19 @@ async function publicTracking(type, value) {
 async function createReviewClaim(input) {
   await ensureVoucherTables();
   const phone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
-  if (!phone && !input.memberCode) throw new Error('Nomor WhatsApp atau kode member wajib diisi.');
+  const email = String(input.email || '').trim().toLowerCase();
+  if (!phone && !input.memberCode && !email) throw new Error('Nomor WhatsApp, email, atau kode member wajib diisi.');
   const screenshotUrl = String(input.screenshotUrl || '').trim();
   if (!/^\/uploads\/review-[a-zA-Z0-9._-]+$/.test(screenshotUrl)) throw new Error('Screenshot review wajib diupload melalui Prashoes.');
   const localPhone = phone.startsWith('62') ? `0${phone.slice(2)}` : phone;
   const internationalPhone = phone.startsWith('0') ? `62${phone.slice(1)}` : phone;
   const members = await queryRows(`
     SELECT id, member_code FROM members
-    WHERE member_code = $1 OR regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($2,$3,$4)
+    WHERE member_code = $1
+      OR lower(trim(email)) = $2
+      OR regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($3,$4,$5)
     LIMIT 1
-  `, [String(input.memberCode || '').toUpperCase(), phone, localPhone, internationalPhone]);
+  `, [String(input.memberCode || '').toUpperCase(), email, phone, localPhone, internationalPhone]);
   const member = members[0];
   if (!member) throw new Error('Member tidak ditemukan. Daftar member dulu untuk klaim voucher review.');
   const existing = await queryRows('SELECT status FROM review_claims WHERE member_id = $1 LIMIT 1', [member.id]);

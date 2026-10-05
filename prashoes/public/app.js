@@ -552,7 +552,7 @@ function bindTracking() {
               <p>Sudah kasih review 5 bintang di Google Maps? Upload screenshot untuk klaim voucher 20% yang berlaku 7 hari.</p>
               <input type="file" accept="image/*" capture="environment" data-review-screenshot-input>
               <input type="hidden" data-review-screenshot-url>
-              <button class="btn btn-primary" data-submit-review-claim data-customer-name="${escapeHtml(tracking.customerName || '')}" data-whatsapp-number="${escapeHtml(tracking.whatsappNumber || '')}" type="button" disabled>Kirim Klaim Review</button>
+              <button class="btn btn-primary" data-submit-review-claim data-customer-name="${escapeHtml(tracking.customerName || '')}" data-whatsapp-number="${escapeHtml(tracking.whatsappNumber || '')}" data-email="${escapeHtml(tracking.email || '')}" type="button" disabled>Kirim Klaim Review</button>
               <p class="review-claim-msg" data-review-claim-msg></p>
             </div>
           </details>
@@ -708,6 +708,7 @@ function bindTracking() {
             screenshotUrl,
             customerName: reviewButton.dataset.customerName,
             whatsappNumber: reviewButton.dataset.whatsappNumber,
+            email: reviewButton.dataset.email,
           }),
         });
         if (msg) msg.textContent = "Klaim terkirim. Admin akan cek screenshot dan menerbitkan voucher 20%.";
