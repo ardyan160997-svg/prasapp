@@ -371,20 +371,40 @@ button {
   overflow: hidden;
   border: 1px solid rgba(234, 179, 8, 0.2);
   border-radius: var(--radius-2xl);
-  background: linear-gradient(180deg, rgba(39, 39, 42, 0.62), rgba(24, 24, 27, 0.66));
+  background: rgba(24, 24, 27, 0.9);
   padding: 1.25rem;
   backdrop-filter: blur(16px);
   transition: transform 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
 }
 
+.benefit-card:nth-child(1) { --benefit-bg: url("images/jaminan.avif"); }
+.benefit-card:nth-child(2) { --benefit-bg: url("images/garansi.avif"); }
+.benefit-card:nth-child(3) { --benefit-bg: url("images/konsultasi.avif"); }
+.benefit-card:nth-child(4) { --benefit-bg: url("images/estimasi.avif"); }
+
 .benefit-card::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(250, 204, 21, 0.08), transparent 50%);
-  opacity: 0;
-  transition: opacity 250ms ease;
+  background-image: linear-gradient(180deg, rgba(9, 9, 11, 0.36), rgba(9, 9, 11, 0.9)), var(--benefit-bg);
+  background-position: center;
+  background-size: cover;
+  opacity: 0.82;
+  transition: transform 250ms ease, opacity 250ms ease;
   pointer-events: none;
+}
+
+.benefit-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.16), transparent 52%);
+  pointer-events: none;
+}
+
+.benefit-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .benefit-card:hover {
@@ -394,7 +414,8 @@ button {
 }
 
 .benefit-card:hover::before {
-  opacity: 1;
+  opacity: 0.96;
+  transform: scale(1.04);
 }
 
 .benefit-icon-wrapper {
