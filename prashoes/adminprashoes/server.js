@@ -158,12 +158,14 @@ async function ensureChatTables() {
       is_member boolean NOT NULL DEFAULT false,
       status text NOT NULL DEFAULT 'open',
       last_message_at timestamptz NOT NULL DEFAULT now(),
+      last_admin_read_at timestamptz NOT NULL DEFAULT now(),
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       CONSTRAINT chat_threads_status_check CHECK (status IN ('open','closed')),
       CONSTRAINT chat_threads_session_id_key UNIQUE (session_id)
     )
   `);
+  await pool.query(`ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS last_admin_read_at timestamptz`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -360,6 +362,13 @@ async function dashboard() {
     queryRows(`
       SELECT ct.*,
         COALESCE((
+          SELECT count(*)::int
+          FROM chat_messages cm
+          WHERE cm.thread_id = ct.id
+            AND cm.sender_type = 'public'
+            AND (ct.last_admin_read_at IS NULL OR cm.created_at > ct.last_admin_read_at)
+        ), 0) AS unread_count,
+        COALESCE((
           SELECT json_agg(cm ORDER BY cm.created_at ASC)
           FROM chat_messages cm WHERE cm.thread_id = ct.id
         ), '[]'::json) AS messages
@@ -422,6 +431,8 @@ async function dashboard() {
     paymentProofs,
     stats: {
       chatThreads: chats.length,
+      unreadChats: chats.reduce((sum, row) => sum + Number(row.unread_count || 0), 0),
+      unreadChatThreads: chats.filter((row) => Number(row.unread_count || 0) > 0).length,
       openChats: chats.filter((row) => row.status === 'open').length,
       pickupRequests: pickups.length,
       orders: normalizedOrders.length,
@@ -822,6 +833,31 @@ async function updateChatThread(input) {
   const rows = await queryRows('UPDATE chat_threads SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', [input.status, input.threadId]);
   if (!rows.length) throw new Error('Thread chat tidak ditemukan.');
   return rows[0];
+}
+
+async function markChatThreadRead(threadId) {
+  await ensureChatTables();
+  if (!threadId) throw new Error('Thread chat tidak valid.');
+  const rows = await queryRows('UPDATE chat_threads SET last_admin_read_at = now(), updated_at = now() WHERE id = $1 RETURNING *', [threadId]);
+  if (!rows.length) throw new Error('Thread chat tidak ditemukan.');
+  return { ok: true };
+}
+
+async function chatUnreadSummary() {
+  await ensureChatTables();
+  const rows = await queryRows(`
+    SELECT cm.thread_id, count(*)::int AS unread_count
+    FROM chat_messages cm
+    JOIN chat_threads ct ON ct.id = cm.thread_id
+    WHERE cm.sender_type = 'public'
+      AND (ct.last_admin_read_at IS NULL OR cm.created_at > ct.last_admin_read_at)
+    GROUP BY cm.thread_id
+  `);
+  return {
+    unreadChats: rows.reduce((sum, row) => sum + Number(row.unread_count || 0), 0),
+    unreadChatThreads: rows.length,
+    threads: rows,
+  };
 }
 
 async function getChatTemplates() {
@@ -1252,6 +1288,8 @@ async function api(req, res, url) {
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
   if (route === 'pickup-requests' && req.method === 'PATCH') return sendJson(res, await updatePickupRequest(await readJson(req)));
   if (route === 'chat' && req.method === 'POST') return sendJson(res, await createAdminChatReply(await readJson(req)), 201);
+  if (route === 'chat-unread' && req.method === 'GET') return sendJson(res, await chatUnreadSummary());
+  if (route === 'chat-read' && req.method === 'PATCH') return sendJson(res, await markChatThreadRead((await readJson(req)).threadId));
   if (route === 'chat' && req.method === 'PATCH') return sendJson(res, await updateChatThread(await readJson(req)));
   if (route === 'chat-templates' && req.method === 'GET') return sendJson(res, await getChatTemplates());
   if (route === 'chat-templates' && req.method === 'POST') return sendJson(res, await createChatTemplate(await readJson(req)), 201);
