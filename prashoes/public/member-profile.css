@@ -116,19 +116,35 @@ body.member-profile-page {
 }
 
 .member-avatar-wrap {
+  display: grid;
+  gap: 0.45rem;
   width: 5rem;
-  height: 5rem;
-  overflow: hidden;
+  overflow: visible;
   flex: 0 0 auto;
+}
+
+.member-avatar-wrap img {
+  width: 100%;
+  height: 5rem;
+  object-fit: cover;
   border: 2px solid rgba(250, 204, 21, 0.55);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
 }
 
-.member-avatar-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.member-photo-update {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(250, 204, 21, 0.38);
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.12);
+  color: var(--yellow-300);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 900;
+  padding: 0.35rem 0.5rem;
+  text-align: center;
 }
 
 .member-orders-head {

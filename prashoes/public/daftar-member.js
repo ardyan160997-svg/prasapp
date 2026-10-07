@@ -31,7 +31,8 @@ function saveMember(payload, result) {
   localStorage.setItem('prashoes_member_whatsapp', payload.whatsappNumber);
   localStorage.setItem('prashoes_member_email', payload.email || '');
   localStorage.setItem('prashoes_member_address', payload.pickupAddress);
-  localStorage.setItem('prashoes_member_photo', payload.profilePhotoUrl);
+  if (payload.profilePhotoUrl) localStorage.setItem('prashoes_member_photo', payload.profilePhotoUrl);
+  else localStorage.removeItem('prashoes_member_photo');
   localStorage.setItem('prashoes_member_code', result.memberCode || '');
   localStorage.setItem('prashoes_identity_submitted', 'true');
   localStorage.setItem('prashoes_registration_voucher', result.voucher?.code || '');
@@ -57,14 +58,13 @@ form?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const data = new FormData(form);
   const file = photoInput.files?.[0];
-  if (!file) return alert('Foto profil wajib ditambahkan.');
 
   const button = document.getElementById('memberSubmitButton');
   button.disabled = true;
   button.textContent = 'Mendaftarkan...';
 
   try {
-    const uploaded = await uploadProfilePhoto(file);
+    const uploaded = file ? await uploadProfilePhoto(file) : null;
     const payload = {
       fullName: String(data.get('fullName') || '').trim(),
       whatsappNumber: String(data.get('whatsappNumber') || '').trim(),
@@ -72,7 +72,7 @@ form?.addEventListener('submit', async (event) => {
       email: String(data.get('email') || '').trim(),
       marketingConsent: data.get('marketingConsent') === 'on',
       pickupAddress: String(data.get('pickupAddress') || '').trim(),
-      profilePhotoUrl: uploaded.url,
+      profilePhotoUrl: uploaded?.url || '',
     };
     const result = await parseResponse(await fetch(`${API_BASE}/members`, {
       method: 'POST',
@@ -83,7 +83,7 @@ form?.addEventListener('submit', async (event) => {
 
     document.getElementById('memberFormCard').innerHTML = `
       <div class="member-success">
-        <img class="member-success-avatar" src="${ADMIN_BASE}${escapeHtml(uploaded.url)}" alt="Foto profil ${escapeHtml(payload.fullName)}">
+        <img class="member-success-avatar" src="${payload.profilePhotoUrl ? ADMIN_BASE + escapeHtml(payload.profilePhotoUrl) : 'images/icon.avif'}" alt="Foto profil ${escapeHtml(payload.fullName)}">
         <h2>Selamat, ${escapeHtml(payload.fullName)}!</h2>
         <p>Kamu sudah terdaftar sebagai member Prashoes dan mendapat voucher 10% yang berlaku 7 hari.</p>
         <span class="member-code">Member: ${escapeHtml(result.memberCode || 'MEMBER')}</span>

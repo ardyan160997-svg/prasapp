@@ -610,17 +610,17 @@ async function publicGallery() {
 
 async function createPublicMember(input) {
   await ensureVoucherTables();
-  if (!input.fullName || !input.whatsappNumber || !input.email || !input.pickupAddress) throw new Error('Nama, WhatsApp, email, dan alamat pickup wajib diisi.');
+  if (!input.fullName || !input.whatsappNumber) throw new Error('Nama dan WhatsApp wajib diisi.');
   const email = String(input.email || '').trim().toLowerCase();
   const phone = String(input.whatsappNumber || '').replace(/[^0-9]/g, '');
   const localPhone = phone.startsWith('62') ? `0${phone.slice(2)}` : phone;
   const internationalPhone = phone.startsWith('0') ? `62${phone.slice(1)}` : phone;
-  const emailOwner = await queryRows(`
+  const emailOwner = email ? await queryRows(`
     SELECT id, whatsapp_number FROM members
     WHERE lower(trim(email)) = $1
       AND regexp_replace(whatsapp_number, '[^0-9]', '', 'g') <> ALL($2::text[])
     LIMIT 1
-  `, [email, [phone, localPhone, internationalPhone].filter(Boolean)]);
+  `, [email, [phone, localPhone, internationalPhone].filter(Boolean)]) : [];
   if (emailOwner.length) throw new Error('Email sudah terdaftar sebagai member. Satu email hanya bisa mendapatkan voucher/discount satu kali.');
   const memberCode = 'MBR-' + crypto.randomBytes(3).toString('hex').toUpperCase();
   const client = await pool.connect();
@@ -631,10 +631,10 @@ async function createPublicMember(input) {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       ON CONFLICT (whatsapp_number) DO UPDATE SET
         full_name = EXCLUDED.full_name,
-        email = EXCLUDED.email,
-        birth_date = EXCLUDED.birth_date,
-        profile_photo_url = EXCLUDED.profile_photo_url,
-        pickup_address = EXCLUDED.pickup_address,
+        email = COALESCE(NULLIF(EXCLUDED.email, ''), members.email),
+        birth_date = COALESCE(EXCLUDED.birth_date, members.birth_date),
+        profile_photo_url = COALESCE(NULLIF(EXCLUDED.profile_photo_url, ''), members.profile_photo_url),
+        pickup_address = COALESCE(NULLIF(EXCLUDED.pickup_address, ''), members.pickup_address),
         pickup_latitude = EXCLUDED.pickup_latitude,
         pickup_longitude = EXCLUDED.pickup_longitude,
         pickup_share_url = EXCLUDED.pickup_share_url,
@@ -647,7 +647,7 @@ async function createPublicMember(input) {
       email,
       input.birthDate || null,
       input.profilePhotoUrl || '',
-      input.pickupAddress,
+      input.pickupAddress || '',
       input.pickupLatitude || null,
       input.pickupLongitude || null,
       input.pickupShareUrl || '',
@@ -1230,6 +1230,15 @@ async function api(req, res, url) {
       ORDER BY o.created_at DESC
     `, [memberId]);
     return sendJson(res, { member, orders });
+  }
+  if (route === 'member-profile-photo' && req.method === 'PATCH') {
+    const memberData = isMemberAuthed(req);
+    if (!memberData) return sendJson(res, { error: 'Unauthorized.' }, 401);
+    const body = await readJson(req);
+    const profilePhotoUrl = String(body.profilePhotoUrl || '').trim();
+    if (profilePhotoUrl && !profilePhotoUrl.startsWith('/uploads/')) return sendJson(res, { error: 'URL foto profil tidak valid.' }, 400);
+    await pool.query('UPDATE members SET profile_photo_url = $1 WHERE id = $2', [profilePhotoUrl, memberData.memberId]);
+    return sendJson(res, { ok: true, profilePhotoUrl });
   }
   if (route === 'member-logout' && req.method === 'POST') {
     return sendJson(res, { ok: true });

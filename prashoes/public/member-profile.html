@@ -7,7 +7,7 @@
   <meta name="description" content="Login profil member Prashoes untuk melihat order berjalan dan upload bukti pembayaran QRIS.">
   <link rel="icon" href="images/icon.avif" type="image/avif">
   <link rel="stylesheet" href="styles.css?v=member-profile-2">
-  <link rel="stylesheet" href="member-profile.css?v=member-profile-2">
+  <link rel="stylesheet" href="member-profile.css?v=member-profile-3">
 </head>
 <body class="member-profile-page">
   <header class="member-profile-header">
@@ -43,6 +43,8 @@
       <div class="member-dashboard-head">
         <div class="member-avatar-wrap">
           <img id="memberAvatar" src="images/icon.avif" alt="Profil member">
+          <label class="member-photo-update" for="memberPhotoInput">Update Foto</label>
+          <input id="memberPhotoInput" type="file" accept="image/*" capture="environment" hidden>
         </div>
         <div>
           <span class="badge"><span class="badge-dot" aria-hidden="true"></span>Member Aktif</span>
@@ -51,6 +53,7 @@
         </div>
         <button class="btn btn-secondary" id="logoutButton" type="button">Logout</button>
       </div>
+      <p class="profile-message" id="photoUpdateMessage"></p>
 
       <div class="member-orders-head">
         <div>
@@ -63,6 +66,6 @@
     </section>
   </main>
 
-  <script src="member-profile.js?v=member-profile-4"></script>
+  <script src="member-profile.js?v=member-profile-5"></script>
 </body>
 </html>

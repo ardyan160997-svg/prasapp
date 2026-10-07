@@ -9,6 +9,8 @@ const loginForm = document.getElementById('memberLoginForm');
 const loginButton = document.getElementById('loginButton');
 const loginMessage = document.getElementById('loginMessage');
 const ordersRoot = document.getElementById('memberOrders');
+const photoInput = document.getElementById('memberPhotoInput');
+const photoUpdateMessage = document.getElementById('photoUpdateMessage');
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -56,6 +58,12 @@ async function publicApi(path, options = {}) {
       ...(options.headers || {}),
     },
   }));
+}
+
+async function uploadMemberPhoto(file) {
+  const body = new FormData();
+  body.append('photo', file);
+  return publicApi('/member-photo', { method: 'POST', body });
 }
 
 function storedMemberLoginPayload() {
@@ -238,6 +246,33 @@ ordersRoot?.addEventListener('click', async (event) => {
   } catch (error) {
     submit.disabled = false;
     message.textContent = error.message || 'Gagal mengirim bukti.';
+  }
+});
+
+photoInput?.addEventListener('change', async () => {
+  const file = photoInput.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    photoUpdateMessage.textContent = 'File harus berupa gambar.';
+    photoInput.value = '';
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    photoUpdateMessage.textContent = 'Ukuran foto maksimal 8 MB.';
+    photoInput.value = '';
+    return;
+  }
+  photoUpdateMessage.textContent = 'Mengupload foto profil...';
+  try {
+    const uploaded = await uploadMemberPhoto(file);
+    await api('/member-profile-photo', { method: 'PATCH', body: JSON.stringify({ profilePhotoUrl: uploaded.url || '' }) });
+    localStorage.setItem('prashoes_member_photo', uploaded.url || '');
+    document.getElementById('memberAvatar').src = photoUrl(uploaded.url);
+    photoUpdateMessage.textContent = 'Foto profil berhasil diupdate.';
+  } catch (error) {
+    photoUpdateMessage.textContent = error.message || 'Update foto gagal.';
+  } finally {
+    photoInput.value = '';
   }
 });
 

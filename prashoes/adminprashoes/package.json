@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "rm -rf dist && mkdir -p dist && cp index.html styles.css app.js dist/ && cp -R images dist/",
+    "build": "rm -rf dist && mkdir -p dist && cp index.html styles.css order-accordion.css app.js dist/ && cp -R images dist/",
     "check": "node --check app.js && node --check server.js && node --check scripts/import-data.js"
   },
   "dependencies": {

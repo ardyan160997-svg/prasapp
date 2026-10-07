@@ -6,7 +6,8 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=payment-proof-1">
+  <link rel="stylesheet" href="styles.css?v=payment-proof-2">
+  <link rel="stylesheet" href="order-accordion.css?v=order-accordion-1">
 </head>
 <body>
   <main class="app-shell">
@@ -92,32 +93,35 @@
 
         <section class="section" id="ordersSection" data-section-panel="orders">
           <div class="split-layout">
-            <article class="panel form-panel">
-              <div class="panel-header compact">
-                <div>
-                  <p class="eyebrow">Input Order</p>
-                  <h2>Catat Sepatu Masuk</h2>
-                </div>
-              </div>
-              <form id="orderForm" class="stack-form">
-                <label>Nama Customer
-                  <div class="inline-field">
-                    <input name="customerName" required placeholder="Nama customer" list="memberNameList" autocomplete="off">
-                    <button type="button" class="ghost-btn" id="checkMemberBtn">Cek Member</button>
+            <article class="panel form-panel order-input-accordion">
+              <details id="orderInputAccordion">
+                <summary class="accordion-summary">
+                  <span>
+                    <span class="eyebrow">Input Order</span>
+                    <strong>Catat Sepatu Masuk</strong>
+                  </span>
+                  <span class="accordion-toggle" aria-hidden="true">+</span>
+                </summary>
+                <form id="orderForm" class="stack-form accordion-body">
+                  <label>Nama Customer
+                    <div class="inline-field">
+                      <input name="customerName" required placeholder="Nama customer" list="memberNameList" autocomplete="off">
+                      <button type="button" class="ghost-btn" id="checkMemberBtn">Cek Member</button>
+                    </div>
+                  </label>
+                  <datalist id="memberNameList"></datalist>
+                  <p class="form-message" id="memberCheckMessage"></p>
+                  <div class="field-grid two">
+                    <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
+                    <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
+                    <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
+                    <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
+                    <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
                   </div>
-                </label>
-                <datalist id="memberNameList"></datalist>
-                <p class="form-message" id="memberCheckMessage"></p>
-                <div class="field-grid two">
-                  <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
-                  <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
-                  <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
-                  <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
-                  <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
-                </div>
-                <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
-                <p class="form-message" id="orderMessage"></p>
-              </form>
+                  <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
+                  <p class="form-message" id="orderMessage"></p>
+                </form>
+              </details>
             </article>
 
             <article class="panel wide-panel">

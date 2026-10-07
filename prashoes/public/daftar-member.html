@@ -8,7 +8,7 @@
   <link rel="icon" type="image/avif" href="images/icon.avif">
   <link rel="apple-touch-icon" href="images/icon.avif">
   <link rel="stylesheet" href="styles.css?v=member-register-3">
-  <link rel="stylesheet" href="daftar-member.css?v=member-register-3">
+  <link rel="stylesheet" href="daftar-member.css?v=member-register-4">
 </head>
 <body class="member-page">
   <header class="header" role="banner">
@@ -36,7 +36,7 @@
       <div class="member-form-card" id="memberFormCard">
         <form id="memberRegistrationForm" class="member-form">
           <div class="profile-field">
-            <label for="profilePhoto" class="profile-preview" id="profilePreview" aria-label="Tambah foto profil">
+            <label for="profilePhoto" class="profile-preview" id="profilePreview" aria-label="Tambah foto profil opsional">
               <span id="profilePreviewText" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <path d="M4 7.5h3l1.4-2h7.2l1.4 2h3a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9.5a2 2 0 0 1 2-2Z"></path>
@@ -44,7 +44,8 @@
                 </svg>
               </span>
             </label>
-            <input id="profilePhoto" name="profilePhoto" type="file" accept="image/*" capture="environment" required>
+            <input id="profilePhoto" name="profilePhoto" type="file" accept="image/*" capture="environment">
+            <small>Foto profil opsional dan bisa ditambahkan atau diganti nanti dari halaman profil.</small>
           </div>
 
           <div class="form-group">
@@ -63,14 +64,14 @@
               <input id="memberBirthDate" name="birthDate" class="form-input" type="date">
             </div>
             <div class="form-group">
-              <label for="memberEmail" class="form-label">Email</label>
-              <input id="memberEmail" name="email" class="form-input" type="email" autocomplete="email" placeholder="nama@email.com" required>
+              <label for="memberEmail" class="form-label">Email <span>(Opsional)</span></label>
+              <input id="memberEmail" name="email" class="form-input" type="email" autocomplete="email" placeholder="nama@email.com">
             </div>
           </div>
 
           <div class="form-group">
-            <label for="memberAddress" class="form-label">Alamat Lengkap</label>
-            <textarea id="memberAddress" name="pickupAddress" class="form-textarea" rows="4" autocomplete="street-address" placeholder="Alamat untuk penjemputan sepatu" required></textarea>
+            <label for="memberAddress" class="form-label">Alamat Lengkap <span>(Opsional)</span></label>
+            <textarea id="memberAddress" name="pickupAddress" class="form-textarea" rows="4" autocomplete="street-address" placeholder="Alamat untuk penjemputan sepatu"></textarea>
           </div>
 
           <label class="marketing-consent">
@@ -85,6 +86,6 @@
     </section>
   </main>
 
-  <script src="daftar-member.js?v=voucher-member-1"></script>
+  <script src="daftar-member.js?v=member-register-4"></script>
 </body>
 </html>
