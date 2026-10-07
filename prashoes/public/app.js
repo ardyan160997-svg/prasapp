@@ -127,6 +127,16 @@ function getMemberInfoFromStorage() {
   };
 }
 
+function updateMemberProfileBadge() {
+  const badge = document.getElementById("memberProfileBadge");
+  const label = badge?.querySelector("[data-member-label]");
+  if (!badge || !label) return;
+  const member = getMemberInfoFromStorage();
+  const name = String(member.fullName || "").trim();
+  label.textContent = member.isMember && name ? name.split(/\s+/).slice(0, 2).join(" ") : "Login";
+  badge.classList.toggle("is-member", Boolean(member.isMember && name));
+}
+
 function getChatIdentity() {
   const stored = getMemberInfoFromStorage();
   return {
@@ -1025,6 +1035,7 @@ async function init() {
   renderPromos();
   renderPickupForm();
   renderChatWidget();
+  updateMemberProfileBadge();
   bindTracking();
   bindMobileMenu();
   bindHeaderLogoVisibility();

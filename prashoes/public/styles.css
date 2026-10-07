@@ -205,6 +205,43 @@ button {
   font-size: 0.875rem;
 }
 
+.member-login-badge {
+  position: fixed;
+  top: 4.85rem;
+  right: 0.85rem;
+  z-index: 55;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--yellow-400);
+  color: var(--black);
+  font-size: 0.88rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.68rem 0.9rem;
+  box-shadow: 0 14px 34px rgba(250, 204, 21, 0.24);
+}
+
+.member-login-badge img {
+  width: 1.12rem;
+  height: 1.12rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.member-login-badge.is-member {
+  max-width: min(52vw, 220px);
+}
+
+.member-login-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mobile-menu-btn {
   display: inline-flex;
   align-items: center;
@@ -1700,6 +1737,11 @@ button {
 
   .header-cta {
     display: inline-flex;
+  }
+
+  .member-login-badge {
+    position: static;
+    flex: 0 0 auto;
   }
 
   .mobile-menu-btn {

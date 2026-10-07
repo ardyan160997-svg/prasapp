@@ -50,9 +50,34 @@ function safeEqual(left, right) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+function memberToken(memberId) {
+  const payload = Buffer.from(JSON.stringify({ memberId, expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 })).toString('base64url');
+  const signature = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifyMemberToken(token) {
+  try {
+    const [payload, signature] = String(token || '').split('.');
+    if (!payload || !signature || !ADMIN_SECRET) return null;
+    const expected = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('base64url');
+    if (!safeEqual(signature, expected)) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!data.memberId || Number(data.expiresAt || 0) < Date.now()) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 function isAuthed(req) {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   return Boolean(ADMIN_PASSWORD && ADMIN_SECRET && token && safeEqual(token, tokenFor(ADMIN_PASSWORD)));
+}
+
+function isMemberAuthed(req) {
+  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  return verifyMemberToken(token);
 }
 
 async function readJson(req) {
@@ -1145,6 +1170,58 @@ async function api(req, res, url) {
     if (!ADMIN_PASSWORD || !ADMIN_SECRET) return sendJson(res, { error: 'Admin secret belum dikonfigurasi.' }, 500);
     if (!safeEqual(body.password, ADMIN_PASSWORD)) return sendJson(res, { error: 'Password admin salah.' }, 401);
     return sendJson(res, { token: tokenFor(ADMIN_PASSWORD) });
+  }
+  if (route === 'member-login' && req.method === 'POST') {
+    const body = await readJson(req);
+    const whatsapp = String(body.whatsappNumber || '').replace(/[^0-9]/g, '');
+    const localPhone = whatsapp.startsWith('62') ? `0${whatsapp.slice(2)}` : whatsapp;
+    const internationalPhone = whatsapp.startsWith('0') ? `62${whatsapp.slice(1)}` : whatsapp;
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!email || !whatsapp) return sendJson(res, { error: 'Email dan nomor WhatsApp wajib diisi.' }, 400);
+    const memberCode = String(body.memberCode || '').trim().toUpperCase();
+    const memberRows = await queryRows(`
+      SELECT id, member_code, full_name, whatsapp_number, email
+      FROM members
+      WHERE lower(trim(email)) = $1
+        AND regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($2,$3,$4)
+        AND ($5 = '' OR member_code = $5)
+      LIMIT 1
+    `, [email, whatsapp, localPhone, internationalPhone, memberCode]);
+    const member = memberRows[0];
+    if (!member) return sendJson(res, { error: 'Member tidak ditemukan.' }, 404);
+    const token = memberToken(member.id);
+    return sendJson(res, { token, memberCode: member.member_code, fullName: member.full_name, whatsappNumber: member.whatsapp_number, email: member.email });
+  }
+  if (route === 'member-profile' && req.method === 'GET') {
+    const memberData = isMemberAuthed(req);
+    if (!memberData) return sendJson(res, { error: 'Unauthorized.' }, 401);
+    const memberId = memberData.memberId;
+    const memberRows = await queryRows(`
+      SELECT id, member_code, full_name, whatsapp_number, email, profile_photo_url, pickup_address, birth_date, marketing_consent
+      FROM members WHERE id = $1
+    `, [memberId]);
+    const member = memberRows[0];
+    if (!member) return sendJson(res, { error: 'Member tidak ditemukan.' }, 404);
+    const orders = await queryRows(`
+      SELECT o.id, o.order_code, o.customer_name, o.whatsapp_number, o.status, o.payment_status, o.payment_method, o.revenue_amount, o.paid_at, o.payment_proof_url,
+             json_agg(json_build_object('id', oi.id, 'service_name', oi.service_name, 'shoe_description', oi.shoe_description, 'quantity', oi.quantity, 'unit_price', oi.unit_price, 'treatment_price', oi.treatment_price)) AS items,
+             (
+               SELECT json_build_object('proof_url', pp.proof_url, 'status', pp.status, 'method', pp.method, 'admin_note', pp.admin_note, 'created_at', pp.created_at, 'reviewed_at', pp.reviewed_at)
+               FROM payment_proofs pp
+               WHERE pp.order_id = o.id
+               ORDER BY pp.created_at DESC
+               LIMIT 1
+             ) AS "paymentProof"
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.member_id = $1 AND o.status <> 'Selesai'
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `, [memberId]);
+    return sendJson(res, { member, orders });
+  }
+  if (route === 'member-logout' && req.method === 'POST') {
+    return sendJson(res, { ok: true });
   }
   if (route === 'public') return publicApi(req, res, url, parts);
   if (!isAuthed(req)) return sendJson(res, { error: 'Unauthorized.' }, 401);
