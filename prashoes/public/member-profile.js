@@ -66,11 +66,12 @@ function storedMemberLoginPayload() {
 
 async function loginWithPayload(payload) {
   const result = await api('/member-login', { method: 'POST', body: JSON.stringify(payload) });
-  saveMember(result.member, result.token);
+  saveMember(result.member || result, result.token);
   renderProfile(await api('/member-profile'));
 }
 
 function saveMember(member, token) {
+  member = member || {};
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem('prashoes_is_member', 'true');
   localStorage.setItem('prashoes_member_name', member.fullName || member.full_name || 'Member');

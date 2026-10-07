@@ -1188,7 +1188,19 @@ async function api(req, res, url) {
     const member = memberRows[0];
     if (!member) return sendJson(res, { error: 'Member tidak ditemukan.' }, 404);
     const token = memberToken(member.id);
-    return sendJson(res, { token, memberCode: member.member_code, fullName: member.full_name, whatsappNumber: member.whatsapp_number, email: member.email });
+    return sendJson(res, {
+      token,
+      member: {
+        memberCode: member.member_code,
+        fullName: member.full_name,
+        whatsappNumber: member.whatsapp_number,
+        email: member.email,
+      },
+      memberCode: member.member_code,
+      fullName: member.full_name,
+      whatsappNumber: member.whatsapp_number,
+      email: member.email,
+    });
   }
   if (route === 'member-profile' && req.method === 'GET') {
     const memberData = isMemberAuthed(req);
