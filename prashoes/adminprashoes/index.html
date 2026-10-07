@@ -20,6 +20,7 @@
       <nav class="side-nav" aria-label="Navigasi Admin">
         <a href="#dashboard" class="nav-item active" data-section="dashboard">Dashboard</a>
         <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
+        <a href="#order-history" class="nav-item" data-section="order-history">Riwayat Pesanan</a>
         <a href="#tracking" class="nav-item" data-section="tracking">Tracking Proses</a>
         <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
         <a href="#chats" class="nav-item nav-item-with-badge" data-section="chats">Chat User <span class="nav-unread-badge hidden" id="chatNavBadge">0</span></a>
@@ -134,6 +135,20 @@
               <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
             </article>
           </div>
+        </section>
+
+        <section class="section" id="orderHistorySection" data-section-panel="order-history">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Riwayat Pesanan</p>
+                <h2>Pesanan Terbayar</h2>
+                <p class="muted">Order yang sudah lunas dipindahkan ke sini agar Sepatu Masuk fokus pada pekerjaan aktif.</p>
+              </div>
+              <span class="pill" id="orderHistoryCountPill">0 terbayar</span>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="orderHistoryBody"></tbody></table></div>
+          </article>
         </section>
 
         <section class="section" id="trackingSection" data-section-panel="tracking">
@@ -299,6 +314,6 @@
     </article>
   </div>
 
-  <script src="app.js?v=chat-unread-1"></script>
+  <script src="app.js?v=order-history-1"></script>
 </body>
 </html>
