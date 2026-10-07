@@ -771,6 +771,28 @@ body.menu-open .member-login-badge {
   line-height: 1.6;
 }
 
+.payment-total-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(250, 204, 21, 0.22);
+  border-radius: var(--radius-xl);
+  background: rgba(250, 204, 21, 0.08);
+  padding: 0.85rem 1rem;
+}
+
+.payment-total-box span {
+  color: var(--zinc-400);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.payment-total-box strong {
+  color: var(--yellow-400);
+  font-size: 1.15rem;
+}
+
 .payment-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

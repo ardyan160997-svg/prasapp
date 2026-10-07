@@ -573,6 +573,7 @@ function bindTracking() {
           const stageLabel = { received: "Sepatu diterima", drying: "Setelah cuci / pengeringan", ready: "Siap diambil" };
           return `<div class="tracking-item-result"><span class="tracking-item-number">${index + 1}</span><div><strong>${escapeHtml(parts.join(" • ") || "Sepatu")}</strong><p>Status item: ${escapeHtml(item.itemStatus || "-")}${item.notes ? ` • ${escapeHtml(item.notes)}` : ""}</p>${warrantyBlock(tracking, item)}${photos.length ? `<div class="tracking-photo-grid">${photos.map((photo) => `<figure class="tracking-photo-card"><img src="${escapeHtml(photoUrl(photo.imageUrl))}" alt="${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}" loading="lazy"><figcaption>${escapeHtml(stageLabel[photo.photoType] || photo.caption || "Progress sepatu")}</figcaption></figure>`).join("")}</div>` : ""}</div></div>`;
         }).join("")}</div>` : "";
+        const paymentAmount = Number(tracking.revenueAmount || 0);
         const isPaid = tracking.paymentStatus === "terbayar";
         const proof = tracking.paymentProof || null;
         const paymentName = `payment-${escapeHtml(tracking.orderCode || tracking.customerName || 'order')}`;
@@ -596,6 +597,10 @@ function bindTracking() {
                 <strong>Konfirmasi Pembayaran</strong>
                 <p>Pilih metode pembayaran. Untuk QRIS, scan atau download gambar QRIS.</p>
               </div>
+            </div>
+            <div class="payment-total-box">
+              <span>Total nominal pembayaran</span>
+              <strong>${escapeHtml(rupiah(paymentAmount))}</strong>
             </div>
             <div class="payment-toggle" role="radiogroup" aria-label="Pilihan pembayaran">
               <label>
