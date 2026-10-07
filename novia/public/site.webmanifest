@@ -1,0 +1,17 @@
+{
+  "name": "novia adriyani",
+  "short_name": "novia",
+  "description": "Aplikasi pertanyaan pdkt buat kamu 💕",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff0f5",
+  "theme_color": "#ec4899",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

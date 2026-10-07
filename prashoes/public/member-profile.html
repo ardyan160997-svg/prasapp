@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profil Member Prashoes</title>
+  <meta name="description" content="Login profil member Prashoes untuk melihat order berjalan dan upload bukti pembayaran QRIS.">
+  <link rel="icon" href="images/icon.avif" type="image/avif">
+  <link rel="stylesheet" href="styles.css?v=member-profile-2">
+  <link rel="stylesheet" href="member-profile.css?v=member-profile-3">
+</head>
+<body class="member-profile-page">
+  <header class="member-profile-header">
+    <a href="index.html" class="profile-back" aria-label="Kembali ke Prashoes">
+      <img src="images/logo-iconnav.avif" alt="Prashoes">
+    </a>
+    <a class="btn btn-secondary" href="daftar-member.html">Daftar Member Baru</a>
+  </header>
+
+  <main class="member-profile-shell">
+    <section class="member-login-card" id="loginCard">
+      <span class="badge"><span class="badge-dot" aria-hidden="true"></span>Profil Member</span>
+      <h1>Login Profil Member</h1>
+      <p>Masuk dengan email atau nama lengkap, lalu cocokkan dengan nomor WhatsApp yang terdaftar.</p>
+      <form id="memberLoginForm" class="member-login-form">
+        <label>Email atau Nama Lengkap
+          <input type="text" name="emailOrName" placeholder="nama@email.com atau nama lengkap" autocomplete="username" required>
+        </label>
+        <label>Nomor WhatsApp
+          <input type="tel" name="whatsappNumber" placeholder="08xxxxxxxxxx" autocomplete="tel" required>
+        </label>
+        <button class="btn btn-primary btn-full" type="submit" id="loginButton">Login</button>
+      </form>
+      <p class="profile-message" id="loginMessage"></p>
+      <div class="member-register-note">
+        <strong>Belum punya akun profil?</strong>
+        <span>Daftar member dulu untuk membuat profil dan dapat voucher registrasi.</span>
+        <a class="btn btn-secondary btn-full" href="daftar-member.html">Daftar Member Baru</a>
+      </div>
+    </section>
+
+    <section class="member-dashboard hidden" id="memberDashboard">
+      <div class="member-dashboard-head">
+        <div class="member-avatar-wrap">
+          <img id="memberAvatar" src="images/icon.avif" alt="Profil member">
+          <label class="member-photo-update" for="memberPhotoInput">Update Foto</label>
+          <input id="memberPhotoInput" type="file" accept="image/*" capture="environment" hidden>
+        </div>
+        <div>
+          <span class="badge"><span class="badge-dot" aria-hidden="true"></span>Member Aktif</span>
+          <h1 id="memberName">Member Prashoes</h1>
+          <p id="memberMeta">-</p>
+        </div>
+        <button class="btn btn-secondary" id="logoutButton" type="button">Logout</button>
+      </div>
+      <p class="profile-message" id="photoUpdateMessage"></p>
+
+      <div class="member-orders-head">
+        <div>
+          <h2>Order Berjalan</h2>
+          <p>Order yang belum selesai. Upload bukti QRIS dari sini bila sudah transfer.</p>
+        </div>
+        <a class="btn btn-primary" href="index.html#antar-jemput">Buat Order Baru</a>
+      </div>
+      <div class="member-orders" id="memberOrders"></div>
+    </section>
+  </main>
+
+  <script src="member-profile.js?v=member-profile-5"></script>
+</body>
+</html>

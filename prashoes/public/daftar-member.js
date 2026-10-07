@@ -1,0 +1,100 @@
+const ADMIN_BASE = 'https://adminprashoes.prasapp.com';
+const API_BASE = `${ADMIN_BASE}/api/public`;
+const form = document.getElementById('memberRegistrationForm');
+const photoInput = document.getElementById('profilePhoto');
+const previewText = document.getElementById('profilePreviewText');
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+async function parseResponse(response) {
+  const json = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(json?.error || 'Request gagal.');
+  return json;
+}
+
+async function uploadProfilePhoto(file) {
+  const body = new FormData();
+  body.append('photo', file);
+  return parseResponse(await fetch(`${API_BASE}/member-photo`, { method: 'POST', body }));
+}
+
+function saveMember(payload, result) {
+  localStorage.setItem('prashoes_is_member', 'true');
+  localStorage.setItem('prashoes_member_name', payload.fullName);
+  localStorage.setItem('prashoes_member_whatsapp', payload.whatsappNumber);
+  localStorage.setItem('prashoes_member_email', payload.email || '');
+  localStorage.setItem('prashoes_member_address', payload.pickupAddress);
+  if (payload.profilePhotoUrl) localStorage.setItem('prashoes_member_photo', payload.profilePhotoUrl);
+  else localStorage.removeItem('prashoes_member_photo');
+  localStorage.setItem('prashoes_member_code', result.memberCode || '');
+  localStorage.setItem('prashoes_identity_submitted', 'true');
+  localStorage.setItem('prashoes_registration_voucher', result.voucher?.code || '');
+}
+
+photoInput?.addEventListener('change', () => {
+  const file = photoInput.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('File harus berupa gambar.');
+    photoInput.value = '';
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    alert('Ukuran foto maksimal 8 MB.');
+    photoInput.value = '';
+    return;
+  }
+  previewText?.classList.add('has-photo');
+});
+
+form?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const data = new FormData(form);
+  const file = photoInput.files?.[0];
+
+  const button = document.getElementById('memberSubmitButton');
+  button.disabled = true;
+  button.textContent = 'Mendaftarkan...';
+
+  try {
+    const uploaded = file ? await uploadProfilePhoto(file) : null;
+    const payload = {
+      fullName: String(data.get('fullName') || '').trim(),
+      whatsappNumber: String(data.get('whatsappNumber') || '').trim(),
+      birthDate: String(data.get('birthDate') || ''),
+      email: String(data.get('email') || '').trim(),
+      marketingConsent: data.get('marketingConsent') === 'on',
+      pickupAddress: String(data.get('pickupAddress') || '').trim(),
+      profilePhotoUrl: uploaded?.url || '',
+    };
+    const result = await parseResponse(await fetch(`${API_BASE}/members`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }));
+    saveMember(payload, result);
+
+    document.getElementById('memberFormCard').innerHTML = `
+      <div class="member-success">
+        <img class="member-success-avatar" src="${payload.profilePhotoUrl ? ADMIN_BASE + escapeHtml(payload.profilePhotoUrl) : 'images/icon.avif'}" alt="Foto profil ${escapeHtml(payload.fullName)}">
+        <h2>Selamat, ${escapeHtml(payload.fullName)}!</h2>
+        <p>Kamu sudah terdaftar sebagai member Prashoes dan mendapat voucher 10% yang berlaku 7 hari.</p>
+        <span class="member-code">Member: ${escapeHtml(result.memberCode || 'MEMBER')}</span>
+        <span class="member-code">Voucher: ${escapeHtml(result.voucher?.code || '-')}</span>
+        <p>Berlaku sampai ${result.voucher?.expires_at ? new Date(result.voucher.expires_at).toLocaleDateString('id-ID') : '-'}</p>
+        <a href="index.html#antar-jemput" class="btn btn-primary btn-full">Lanjut Antar Jemput</a>
+      </div>
+    `;
+  } catch (error) {
+    alert(error.message || 'Pendaftaran member gagal.');
+    button.disabled = false;
+    button.textContent = 'Daftar Member';
+  }
+});

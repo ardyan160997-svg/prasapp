@@ -1699,3 +1699,114 @@ ada pada server `localhost` yang masih memakai `IP Address/Domain` = `host.docke
 sehingga validasi server gagal. Langkah berikutnya adalah mengubah host server ke
 `178.83.188.207`, memvalidasi server, lalu membuat PostgreSQL service untuk `prastation`
 sebelum menjalankan migration dan seed.
+
+---
+
+## TASK-019 — Konversi project Prashoes ke dua aplikasi HTML
+
+- Status: completed
+- Requested route: auto
+- Selected combo: webdev-build
+- Priority: high
+- Risk: high
+- Dependencies: Admin Prashoes VPS API
+
+### Objective
+
+Mengganti project `prashoes` berbasis Next.js menjadi dua folder HTML/CSS/JS terpisah:
+public website dan dashboard admin.
+
+### Scope
+
+- `prashoes/public/` untuk `prashoes.prasapp.com`.
+- `prashoes/adminprashoes/` untuk `adminprashoes.prasapp.com`.
+- Root build/check scripts dan dokumentasi struktur deploy.
+- Penghapusan source/config/dependency Next.js dari project `prashoes`.
+
+### Requirements
+
+- Public site tetap memakai desain live static Prashoes.
+- Public pickup, tracking, layanan, promo, benefit, dan gallery memakai API VPS admin.
+- Admin UI tetap memakai PostgreSQL VPS melalui server-side Node API.
+- Tidak ada credential atau connection string di client/source.
+
+### Validation
+
+- `npm run check` berhasil.
+- `npm run build` menghasilkan `dist/public/` dan `dist/adminprashoes/`.
+- Ad-hoc verifier memastikan source Next.js hilang dan integrasi API VPS tetap ada.
+
+### Result
+
+Selesai. Project `prashoes` sekarang static HTML/CSS/JS dengan folder `public/` dan
+`adminprashoes/`. Source Next.js, React, Supabase migration, dan config framework sudah
+dihapus dari project tersebut. Public site menggunakan API public Admin Prashoes VPS,
+sedangkan admin menyimpan data melalui Node/PostgreSQL API server-side.
+
+---
+
+## TASK-020 — Kecilkan floating chat Prashoes
+
+- Status: completed
+- Requested route: auto
+- Selected combo: quick-edit
+- Priority: low
+- Risk: low
+- Dependencies: TASK-019
+
+### Objective
+
+Mengecilkan tombol floating chat agar lebih ringkas, tetap rata kanan, dan nyaman dilihat.
+
+### Scope
+
+- `prashoes/public/styles.css`
+- `prashoes/public/index.html`
+
+### Validation
+
+- `npm run check` berhasil.
+- `npm run build:public` berhasil.
+- Ad-hoc verifier memastikan tombol, ikon, posisi kanan, cache bust source, dan artifact dist sesuai.
+
+### Result
+
+Selesai. Tombol floating chat tetap menampilkan ikon dan teks `Chat`. Panel/kotak chat saat dibuka dibuat rata kanan dengan lebar maksimum 380px agar tidak melebar full satu halaman. Perubahan sudah dideploy ke Cloudflare Pages.
+
+---
+
+## TASK-021 — Tambah profil member Prashoes
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-019
+
+### Objective
+
+Menambahkan halaman profil member untuk login, melihat order berjalan, upload bukti pembayaran QRIS, dan membuka profil dari dashboard public.
+
+### Scope
+
+- `prashoes/adminprashoes/server.js`
+- `prashoes/public/index.html`
+- `prashoes/public/app.js`
+- `prashoes/public/styles.css`
+- `prashoes/public/member-profile.html`
+- `prashoes/public/member-profile.js`
+- `prashoes/public/member-profile.css`
+- `prashoes/public/images/icon.avif`
+
+### Validation
+
+- `npm run check` berhasil.
+- `node --check public/member-profile.js` berhasil.
+- `npm run build:public` berhasil.
+- `npm run build:admin` berhasil.
+- Ad-hoc verifier memastikan API login/profile, active orders, QRIS payment proof, dashboard badge, icon, cache-bust, dan dist artifact sesuai.
+
+### Result
+
+Selesai. Halaman `member-profile.html` sudah tersedia dengan login email + WhatsApp, CTA daftar member baru, daftar order berjalan, upload bukti QRIS, download nota, dan dashboard badge `Login` yang berubah menjadi nama member setelah login. Public site dan Admin API sudah dideploy.
