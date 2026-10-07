@@ -1772,3 +1772,41 @@ Mengecilkan tombol floating chat agar lebih ringkas, tetap rata kanan, dan nyama
 ### Result
 
 Selesai. Tombol floating chat tetap menampilkan ikon dan teks `Chat`. Panel/kotak chat saat dibuka dibuat rata kanan dengan lebar maksimum 380px agar tidak melebar full satu halaman. Perubahan sudah dideploy ke Cloudflare Pages.
+
+---
+
+## TASK-021 — Tambah profil member Prashoes
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-019
+
+### Objective
+
+Menambahkan halaman profil member untuk login, melihat order berjalan, upload bukti pembayaran QRIS, dan membuka profil dari dashboard public.
+
+### Scope
+
+- `prashoes/adminprashoes/server.js`
+- `prashoes/public/index.html`
+- `prashoes/public/app.js`
+- `prashoes/public/styles.css`
+- `prashoes/public/member-profile.html`
+- `prashoes/public/member-profile.js`
+- `prashoes/public/member-profile.css`
+- `prashoes/public/images/icon.avif`
+
+### Validation
+
+- `npm run check` berhasil.
+- `node --check public/member-profile.js` berhasil.
+- `npm run build:public` berhasil.
+- `npm run build:admin` berhasil.
+- Ad-hoc verifier memastikan API login/profile, active orders, QRIS payment proof, dashboard badge, icon, cache-bust, dan dist artifact sesuai.
+
+### Result
+
+Selesai. Halaman `member-profile.html` sudah tersedia dengan login email + WhatsApp, CTA daftar member baru, daftar order berjalan, upload bukti QRIS, download nota, dan dashboard badge `Login` yang berubah menjadi nama member setelah login. Public site dan Admin API sudah dideploy.
