@@ -58,6 +58,18 @@ async function publicApi(path, options = {}) {
   }));
 }
 
+function storedMemberLoginPayload() {
+  const emailOrName = localStorage.getItem('prashoes_member_email') || localStorage.getItem('prashoes_member_name') || '';
+  const whatsappNumber = localStorage.getItem('prashoes_member_whatsapp') || '';
+  return { emailOrName: emailOrName.trim(), whatsappNumber: whatsappNumber.trim() };
+}
+
+async function loginWithPayload(payload) {
+  const result = await api('/member-login', { method: 'POST', body: JSON.stringify(payload) });
+  saveMember(result.member, result.token);
+  renderProfile(await api('/member-profile'));
+}
+
 function saveMember(member, token) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem('prashoes_is_member', 'true');
@@ -136,7 +148,17 @@ function renderProfile(payload) {
 }
 
 async function loadProfile() {
-  if (!localStorage.getItem(TOKEN_KEY)) return;
+  if (!localStorage.getItem(TOKEN_KEY)) {
+    const stored = storedMemberLoginPayload();
+    if (!stored.emailOrName || !stored.whatsappNumber) return;
+    try {
+      await loginWithPayload(stored);
+    } catch (error) {
+      loginForm.emailOrName.value = stored.emailOrName;
+      loginForm.whatsappNumber.value = stored.whatsappNumber;
+    }
+    return;
+  }
   try {
     renderProfile(await api('/member-profile'));
   } catch (error) {
@@ -161,9 +183,7 @@ loginForm?.addEventListener('submit', async (event) => {
   loginButton.textContent = 'Login...';
   loginMessage.textContent = '';
   try {
-    const result = await api('/member-login', { method: 'POST', body: JSON.stringify(payload) });
-    saveMember(result, result.token);
-    renderProfile(await api('/member-profile'));
+    await loginWithPayload(payload);
   } catch (error) {
     loginMessage.textContent = error.message || 'Login gagal.';
   } finally {
