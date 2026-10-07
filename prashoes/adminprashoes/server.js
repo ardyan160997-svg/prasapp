@@ -1176,17 +1176,15 @@ async function api(req, res, url) {
     const whatsapp = String(body.whatsappNumber || '').replace(/[^0-9]/g, '');
     const localPhone = whatsapp.startsWith('62') ? `0${whatsapp.slice(2)}` : whatsapp;
     const internationalPhone = whatsapp.startsWith('0') ? `62${whatsapp.slice(1)}` : whatsapp;
-    const email = String(body.email || '').trim().toLowerCase();
-    if (!email || !whatsapp) return sendJson(res, { error: 'Email dan nomor WhatsApp wajib diisi.' }, 400);
-    const memberCode = String(body.memberCode || '').trim().toUpperCase();
+    const emailOrName = String(body.emailOrName || body.email || '').trim().toLowerCase();
+    if (!emailOrName || !whatsapp) return sendJson(res, { error: 'Email/nama dan nomor WhatsApp wajib diisi.' }, 400);
     const memberRows = await queryRows(`
       SELECT id, member_code, full_name, whatsapp_number, email
       FROM members
-      WHERE lower(trim(email)) = $1
-        AND regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($2,$3,$4)
-        AND ($5 = '' OR member_code = $5)
+      WHERE regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($1,$2,$3)
+        AND (lower(trim(email)) = $4 OR lower(trim(full_name)) = $4)
       LIMIT 1
-    `, [email, whatsapp, localPhone, internationalPhone, memberCode]);
+    `, [whatsapp, localPhone, internationalPhone, emailOrName]);
     const member = memberRows[0];
     if (!member) return sendJson(res, { error: 'Member tidak ditemukan.' }, 404);
     const token = memberToken(member.id);
@@ -1203,7 +1201,7 @@ async function api(req, res, url) {
     const member = memberRows[0];
     if (!member) return sendJson(res, { error: 'Member tidak ditemukan.' }, 404);
     const orders = await queryRows(`
-      SELECT o.id, o.order_code, o.customer_name, o.whatsapp_number, o.status, o.payment_status, o.payment_method, o.revenue_amount, o.paid_at, o.payment_proof_url,
+      SELECT o.id, o.order_code, o.customer_name, o.whatsapp_number, o.status, o.payment_status, o.payment_method, o.revenue_amount, o.paid_at,
              json_agg(json_build_object('id', oi.id, 'service_name', oi.service_name, 'shoe_description', oi.shoe_description, 'quantity', oi.quantity, 'unit_price', oi.unit_price, 'treatment_price', oi.treatment_price)) AS items,
              (
                SELECT json_build_object('proof_url', pp.proof_url, 'status', pp.status, 'method', pp.method, 'admin_note', pp.admin_note, 'created_at', pp.created_at, 'reviewed_at', pp.reviewed_at)

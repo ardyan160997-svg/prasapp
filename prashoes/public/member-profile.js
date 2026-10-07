@@ -64,7 +64,6 @@ function saveMember(member, token) {
   localStorage.setItem('prashoes_member_name', member.fullName || member.full_name || 'Member');
   localStorage.setItem('prashoes_member_whatsapp', member.whatsappNumber || member.whatsapp_number || '');
   localStorage.setItem('prashoes_member_email', member.email || '');
-  localStorage.setItem('prashoes_member_code', member.memberCode || member.member_code || '');
   if (member.profile_photo_url) localStorage.setItem('prashoes_member_photo', member.profile_photo_url);
 }
 
@@ -151,12 +150,11 @@ loginForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const data = new FormData(loginForm);
   const payload = {
-    email: String(data.get('email') || '').trim(),
+    emailOrName: String(data.get('emailOrName') || '').trim(),
     whatsappNumber: String(data.get('whatsappNumber') || '').trim(),
-    memberCode: String(data.get('memberCode') || '').trim(),
   };
-  if (!payload.email || !payload.whatsappNumber) {
-    loginMessage.textContent = 'Email dan nomor WhatsApp wajib diisi.';
+  if (!payload.emailOrName || !payload.whatsappNumber) {
+    loginMessage.textContent = 'Email/nama dan nomor WhatsApp wajib diisi.';
     return;
   }
   loginButton.disabled = true;

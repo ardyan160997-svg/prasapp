@@ -6,8 +6,8 @@
   <title>Profil Member Prashoes</title>
   <meta name="description" content="Login profil member Prashoes untuk melihat order berjalan dan upload bukti pembayaran QRIS.">
   <link rel="icon" href="images/icon.avif" type="image/avif">
-  <link rel="stylesheet" href="styles.css?v=member-profile-1">
-  <link rel="stylesheet" href="member-profile.css?v=member-profile-1">
+  <link rel="stylesheet" href="styles.css?v=member-profile-2">
+  <link rel="stylesheet" href="member-profile.css?v=member-profile-2">
 </head>
 <body class="member-profile-page">
   <header class="member-profile-header">
@@ -21,16 +21,13 @@
     <section class="member-login-card" id="loginCard">
       <span class="badge"><span class="badge-dot" aria-hidden="true"></span>Profil Member</span>
       <h1>Login Profil Member</h1>
-      <p>Masuk dengan email dan nomor WhatsApp yang terdaftar. Kode member bisa ditambahkan sebagai verifikasi ekstra.</p>
+      <p>Masuk dengan email atau nama lengkap, lalu cocokkan dengan nomor WhatsApp yang terdaftar.</p>
       <form id="memberLoginForm" class="member-login-form">
-        <label>Email
-          <input type="email" name="email" placeholder="nama@email.com" autocomplete="email" required>
+        <label>Email atau Nama Lengkap
+          <input type="text" name="emailOrName" placeholder="nama@email.com atau nama lengkap" autocomplete="username" required>
         </label>
         <label>Nomor WhatsApp
           <input type="tel" name="whatsappNumber" placeholder="08xxxxxxxxxx" autocomplete="tel" required>
-        </label>
-        <label>Kode Member
-          <input type="text" name="memberCode" placeholder="MBR-XXXXXX" autocomplete="off">
         </label>
         <button class="btn btn-primary btn-full" type="submit" id="loginButton">Login</button>
       </form>
@@ -66,6 +63,6 @@
     </section>
   </main>
 
-  <script src="member-profile.js?v=member-profile-1"></script>
+  <script src="member-profile.js?v=member-profile-2"></script>
 </body>
 </html>
