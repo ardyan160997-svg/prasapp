@@ -1214,7 +1214,7 @@ async function api(req, res, url) {
     if (!member) return sendJson(res, { error: 'Member tidak ditemukan.' }, 404);
     const orders = await queryRows(`
       SELECT o.id, o.order_code, o.customer_name, o.whatsapp_number, o.status, o.payment_status, o.payment_method, o.revenue_amount, o.paid_at,
-             json_agg(json_build_object('id', oi.id, 'service_name', s.name, 'shoe_description', oi.shoe_description, 'quantity', oi.quantity, 'unit_price', oi.treatment_price, 'treatment_price', oi.treatment_price) ORDER BY oi.item_number) AS items,
+             json_agg(json_build_object('id', oi.id, 'service_name', s.name, 'shoe_description', oi.shoe_description, 'quantity', 1, 'unit_price', oi.treatment_price, 'treatment_price', oi.treatment_price) ORDER BY oi.item_number) AS items,
              (
                SELECT json_build_object('proof_url', pp.proof_url, 'status', pp.status, 'method', pp.method, 'admin_note', pp.admin_note, 'created_at', pp.created_at, 'reviewed_at', pp.reviewed_at)
                FROM payment_proofs pp
