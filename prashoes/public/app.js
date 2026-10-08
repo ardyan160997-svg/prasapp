@@ -55,34 +55,40 @@ async function savePublicPushSubscription(subscription) {
   });
 }
 
+function publicPushButtons() {
+  return [document.getElementById('publicPushBtn'), document.getElementById('publicPushFab')].filter(Boolean);
+}
+
 function updatePublicPushButton(active = false) {
-  const button = document.getElementById('publicPushBtn');
-  if (!button) return;
-  button.textContent = active ? 'Notifikasi Aktif' : 'Aktifkan Notifikasi';
-  button.classList.toggle('active', active);
+  publicPushButtons().forEach((button) => {
+    const label = button.dataset.pushLabel || (active ? 'Notifikasi Aktif' : 'Aktifkan Notifikasi');
+    button.textContent = active ? 'Notifikasi Aktif' : label;
+    button.classList.toggle('active', active);
+    button.classList.toggle('hidden', active);
+  });
 }
 
 async function refreshPublicPushButton() {
-  const button = document.getElementById('publicPushBtn');
-  if (!button) return;
+  const buttons = publicPushButtons();
+  if (!buttons.length) return;
   try {
     const config = await fetchApi('/push-public-key');
-    if (!config.configured) { button.classList.add('hidden'); return; }
+    if (!config.configured) { buttons.forEach((button) => button.classList.add('hidden')); return; }
     const registration = await getPublicPushRegistration();
     const subscription = await registration.pushManager.getSubscription();
     state.publicPushSubscription = subscription;
-    button.classList.remove('hidden');
+    buttons.forEach((button) => button.classList.remove('hidden'));
     updatePublicPushButton(Boolean(subscription));
     if (subscription) await savePublicPushSubscription(subscription);
   } catch {
-    button.classList.add('hidden');
+    buttons.forEach((button) => button.classList.add('hidden'));
   }
 }
 
 async function togglePublicPush() {
-  const button = document.getElementById('publicPushBtn');
-  if (!button) return;
-  button.disabled = true;
+  const buttons = publicPushButtons();
+  if (!buttons.length) return;
+  buttons.forEach((button) => { button.disabled = true; });
   try {
     const config = await fetchApi('/push-public-key');
     if (!config.configured) throw new Error('Notifikasi belum aktif di server.');
@@ -104,7 +110,7 @@ async function togglePublicPush() {
   } catch (error) {
     alert(error.message || 'Gagal mengatur notifikasi.');
   } finally {
-    button.disabled = false;
+    buttons.forEach((button) => { button.disabled = false; });
   }
 }
 
@@ -1015,6 +1021,7 @@ async function renderChatWidget() {
   ]);
   const hasSubmittedIdentity = identity.fullName && localStorage.getItem('prashoes_identity_submitted') === 'true';
   root.innerHTML = `
+    <button class="push-fab hidden" id="publicPushFab" data-push-label="🔔 Dapatkan Notifikasi" aria-label="Dapatkan notifikasi Prashoes" type="button">🔔 Dapatkan Notifikasi</button>
     <button class="chat-fab" id="chatFab" aria-label="Buka chat Prashoes" type="button">
       <svg class="chat-fab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M12 3.5a7.5 7.5 0 0 0-7.5 7.5v3.1c0 .86.7 1.56 1.56 1.56h1.2v-5.2h-1.1A5.86 5.86 0 0 1 12 5.1a5.86 5.86 0 0 1 5.84 5.36h-1.1v5.2h1.08a4.54 4.54 0 0 1-4.13 2.65h-1.2a1.1 1.1 0 0 0 0 2.2h1.2a6.75 6.75 0 0 0 6.6-5.32 1.56 1.56 0 0 0 1.21-1.52V11A7.5 7.5 0 0 0 12 3.5Z" />
@@ -1050,6 +1057,7 @@ async function renderChatWidget() {
   document.getElementById("chatFab")?.addEventListener("click", () => toggleChatPanel(true));
   document.getElementById("chatClose")?.addEventListener("click", () => toggleChatPanel(false));
   document.getElementById("publicPushBtn")?.addEventListener("click", togglePublicPush);
+  document.getElementById("publicPushFab")?.addEventListener("click", togglePublicPush);
   document.getElementById("chatWhatsapp")?.addEventListener("blur", detectChatIdentity);
   document.getElementById("chatTemplates")?.addEventListener("click", async (event) => {
     const button = event.target.closest('[data-chat-template]');
