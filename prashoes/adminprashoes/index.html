@@ -24,13 +24,14 @@
 
       <nav class="side-nav" aria-label="Navigasi Admin">
         <a href="#dashboard" class="nav-item mobile-bottom-duplicate active" data-section="dashboard">Dashboard</a>
-        <a href="#orders" class="nav-item mobile-bottom-duplicate" data-section="orders">Sepatu Masuk</a>
+        <a href="#order-input" class="nav-item mobile-bottom-duplicate" data-section="order-input">Input Sepatu</a>
         <a href="#tracking" class="nav-item mobile-bottom-duplicate" data-section="tracking">Tracking Proses</a>
         <a href="#pickups" class="nav-item nav-item-with-badge mobile-bottom-duplicate" data-section="pickups">Pickup Request <span class="nav-unread-badge hidden" data-pickup-badge>0</span></a>
         <a href="#chats" class="nav-item nav-item-with-badge mobile-bottom-duplicate" data-section="chats">Chat User <span class="nav-unread-badge hidden" data-chat-badge>0</span></a>
         <a href="#payment-proofs" class="nav-item nav-item-with-badge" data-section="payment-proofs">Bukti Pembayaran <span class="nav-unread-badge hidden" data-payment-proof-badge>0</span></a>
-        <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
+        <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
         <a href="#order-history" class="nav-item" data-section="order-history">Riwayat Pesanan</a>
+        <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
         <a href="#review-claims" class="nav-item" data-section="review-claims">Review Claims</a>
         <a href="#members" class="nav-item" data-section="members">Database Member</a>
       </nav>
@@ -78,7 +79,7 @@
                   <h2>Sepatu Masuk</h2>
                 </div>
                 <div class="panel-actions">
-                  <button type="button" class="pill secondary-btn" id="openOrdersBtn" aria-label="Buka form Input Sepatu Masuk">+ Input</button>
+                  <button type="button" class="pill secondary-btn" data-open-order-input aria-label="Buka form Input Sepatu Masuk">+ Input</button>
                   <span class="pill" id="orderCountPill">0 order</span>
                 </div>
               </div>
@@ -98,49 +99,50 @@
           </div>
         </section>
 
-        <section class="section" id="ordersSection" data-section-panel="orders">
-          <div class="split-layout">
-            <article class="panel form-panel order-input-accordion">
-              <details id="orderInputAccordion">
-                <summary class="accordion-summary">
-                  <span>
-                    <span class="eyebrow">Input Order</span>
-                    <strong>Catat Sepatu Masuk</strong>
-                  </span>
-                  <span class="accordion-toggle" aria-hidden="true">+</span>
-                </summary>
-                <form id="orderForm" class="stack-form accordion-body">
-                  <label>Nama Customer
-                    <div class="inline-field">
-                      <input name="customerName" required placeholder="Nama customer" list="memberNameList" autocomplete="off">
-                      <button type="button" class="ghost-btn" id="checkMemberBtn">Cek Member</button>
-                    </div>
-                  </label>
-                  <datalist id="memberNameList"></datalist>
-                  <p class="form-message" id="memberCheckMessage"></p>
-                  <div class="field-grid two">
-                    <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
-                    <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
-                    <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
-                    <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
-                    <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
+        <section class="section" id="orderInputSection" data-section-panel="order-input">
+          <article class="panel form-panel order-input-accordion">
+            <details id="orderInputAccordion" open>
+              <summary class="accordion-summary">
+                <span>
+                  <span class="eyebrow">Input Order</span>
+                  <strong>Catat Sepatu Masuk</strong>
+                </span>
+                <span class="accordion-toggle" aria-hidden="true">+</span>
+              </summary>
+              <form id="orderForm" class="stack-form accordion-body">
+                <label>Nama Customer
+                  <div class="inline-field">
+                    <input name="customerName" required placeholder="Nama customer" list="memberNameList" autocomplete="off">
+                    <button type="button" class="ghost-btn" id="checkMemberBtn">Cek Member</button>
                   </div>
-                  <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
-                  <p class="form-message" id="orderMessage"></p>
-                </form>
-              </details>
-            </article>
-
-            <article class="panel wide-panel">
-              <div class="panel-header">
-                <div>
-                  <p class="eyebrow">Data Sepatu Masuk</p>
-                  <h2>Order & Item</h2>
+                </label>
+                <datalist id="memberNameList"></datalist>
+                <p class="form-message" id="memberCheckMessage"></p>
+                <div class="field-grid two">
+                  <label>Jenis Sepatu<input name="shoeType" required placeholder="Sneakers, boots, canvas"></label>
+                  <label>Merk Sepatu<input name="shoeBrand" required placeholder="Nike, Adidas, Vans"></label>
+                  <label>Jenis Bahan<input name="shoeMaterial" placeholder="Leather, suede, canvas"></label>
+                  <label>Warna Sepatu<input name="shoeColor" required placeholder="Putih, hitam, coklat"></label>
+                  <label>Biaya Treatment<input name="revenueAmount" type="number" min="0" step="1000" placeholder="Contoh: 50000"></label>
                 </div>
+                <button class="primary-btn" type="submit">Simpan Sepatu Masuk</button>
+                <p class="form-message" id="orderMessage"></p>
+              </form>
+            </details>
+          </article>
+        </section>
+
+        <section class="section" id="ordersSection" data-section-panel="orders">
+          <article class="panel wide-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Data Sepatu Masuk</p>
+                <h2>Order & Item</h2>
               </div>
-              <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
-            </article>
-          </div>
+              <button type="button" class="pill secondary-btn" data-open-order-input aria-label="Buka form Input Sepatu Masuk">+ Input</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+          </article>
         </section>
 
         <section class="section" id="orderHistorySection" data-section-panel="order-history">
@@ -300,7 +302,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg>
         <span>Tracking</span>
       </button>
-      <button class="bottom-nav-item bottom-nav-primary" type="button" data-bottom-section="orders" aria-label="Tambah Sepatu Masuk">
+      <button class="bottom-nav-item bottom-nav-primary" type="button" data-bottom-section="order-input" aria-label="Tambah Sepatu Masuk">
         <span class="pickup-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>
         <span>Sepatu</span>
       </button>
@@ -345,6 +347,6 @@
     </article>
   </div>
 
-  <script src="app.js?v=order-notif-resend-1"></script>
+  <script src="app.js?v=split-order-input-1"></script>
 </body>
 </html>
