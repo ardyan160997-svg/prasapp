@@ -219,10 +219,18 @@ async function ensurePushTables() {
       endpoint text NOT NULL UNIQUE,
       subscription jsonb NOT NULL,
       user_agent text NOT NULL DEFAULT '',
+      audience text NOT NULL DEFAULT 'admin',
+      chat_session_id text NOT NULL DEFAULT '',
+      whatsapp_number text NOT NULL DEFAULT '',
+      member_code text NOT NULL DEFAULT '',
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'admin'`);
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS chat_session_id text NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS whatsapp_number text NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS member_code text NOT NULL DEFAULT ''`);
 }
 
 async function savePushSubscription(subscription, userAgent = '') {
@@ -236,6 +244,28 @@ async function savePushSubscription(subscription, userAgent = '') {
   return { ok: true };
 }
 
+async function savePublicPushSubscription(input, userAgent = '') {
+  await ensurePushTables();
+  const subscription = input.subscription;
+  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) throw new Error('Push subscription tidak valid.');
+  const chatSessionId = String(input.chatSessionId || '').trim().slice(0, 120);
+  const whatsappNumber = cleanPhone(input.whatsappNumber || '').slice(0, 40);
+  const memberCode = String(input.memberCode || '').trim().slice(0, 40);
+  await pool.query(`
+    INSERT INTO push_subscriptions (endpoint, subscription, user_agent, audience, chat_session_id, whatsapp_number, member_code, updated_at)
+    VALUES ($1,$2::jsonb,$3,'public',$4,$5,$6,now())
+    ON CONFLICT (endpoint) DO UPDATE SET
+      subscription = EXCLUDED.subscription,
+      user_agent = EXCLUDED.user_agent,
+      audience = 'public',
+      chat_session_id = EXCLUDED.chat_session_id,
+      whatsapp_number = EXCLUDED.whatsapp_number,
+      member_code = EXCLUDED.member_code,
+      updated_at = now()
+  `, [subscription.endpoint, JSON.stringify(subscription), String(userAgent || '').slice(0, 500), chatSessionId, whatsappNumber, memberCode]);
+  return { ok: true };
+}
+
 async function removePushSubscription(endpoint) {
   await ensurePushTables();
   if (!endpoint) throw new Error('Endpoint push wajib ada.');
@@ -246,7 +276,7 @@ async function removePushSubscription(endpoint) {
 async function sendAdminPush(payload) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return { sent: 0, skipped: true };
   await ensurePushTables();
-  const subscriptions = await queryRows('SELECT endpoint, subscription FROM push_subscriptions');
+  const subscriptions = await queryRows("SELECT endpoint, subscription FROM push_subscriptions WHERE audience = 'admin'");
   let sent = 0;
   await Promise.all(subscriptions.map(async (row) => {
     try {
@@ -264,6 +294,61 @@ function notifyAdmin(type, title, body, url = '/') {
   return sendAdminPush({ type, title, body, url, tag: `prashoes-${type}` }).catch((error) => {
     console.error('Admin push error:', error.message);
   });
+}
+
+async function sendPushToRows(rows, payload) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !rows.length) return { sent: 0, skipped: !rows.length };
+  let sent = 0;
+  await Promise.all(rows.map(async (row) => {
+    try {
+      await webPush.sendNotification(row.subscription, JSON.stringify(payload), { TTL: 600 });
+      sent += 1;
+    } catch (error) {
+      if ([404, 410].includes(Number(error.statusCode))) await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [row.endpoint]);
+      else console.error('Public push gagal:', error.message);
+    }
+  }));
+  return { sent };
+}
+
+async function sendPublicPushByChatSession(chatSessionId, payload) {
+  await ensurePushTables();
+  const rows = await queryRows("SELECT endpoint, subscription FROM push_subscriptions WHERE audience = 'public' AND chat_session_id = $1", [String(chatSessionId || '').trim()]);
+  return sendPushToRows(rows, payload);
+}
+
+async function sendPublicOrderPush(order, payload) {
+  await ensurePushTables();
+  const phone = cleanPhone(order.whatsapp_number || order.whatsappNumber || '');
+  const memberCode = String(order.member_code || order.memberCode || '').trim();
+  const rows = await queryRows(`
+    SELECT DISTINCT ON (endpoint) endpoint, subscription
+    FROM push_subscriptions
+    WHERE audience = 'public'
+      AND (($1 <> '' AND whatsapp_number = $1) OR ($2 <> '' AND member_code = $2))
+  `, [phone, memberCode]);
+  return sendPushToRows(rows, payload);
+}
+
+function notifyPublicChat(thread, message) {
+  return sendPublicPushByChatSession(thread.session_id, {
+    type: 'chat-reply',
+    title: 'Admin Prashoes membalas chat',
+    body: message.slice(0, 110),
+    url: '/#chat',
+    tag: `prashoes-chat-${thread.session_id}`,
+  }).catch((error) => console.error('Public chat push error:', error.message));
+}
+
+function notifyPublicOrder(order) {
+  const status = String(order.status || 'Update order');
+  return sendPublicOrderPush(order, {
+    type: 'order-status',
+    title: `Status sepatu: ${status}`,
+    body: `${order.order_code || 'Order'} — ${status}`,
+    url: '/#lacak',
+    tag: `prashoes-order-${order.id}`,
+  }).catch((error) => console.error('Public order push error:', error.message));
 }
 
 async function ensureVoucherTables() {
@@ -562,8 +647,20 @@ async function updateOrder(input) {
   if (input.paidAt !== undefined) add('paid_at', input.paidAt);
   if (!fields.length) return { ok: true };
   values.push(input.id);
-  await pool.query(`UPDATE orders SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
-  if (input.status !== undefined) await pool.query('UPDATE order_items SET item_status = $1 WHERE order_id = $2', [input.status, input.id]);
+  const rows = await queryRows(`
+    UPDATE orders SET ${fields.join(', ')} WHERE id = $${values.length}
+    RETURNING *
+  `, values);
+  if (!rows.length) throw new Error('Order tidak ditemukan.');
+  if (input.status !== undefined) {
+    await pool.query('UPDATE order_items SET item_status = $1 WHERE order_id = $2', [input.status, input.id]);
+    const [order] = await queryRows(`
+      SELECT o.*, COALESCE(m.member_code, '') AS member_code
+      FROM orders o LEFT JOIN members m ON m.id = o.member_id
+      WHERE o.id = $1
+    `, [input.id]);
+    notifyPublicOrder(order || rows[0]);
+  }
   return { ok: true };
 }
 
@@ -899,10 +996,11 @@ async function createAdminChatReply(input) {
   const message = String(input.message || '').trim();
   if (!input.threadId || !message) throw new Error('Thread dan pesan wajib diisi.');
   if (message.length > 1000) throw new Error('Pesan maksimal 1000 karakter.');
-  const rows = await queryRows('SELECT id FROM chat_threads WHERE id = $1', [input.threadId]);
+  const rows = await queryRows('SELECT id, session_id FROM chat_threads WHERE id = $1', [input.threadId]);
   if (!rows.length) throw new Error('Thread chat tidak ditemukan.');
   await queryRows('INSERT INTO chat_messages (thread_id, sender_type, message) VALUES ($1,$2,$3) RETURNING id', [input.threadId, 'admin', message]);
   await pool.query('UPDATE chat_threads SET status = $1, last_message_at = now(), updated_at = now() WHERE id = $2', ['open', input.threadId]);
+  notifyPublicChat(rows[0], message);
   return { ok: true };
 }
 
@@ -1262,6 +1360,9 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'review-claim' && req.method === 'POST') return sendJson(res, await createReviewClaim(await readJson(req)), 201);
   if (resource === 'voucher-check' && req.method === 'POST') return sendJson(res, await validateVoucher(await readJson(req)));
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
+  if (resource === 'push-public-key' && req.method === 'GET') return sendJson(res, { publicKey: VAPID_PUBLIC_KEY, configured: Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) });
+  if (resource === 'push-subscriptions' && req.method === 'POST') return sendJson(res, await savePublicPushSubscription(await readJson(req), req.headers['user-agent']), 201);
+  if (resource === 'push-subscriptions' && req.method === 'DELETE') return sendJson(res, await removePushSubscription((await readJson(req)).endpoint));
   if (resource === 'chat' && url.pathname.endsWith('/identity') && req.method === 'POST') return sendJson(res, await publicChatIdentity((await readJson(req)).whatsappNumber));
   if (resource === 'chat' && url.pathname.endsWith('/templates') && req.method === 'GET') return sendJson(res, await publicChatTemplates());
   if (resource === 'chat' && url.pathname.endsWith('/read') && req.method === 'PATCH') return sendJson(res, await markPublicChatRead(normalizeSessionId((await readJson(req)).sessionId)));

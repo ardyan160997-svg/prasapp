@@ -14,6 +14,7 @@ const state = {
   chatUnreadCount: 0,
   chatPollTimer: null,
   chatBadgeTimer: null,
+  publicPushSubscription: null,
 };
 
 async function fetchApi(path, options = {}) {
@@ -28,6 +29,83 @@ async function fetchApi(path, options = {}) {
   const json = await response.json().catch(() => null);
   if (!response.ok) throw new Error(json?.error || "Request API Prashoes gagal.");
   return json;
+}
+
+function base64ToBytes(value) {
+  const padding = '='.repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+}
+
+async function getPublicPushRegistration() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Browser ini belum mendukung notifikasi web.');
+  return navigator.serviceWorker.register('/sw.js');
+}
+
+async function savePublicPushSubscription(subscription) {
+  const identity = getMemberInfoFromStorage();
+  await fetchApi('/push-subscriptions', {
+    method: 'POST',
+    body: JSON.stringify({
+      subscription: subscription.toJSON(),
+      chatSessionId: state.chatSessionId || getOrCreateChatSessionId(),
+      whatsappNumber: identity.whatsappNumber,
+      memberCode: identity.memberCode,
+    }),
+  });
+}
+
+function updatePublicPushButton(active = false) {
+  const button = document.getElementById('publicPushBtn');
+  if (!button) return;
+  button.textContent = active ? 'Notifikasi Aktif' : 'Aktifkan Notifikasi';
+  button.classList.toggle('active', active);
+}
+
+async function refreshPublicPushButton() {
+  const button = document.getElementById('publicPushBtn');
+  if (!button) return;
+  try {
+    const config = await fetchApi('/push-public-key');
+    if (!config.configured) { button.classList.add('hidden'); return; }
+    const registration = await getPublicPushRegistration();
+    const subscription = await registration.pushManager.getSubscription();
+    state.publicPushSubscription = subscription;
+    button.classList.remove('hidden');
+    updatePublicPushButton(Boolean(subscription));
+    if (subscription) await savePublicPushSubscription(subscription);
+  } catch {
+    button.classList.add('hidden');
+  }
+}
+
+async function togglePublicPush() {
+  const button = document.getElementById('publicPushBtn');
+  if (!button) return;
+  button.disabled = true;
+  try {
+    const config = await fetchApi('/push-public-key');
+    if (!config.configured) throw new Error('Notifikasi belum aktif di server.');
+    const registration = await getPublicPushRegistration();
+    let subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      await fetchApi('/push-subscriptions', { method: 'DELETE', body: JSON.stringify({ endpoint: subscription.endpoint }) });
+      await subscription.unsubscribe();
+      state.publicPushSubscription = null;
+      updatePublicPushButton(false);
+    } else {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') throw new Error('Izin notifikasi tidak diberikan. Di iPhone, pasang Prashoes ke Home Screen lalu buka dari ikon.');
+      subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64ToBytes(config.publicKey) });
+      state.publicPushSubscription = subscription;
+      await savePublicPushSubscription(subscription);
+      updatePublicPushButton(true);
+    }
+  } catch (error) {
+    alert(error.message || 'Gagal mengatur notifikasi.');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function normalizeRows(rows, fallback = []) {
@@ -158,6 +236,7 @@ function setMemberInfoFromPayload(payload, result = {}) {
   if (payload.profilePhotoUrl) localStorage.setItem("prashoes_member_photo", payload.profilePhotoUrl);
   if (payload.memberCode || result.memberCode) localStorage.setItem("prashoes_member_code", payload.memberCode || result.memberCode);
   if (payload.fullName) localStorage.setItem("prashoes_identity_submitted", "true");
+  if (state.publicPushSubscription) savePublicPushSubscription(state.publicPushSubscription).catch(() => {});
 }
 
 async function fetchChatThread(sessionId) {
@@ -949,6 +1028,7 @@ async function renderChatWidget() {
         <div><strong>Chat Prashoes</strong><small>Tanya layanan, harga, atau bahan sepatu.</small></div>
         <button class="chat-close" id="chatClose" type="button" aria-label="Tutup chat">×</button>
       </div>
+      <button class="public-push-btn hidden" id="publicPushBtn" type="button">Aktifkan Notifikasi</button>
       <div class="chat-identity" id="chatIdentity">
         ${hasSubmittedIdentity && identity.fullName
           ? `<span class="chat-name-badge">${escapeHtml(identity.fullName)}</span>`
@@ -969,6 +1049,7 @@ async function renderChatWidget() {
   `;
   document.getElementById("chatFab")?.addEventListener("click", () => toggleChatPanel(true));
   document.getElementById("chatClose")?.addEventListener("click", () => toggleChatPanel(false));
+  document.getElementById("publicPushBtn")?.addEventListener("click", togglePublicPush);
   document.getElementById("chatWhatsapp")?.addEventListener("blur", detectChatIdentity);
   document.getElementById("chatTemplates")?.addEventListener("click", async (event) => {
     const button = event.target.closest('[data-chat-template]');
@@ -986,11 +1067,13 @@ async function renderChatWidget() {
   });
   if (identity.whatsappNumber) detectChatIdentity();
   loadChatHistory();
+  refreshPublicPushButton();
   updateChatFabBadge(0);
   clearInterval(state.chatBadgeTimer);
   state.chatBadgeTimer = setInterval(() => {
     if (!state.chatOpen) loadChatHistory();
   }, 15000);
+  if (location.hash === '#chat') toggleChatPanel(true);
 }
 
 function bindHeaderLogoVisibility() {

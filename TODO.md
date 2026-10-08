@@ -1852,3 +1852,40 @@ Menampilkan jumlah balasan admin yang belum dibaca pada tombol chat public dan m
 ### Result
 
 Selesai dan sudah dideploy. Tombol chat public menampilkan badge jumlah balasan admin yang belum dibaca dan menandainya dibaca saat panel dibuka. Admin memiliki PWA Web Push dengan subscription per perangkat untuk chat, pickup, bukti pembayaran, review claim, dan warranty claim. VAPID sudah dikonfigurasi pada environment VPS; setiap perangkat tetap harus memasang PWA dan memberikan izin notifikasi satu kali.
+
+---
+
+## TASK-023 — Public scoped Web Push untuk order dan chat
+
+- Status: completed-local
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-022
+
+### Objective
+
+Mengaktifkan Web Push di `prashoes.prasapp.com` untuk customer public dengan scope aman: status order hanya ke pemesan, dan balasan chat hanya ke thread/customer terkait.
+
+### Scope
+
+- `prashoes/public/index.html`
+- `prashoes/public/app.js`
+- `prashoes/public/styles.css`
+- `prashoes/public/manifest.webmanifest`
+- `prashoes/public/sw.js`
+- `prashoes/public/images/pwa-icon-192.png`
+- `prashoes/public/images/pwa-icon-512.png`
+- `prashoes/adminprashoes/server.js`
+
+### Validation
+
+- `npm run check` berhasil.
+- `npm run build` berhasil.
+- `git diff --check` berhasil.
+- Ad-hoc verifier memastikan public PWA, push opt-in, subscription mapping, admin-only admin push isolation, scoped chat push, scoped order push, dan artifact dist sesuai.
+
+### Result
+
+Selesai lokal. Public PWA dan tombol `Aktifkan Notifikasi` tersedia di panel chat. Subscription public disimpan dengan audience `public` serta mapping chat session, WhatsApp, dan member code. Update status order mengirim push hanya ke subscription dengan WhatsApp/member terkait, dan balasan admin mengirim push hanya ke chat session terkait. Deploy menunggu instruksi `commit deploy`.
