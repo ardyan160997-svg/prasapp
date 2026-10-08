@@ -6,7 +6,7 @@
   <meta name="description" content="Admin Prashoes — dashboard pemasukan, pengeluaran, member, sepatu masuk, dan tracking proses.">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=payment-proof-2">
+  <link rel="stylesheet" href="styles.css?v=bottom-nav-1">
   <link rel="stylesheet" href="order-accordion.css?v=order-accordion-1">
 </head>
 <body>
@@ -18,16 +18,16 @@
       </a>
 
       <nav class="side-nav" aria-label="Navigasi Admin">
-        <a href="#dashboard" class="nav-item active" data-section="dashboard">Dashboard</a>
-        <a href="#orders" class="nav-item" data-section="orders">Sepatu Masuk</a>
-        <a href="#order-history" class="nav-item" data-section="order-history">Riwayat Pesanan</a>
-        <a href="#tracking" class="nav-item" data-section="tracking">Tracking Proses</a>
-        <a href="#pickups" class="nav-item" data-section="pickups">Pickup Request</a>
-        <a href="#chats" class="nav-item nav-item-with-badge" data-section="chats">Chat User <span class="nav-unread-badge hidden" id="chatNavBadge">0</span></a>
-        <a href="#members" class="nav-item" data-section="members">Database Member</a>
-        <a href="#review-claims" class="nav-item" data-section="review-claims">Review Claims</a>
-        <a href="#payment-proofs" class="nav-item" data-section="payment-proofs">Bukti Pembayaran</a>
+        <a href="#dashboard" class="nav-item mobile-bottom-duplicate active" data-section="dashboard">Dashboard</a>
+        <a href="#orders" class="nav-item mobile-bottom-duplicate" data-section="orders">Sepatu Masuk</a>
+        <a href="#tracking" class="nav-item mobile-bottom-duplicate" data-section="tracking">Tracking Proses</a>
+        <a href="#pickups" class="nav-item nav-item-with-badge mobile-bottom-duplicate" data-section="pickups">Pickup Request <span class="nav-unread-badge hidden" data-pickup-badge>0</span></a>
+        <a href="#chats" class="nav-item nav-item-with-badge mobile-bottom-duplicate" data-section="chats">Chat User <span class="nav-unread-badge hidden" data-chat-badge>0</span></a>
+        <a href="#payment-proofs" class="nav-item nav-item-with-badge" data-section="payment-proofs">Bukti Pembayaran <span class="nav-unread-badge hidden" data-payment-proof-badge>0</span></a>
         <a href="#cashflow" class="nav-item" data-section="cashflow">Revenue & Cost</a>
+        <a href="#order-history" class="nav-item" data-section="order-history">Riwayat Pesanan</a>
+        <a href="#review-claims" class="nav-item" data-section="review-claims">Review Claims</a>
+        <a href="#members" class="nav-item" data-section="members">Database Member</a>
       </nav>
 
       <div class="sidebar-card">
@@ -284,6 +284,31 @@
         </section>
       </section>
     </section>
+
+    <nav class="bottom-nav" aria-label="Navigasi cepat admin mobile">
+      <button class="bottom-nav-item active" type="button" data-bottom-section="dashboard" aria-label="Dashboard">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3Z"></path></svg>
+        <span>Home</span>
+      </button>
+      <button class="bottom-nav-item" type="button" data-bottom-section="tracking" aria-label="Tracking Proses">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg>
+        <span>Tracking</span>
+      </button>
+      <button class="bottom-nav-item bottom-nav-primary" type="button" data-bottom-section="orders" aria-label="Tambah Sepatu Masuk">
+        <span class="pickup-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>
+        <span>Sepatu</span>
+      </button>
+      <button class="bottom-nav-item" type="button" data-bottom-section="pickups" aria-label="Pickup Request">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5Z"></path><path d="M8 8a4 4 0 0 1 8 0M9 13h6"></path></svg>
+        <span>Pickup</span>
+        <span class="bottom-nav-badge hidden" data-pickup-badge>0</span>
+      </button>
+      <button class="bottom-nav-item" type="button" data-bottom-section="chats" aria-label="Chat User">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <span>Chat</span>
+        <span class="bottom-nav-badge hidden" data-chat-badge>0</span>
+      </button>
+    </nav>
   </main>
 
   <template id="orderItemTemplate">
@@ -314,6 +339,6 @@
     </article>
   </div>
 
-  <script src="app.js?v=order-history-1"></script>
+  <script src="app.js?v=bottom-nav-1"></script>
 </body>
 </html>
