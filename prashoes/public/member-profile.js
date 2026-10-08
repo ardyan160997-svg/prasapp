@@ -85,7 +85,7 @@ function saveMember(member, token) {
   localStorage.setItem('prashoes_member_name', member.fullName || member.full_name || 'Member');
   localStorage.setItem('prashoes_member_whatsapp', member.whatsappNumber || member.whatsapp_number || '');
   localStorage.setItem('prashoes_member_email', member.email || '');
-  if (member.profile_photo_url) localStorage.setItem('prashoes_member_photo', member.profile_photo_url);
+  localStorage.setItem('prashoes_member_photo', member.profile_photo_url || '');
 }
 
 function downloadReceipt(order) {
@@ -267,6 +267,7 @@ photoInput?.addEventListener('change', async () => {
     const uploaded = await uploadMemberPhoto(file);
     await api('/member-profile-photo', { method: 'PATCH', body: JSON.stringify({ profilePhotoUrl: uploaded.url || '' }) });
     localStorage.setItem('prashoes_member_photo', uploaded.url || '');
+    window.updateBottomProfileAvatar?.();
     document.getElementById('memberAvatar').src = photoUrl(uploaded.url);
     photoUpdateMessage.textContent = 'Foto profil berhasil diupdate.';
   } catch (error) {

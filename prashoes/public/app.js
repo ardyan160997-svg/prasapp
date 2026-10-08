@@ -213,16 +213,6 @@ function getMemberInfoFromStorage() {
   };
 }
 
-function updateMemberProfileBadge() {
-  const badge = document.getElementById("memberProfileBadge");
-  const label = badge?.querySelector("[data-member-label]");
-  if (!badge || !label) return;
-  const member = getMemberInfoFromStorage();
-  const name = String(member.fullName || "").trim();
-  label.textContent = member.isMember && name ? name.split(/\s+/).slice(0, 2).join(" ") : "Login";
-  badge.classList.toggle("is-member", Boolean(member.isMember && name));
-}
-
 function getChatIdentity() {
   const stored = getMemberInfoFromStorage();
   return {
@@ -1096,6 +1086,57 @@ function bindHeaderLogoVisibility() {
   observer.observe(footerLogo);
 }
 
+function bindPublicBottomNav() {
+  const navItems = Array.from(document.querySelectorAll(".public-bottom-nav-item[data-public-nav]"));
+  if (!navItems.length) return;
+
+  function setActive(key) {
+    navItems.forEach((item) => item.classList.toggle("active", item.dataset.publicNav === key));
+  }
+
+  function scrollToTarget(hash, behavior = "smooth") {
+    const target = hash === "#top" ? document.body : document.getElementById(hash.slice(1));
+    if (!target) return false;
+    const headerHeight = document.querySelector(".header")?.offsetHeight || 0;
+    const top = target === document.body ? 0 : target.getBoundingClientRect().top + window.scrollY - headerHeight - 8;
+    window.scrollTo({ top: Math.max(0, top), behavior });
+    return true;
+  }
+
+  navItems.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      const key = item.dataset.publicNav;
+      if (key && key !== "profile") setActive(key);
+      const hash = item.getAttribute("href") || "";
+      if (!hash.startsWith("#")) return;
+      event.preventDefault();
+      scrollToTarget(hash);
+    });
+  });
+
+  const sections = [
+    ["lacak", document.getElementById("lacak")],
+    ["harga", document.getElementById("harga")],
+    ["antar-jemput", document.getElementById("antar-jemput")],
+  ].filter(([, section]) => section);
+
+  window.addEventListener("scroll", () => {
+    if (window.scrollY < 180) {
+      setActive("home");
+      return;
+    }
+    let current = null;
+    sections.forEach((entry) => {
+      if (entry[1].getBoundingClientRect().top < window.innerHeight * 0.45) current = entry;
+    });
+    if (current) setActive(current[0]);
+  }, { passive: true });
+
+  if (window.location.hash && window.location.hash !== "#top") {
+    setTimeout(() => scrollToTarget(window.location.hash, "auto"), 60);
+  }
+}
+
 function bindMobileMenu() {
   const button = document.querySelector(".mobile-menu-btn");
   const menu = document.getElementById("mobile-menu");
@@ -1170,9 +1211,9 @@ async function init() {
   renderPromos();
   renderPickupForm();
   renderChatWidget();
-  updateMemberProfileBadge();
   bindTracking();
   bindMobileMenu();
+  bindPublicBottomNav();
   bindHeaderLogoVisibility();
 }
 

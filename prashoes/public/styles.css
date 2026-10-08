@@ -1904,3 +1904,36 @@ body.menu-open .member-login-badge {
     width: 100%;
   }
 }
+
+
+.public-bottom-nav{display:none}
+@media (max-width:560px){
+  body{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+  .public-bottom-nav{position:fixed;z-index:90;right:0;bottom:0;left:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;min-height:calc(68px + env(safe-area-inset-bottom));padding:0 .3rem env(safe-area-inset-bottom);border-top:1px solid rgba(255,255,255,.12);background:rgba(12,12,14,.86);box-shadow:0 -12px 34px rgba(0,0,0,.34);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  .public-bottom-nav-item{position:relative;display:flex;min-width:0;min-height:62px;align-items:center;justify-content:center;flex-direction:column;gap:.2rem;border:0;background:transparent;color:rgba(255,255,255,.68);font-size:.67rem;font-weight:850;text-align:center;text-decoration:none;-webkit-tap-highlight-color:transparent}
+  .public-bottom-nav-item>svg{width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}
+  .public-bottom-nav-item.active:not(.public-bottom-nav-primary){border-radius:12px;background:rgba(255,255,255,.14);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.22),inset 0 0 0 1px rgba(255,255,255,.18);transform:translateY(-3px)}
+  .public-bottom-nav-item.active::after{position:absolute;right:30%;bottom:.22rem;left:30%;height:3px;border-radius:999px;background:#fff;content:"";opacity:.92}
+  .public-bottom-nav-primary{padding-top:1.9rem;color:#fff}
+  .public-pickup-button{position:absolute;top:-1.45rem;display:grid;width:3.6rem;height:3.6rem;place-items:center;border:4px solid rgba(255,255,255,.92);border-radius:50%;background:rgba(255,255,255,.96);box-shadow:0 7px 18px rgba(0,0,0,.32);color:#111}
+  .public-pickup-button svg{width:1.55rem;height:1.55rem;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2.2}
+  .public-bottom-nav-primary.active .public-pickup-button{box-shadow:0 7px 18px rgba(0,0,0,.32),0 0 0 3px rgba(255,255,255,.18),0 0 0 6px rgba(255,255,255,.08)}
+  .public-bottom-nav-primary.active::after{display:none}
+  .chat-fab,.push-fab{bottom:calc(5.35rem + env(safe-area-inset-bottom))}
+  .chat-panel{bottom:calc(5.35rem + env(safe-area-inset-bottom))}
+}
+
+
+@media (max-width: 767px){
+  .header-inner{min-height:54px;padding-block:.5rem;gap:.55rem}
+  .logo{width:124px}
+  .mobile-menu-btn{width:2.18rem;height:2.18rem;border-radius:.68rem}
+  .nav-mobile{inset:55px 0 auto 0;padding:.65rem 1rem 1rem}
+}
+
+.public-profile-avatar{display:grid;width:1.35rem;height:1.35rem;place-items:center;overflow:hidden;border:1px solid rgba(255,255,255,.34);border-radius:50%;background:rgba(255,255,255,.08);color:currentColor}
+.public-profile-avatar svg{grid-area:1/1;width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.public-profile-avatar img{grid-area:1/1;width:100%;height:100%;display:none;object-fit:cover;border-radius:inherit}
+.public-profile-avatar.has-photo img{display:block}
+.public-profile-avatar.has-photo svg{display:none}
+.public-bottom-nav-item.active .public-profile-avatar{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.18)}

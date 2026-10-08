@@ -98,9 +98,9 @@
   <link rel="icon" type="image/avif" href="images/icon.avif">
   <link rel="apple-touch-icon" href="images/pwa-icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=push-fab-left-1">
+  <link rel="stylesheet" href="styles.css?v=public-bottom-nav-4">
 </head>
-<body>
+<body id="top">
   <!-- Header -->
   <header class="header" role="banner">
     <div class="container header-inner">
@@ -133,10 +133,6 @@
 
       <!-- CTA -->
       <a href="#antar-jemput" class="btn btn-primary header-cta">Pesan Sekarang</a>
-      <a href="member-profile.html" class="member-login-badge" id="memberProfileBadge" aria-label="Login profil member">
-        <img src="images/icon.avif" alt="" aria-hidden="true">
-        <span data-member-label>Login</span>
-      </a>
     </div>
 
     <!-- Mobile Navigation -->
@@ -432,6 +428,29 @@
 
   </main>
 
+  <nav class="public-bottom-nav" aria-label="Navigasi cepat">
+    <a class="public-bottom-nav-item active" href="#top" data-public-nav="home" aria-label="Beranda">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3Z"></path></svg>
+      <span>Home</span>
+    </a>
+    <a class="public-bottom-nav-item" href="#harga" data-public-nav="harga" aria-label="Daftar harga">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+      <span>Harga</span>
+    </a>
+    <a class="public-bottom-nav-item public-bottom-nav-primary" href="#antar-jemput" data-public-nav="antar-jemput" aria-label="Order antar jemput sepatu">
+      <span class="public-pickup-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5Z"></path><path d="M8 8a4 4 0 0 1 8 0M9 13h6"></path></svg></span>
+      <span>Order</span>
+    </a>
+    <a class="public-bottom-nav-item" href="#lacak" data-public-nav="lacak" aria-label="Lacak pesanan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg>
+      <span>Lacak</span>
+    </a>
+    <a class="public-bottom-nav-item" href="member-profile.html" data-public-nav="profile" aria-label="Profil member">
+      <span class="public-profile-avatar" data-bottom-profile-shell><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><img data-bottom-profile-avatar alt="" aria-hidden="true"></span>
+      <span>Profil</span>
+    </a>
+  </nav>
+
   <!-- Footer -->
   <footer id="kontak" class="footer" role="contentinfo">
     <div class="container">
@@ -479,6 +498,7 @@
   </footer>
 
   <script src="data.js?v=service-bg-1"></script>
-  <script src="app.js?v=push-fab-1"></script>
+  <script src="nav-profile.js?v=bottom-avatar-2"></script>
+  <script src="app.js?v=public-bottom-nav-3"></script>
 </body>
 </html>

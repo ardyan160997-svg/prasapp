@@ -36,6 +36,7 @@ function saveMember(payload, result) {
   localStorage.setItem('prashoes_member_code', result.memberCode || '');
   localStorage.setItem('prashoes_identity_submitted', 'true');
   localStorage.setItem('prashoes_registration_voucher', result.voucher?.code || '');
+  window.updateBottomProfileAvatar?.();
 }
 
 photoInput?.addEventListener('change', () => {
