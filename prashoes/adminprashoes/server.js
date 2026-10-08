@@ -346,15 +346,31 @@ function notifyPublicChat(thread, message) {
   }).catch((error) => console.error('Public chat push error:', error.message));
 }
 
-function notifyPublicOrder(order) {
+function orderPushPayload(order) {
   const status = String(order.status || 'Update order');
-  return sendPublicOrderPush(order, {
+  return {
     type: 'order-status',
     title: `Status sepatu: ${status}`,
     body: `${order.order_code || 'Order'} — ${status}`,
     url: '/#lacak',
     tag: `prashoes-order-${order.id}`,
-  }).catch((error) => console.error('Public order push error:', error.message));
+  };
+}
+
+function notifyPublicOrder(order) {
+  return sendPublicOrderPush(order, orderPushPayload(order)).catch((error) => console.error('Public order push error:', error.message));
+}
+
+async function resendPublicOrderNotification(input) {
+  if (!input.id) throw new Error('Order ID wajib ada.');
+  const [order] = await queryRows(`
+    SELECT o.*, COALESCE(m.member_code, '') AS member_code
+    FROM orders o LEFT JOIN members m ON m.id = o.member_id
+    WHERE o.id = $1
+  `, [input.id]);
+  if (!order) throw new Error('Order tidak ditemukan.');
+  const result = await sendPublicOrderPush(order, orderPushPayload(order));
+  return { ok: true, orderId: order.id, sent: Number(result.sent || 0), skipped: Boolean(result.skipped) };
 }
 
 async function ensureVoucherTables() {
@@ -1482,6 +1498,7 @@ async function api(req, res, url) {
   if (route === 'upload-photo' && req.method === 'DELETE') return deletePhoto(req, res, url);
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
+  if (route === 'order-notification' && req.method === 'POST') return sendJson(res, await resendPublicOrderNotification(await readJson(req)));
   if (route === 'pickup-requests' && req.method === 'PATCH') return sendJson(res, await updatePickupRequest(await readJson(req)));
   if (route === 'chat' && req.method === 'POST') return sendJson(res, await createAdminChatReply(await readJson(req)), 201);
   if (route === 'chat-unread' && req.method === 'GET') return sendJson(res, await chatUnreadSummary());
