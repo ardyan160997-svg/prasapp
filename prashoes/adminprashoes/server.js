@@ -323,10 +323,10 @@ async function sendPublicPushByChatSession(chatSessionId, payload) {
   return sendPushToRows(rows, payload);
 }
 
-async function sendPublicOrderPush(order, payload) {
+async function sendPublicPushByIdentity(identity, payload) {
   await ensurePushTables();
-  const phone = normalizePhone(order.whatsapp_number || order.whatsappNumber || '');
-  const memberCode = String(order.member_code || order.memberCode || '').trim();
+  const phone = normalizePhone(identity.whatsapp_number || identity.whatsappNumber || '');
+  const memberCode = String(identity.member_code || identity.memberCode || '').trim();
   const rows = await queryRows(`
     SELECT DISTINCT ON (endpoint) endpoint, subscription
     FROM push_subscriptions
@@ -334,6 +334,10 @@ async function sendPublicOrderPush(order, payload) {
       AND (($1 <> '' AND whatsapp_number = $1) OR ($2 <> '' AND member_code = $2))
   `, [phone, memberCode]);
   return sendPushToRows(rows, payload);
+}
+
+function sendPublicOrderPush(order, payload) {
+  return sendPublicPushByIdentity(order, payload);
 }
 
 function notifyPublicChat(thread, message) {
@@ -723,6 +727,17 @@ async function markCustomerOrdersPaid(input) {
   }
 }
 
+function notifyPublicPickup(pickup) {
+  const status = String(pickup.status || 'Update pickup');
+  return sendPublicPushByIdentity(pickup, {
+    type: 'pickup-status',
+    title: `Status pickup: ${status}`,
+    body: `${pickup.request_code || 'Pickup Prashoes'} — ${status}`,
+    url: '/#antar-jemput',
+    tag: `prashoes-pickup-${pickup.id}`,
+  }).catch((error) => console.error('Public pickup push error:', error.message));
+}
+
 async function updatePickupRequest(input) {
   if (!input.id || !input.status) throw new Error('Pickup ID dan status wajib diisi.');
   const validStatuses = ['Menunggu konfirmasi', 'Dikonfirmasi', 'Kurir menuju lokasi', 'Sudah dijemput', 'Dibatalkan'];
@@ -732,6 +747,7 @@ async function updatePickupRequest(input) {
     [input.status, input.id]
   );
   if (!rows.length) throw new Error('Pickup request tidak ditemukan.');
+  notifyPublicPickup(rows[0]);
   return rows[0];
 }
 
