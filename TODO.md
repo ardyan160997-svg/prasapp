@@ -1851,4 +1851,4 @@ Menampilkan jumlah balasan admin yang belum dibaca pada tombol chat public dan m
 
 ### Result
 
-Selesai lokal. Tombol chat public menampilkan badge jumlah balasan admin yang belum dibaca dan menandainya dibaca saat panel dibuka. Admin memiliki PWA Web Push dengan subscription per perangkat untuk chat, pickup, bukti pembayaran, review claim, dan warranty claim. Deploy serta konfigurasi VAPID VPS masih menunggu instruksi `commit deploy`.
+Selesai dan sudah dideploy. Tombol chat public menampilkan badge jumlah balasan admin yang belum dibaca dan menandainya dibaca saat panel dibuka. Admin memiliki PWA Web Push dengan subscription per perangkat untuk chat, pickup, bukti pembayaran, review claim, dan warranty claim. VAPID sudah dikonfigurasi pada environment VPS; setiap perangkat tetap harus memasang PWA dan memberikan izin notifikasi satu kali.
