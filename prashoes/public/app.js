@@ -1107,6 +1107,17 @@ function bindMobileMenu() {
     setOpen(menu.classList.contains("hidden"));
   });
 
+  document.addEventListener("click", (event) => {
+    const isOpen = !menu.classList.contains("hidden");
+    const target = event.target;
+    if (!isOpen || button.contains(target) || menu.contains(target)) return;
+    setOpen(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setOpen(false);
+  });
+
   menu.querySelectorAll("a").forEach((link) => {
     link.addEventListener("click", () => setOpen(false));
   });
