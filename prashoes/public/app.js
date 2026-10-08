@@ -11,7 +11,9 @@ const state = {
   chatSessionId: null,
   chatOpen: false,
   chatThread: null,
+  chatUnreadCount: 0,
   chatPollTimer: null,
+  chatBadgeTimer: null,
 };
 
 async function fetchApi(path, options = {}) {
@@ -862,11 +864,31 @@ function renderChatMessages() {
   container.scrollTop = container.scrollHeight;
 }
 
-async function loadChatHistory() {
+function updateChatFabBadge(count = state.chatUnreadCount) {
+  state.chatUnreadCount = Number(count || 0);
+  const badge = document.getElementById("chatFabBadge");
+  if (!badge) return;
+  badge.textContent = state.chatUnreadCount > 99 ? "99+" : String(state.chatUnreadCount);
+  badge.classList.toggle("hidden", state.chatUnreadCount < 1);
+}
+
+async function markPublicChatRead() {
+  if (!state.chatSessionId) return;
+  await fetchApi('/chat/read', {
+    method: 'PATCH',
+    body: JSON.stringify({ sessionId: state.chatSessionId }),
+  });
+  updateChatFabBadge(0);
+}
+
+async function loadChatHistory(markRead = false) {
   if (!state.chatSessionId) return;
   try {
     state.chatThread = await fetchChatThread(state.chatSessionId);
+    const unread = Number(state.chatThread?.unreadAdminCount || 0);
+    updateChatFabBadge(state.chatOpen ? 0 : unread);
     renderChatMessages();
+    if (markRead && unread > 0) await markPublicChatRead();
   } catch {
     renderChatMessages();
   }
@@ -896,8 +918,8 @@ function toggleChatPanel(open) {
   clearInterval(state.chatPollTimer);
   state.chatPollTimer = null;
   if (open) {
-    loadChatHistory();
-    state.chatPollTimer = setInterval(loadChatHistory, 5000);
+    loadChatHistory(true);
+    state.chatPollTimer = setInterval(() => loadChatHistory(true), 5000);
   }
 }
 
@@ -920,6 +942,7 @@ async function renderChatWidget() {
         <path d="M12 7.4a3.2 3.2 0 0 0-3.2 3.2v.35a3.2 3.2 0 0 0 6.4 0v-.35A3.2 3.2 0 0 0 12 7.4Zm-5.2 11.1c.9-2.05 2.9-3.35 5.2-3.35 1.28 0 2.45.4 3.39 1.1a6.04 6.04 0 0 1-1.7.46h-1.2a2.7 2.7 0 0 0-2.55 1.79H6.8Z" />
       </svg>
       <span>Chat</span>
+      <em class="chat-fab-badge hidden" id="chatFabBadge">0</em>
     </button>
     <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Chat Prashoes">
       <div class="chat-header">
@@ -963,6 +986,11 @@ async function renderChatWidget() {
   });
   if (identity.whatsappNumber) detectChatIdentity();
   loadChatHistory();
+  updateChatFabBadge(0);
+  clearInterval(state.chatBadgeTimer);
+  state.chatBadgeTimer = setInterval(() => {
+    if (!state.chatOpen) loadChatHistory();
+  }, 15000);
 }
 
 function bindHeaderLogoVisibility() {

@@ -1810,3 +1810,45 @@ Menambahkan halaman profil member untuk login, melihat order berjalan, upload bu
 ### Result
 
 Selesai. Halaman `member-profile.html` sudah tersedia dengan login email + WhatsApp, CTA daftar member baru, daftar order berjalan, upload bukti QRIS, download nota, dan dashboard badge `Login` yang berubah menjadi nama member setelah login. Public site dan Admin API sudah dideploy.
+
+---
+
+## TASK-022 — Public chat unread badge dan admin Web Push
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: none
+
+### Objective
+
+Menampilkan jumlah balasan admin yang belum dibaca pada tombol chat public dan mengaktifkan Web Push admin untuk notifikasi masuk di HP.
+
+### Scope
+
+- `prashoes/public/index.html`
+- `prashoes/public/app.js`
+- `prashoes/public/styles.css`
+- `prashoes/adminprashoes/index.html`
+- `prashoes/adminprashoes/app.js`
+- `prashoes/adminprashoes/styles.css`
+- `prashoes/adminprashoes/server.js`
+- `prashoes/adminprashoes/package.json`
+- `prashoes/adminprashoes/package-lock.json`
+- `prashoes/adminprashoes/manifest.webmanifest`
+- `prashoes/adminprashoes/sw.js`
+- `prashoes/adminprashoes/images/pwa-icon-192.png`
+- `prashoes/adminprashoes/images/pwa-icon-512.png`
+
+### Validation
+
+- `npm run check` berhasil.
+- `npm run build` berhasil.
+- `git diff --check` berhasil.
+- Ad-hoc verifier memastikan unread watermark public, badge chat, PWA manifest/service worker, push subscription API/DB, event trigger, dan artifact dist sesuai.
+
+### Result
+
+Selesai lokal. Tombol chat public menampilkan badge jumlah balasan admin yang belum dibaca dan menandainya dibaca saat panel dibuka. Admin memiliki PWA Web Push dengan subscription per perangkat untuk chat, pickup, bukti pembayaran, review claim, dan warranty claim. Deploy serta konfigurasi VAPID VPS masih menunggu instruksi `commit deploy`.

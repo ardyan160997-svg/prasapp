@@ -9,7 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Admin Prashoes</title>
   <link rel="icon" type="image/avif" href="images/icon.avif">
-  <link rel="stylesheet" href="styles.css?v=mobile-chrome-1">
+  <link rel="apple-touch-icon" href="images/pwa-icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css?v=push-notification-1">
   <link rel="stylesheet" href="order-accordion.css?v=order-accordion-1">
 </head>
 <body>
@@ -46,6 +48,7 @@
           <h1>Dashboard Operasional</h1>
         </div>
         <div class="topbar-actions">
+          <button class="ghost-btn hidden" id="pushNotificationBtn" type="button">Aktifkan Notifikasi</button>
           <button class="ghost-btn" id="refreshBtn" type="button">Refresh Data</button>
           <button class="danger-ghost hidden" id="logoutBtn" type="button">Logout</button>
         </div>

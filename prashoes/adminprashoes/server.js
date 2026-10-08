@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { Pool } = require('pg');
+const webPush = require('web-push');
 
 const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = path.join(__dirname, 'dist');
@@ -10,6 +11,12 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@prashoes.prasapp.com';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -20,6 +27,7 @@ const mime = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.avif': 'image/avif',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -166,6 +174,7 @@ async function ensureChatTables() {
     )
   `);
   await pool.query(`ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS last_admin_read_at timestamptz`);
+  await pool.query(`ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS last_public_read_at timestamptz NOT NULL DEFAULT now()`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -201,6 +210,60 @@ async function ensureChatTables() {
       await pool.query('INSERT INTO chat_templates (message, sort_order) VALUES ($1,$2)', [msg, order]);
     }
   }
+}
+
+async function ensurePushTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      endpoint text NOT NULL UNIQUE,
+      subscription jsonb NOT NULL,
+      user_agent text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+}
+
+async function savePushSubscription(subscription, userAgent = '') {
+  await ensurePushTables();
+  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) throw new Error('Push subscription tidak valid.');
+  await pool.query(`
+    INSERT INTO push_subscriptions (endpoint, subscription, user_agent, updated_at)
+    VALUES ($1,$2::jsonb,$3,now())
+    ON CONFLICT (endpoint) DO UPDATE SET subscription = EXCLUDED.subscription, user_agent = EXCLUDED.user_agent, updated_at = now()
+  `, [subscription.endpoint, JSON.stringify(subscription), String(userAgent || '').slice(0, 500)]);
+  return { ok: true };
+}
+
+async function removePushSubscription(endpoint) {
+  await ensurePushTables();
+  if (!endpoint) throw new Error('Endpoint push wajib ada.');
+  await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+  return { ok: true };
+}
+
+async function sendAdminPush(payload) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return { sent: 0, skipped: true };
+  await ensurePushTables();
+  const subscriptions = await queryRows('SELECT endpoint, subscription FROM push_subscriptions');
+  let sent = 0;
+  await Promise.all(subscriptions.map(async (row) => {
+    try {
+      await webPush.sendNotification(row.subscription, JSON.stringify(payload), { TTL: 60 });
+      sent += 1;
+    } catch (error) {
+      if ([404, 410].includes(Number(error.statusCode))) await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [row.endpoint]);
+      else console.error('Push notification gagal:', error.message);
+    }
+  }));
+  return { sent };
+}
+
+function notifyAdmin(type, title, body, url = '/') {
+  return sendAdminPush({ type, title, body, url, tag: `prashoes-${type}` }).catch((error) => {
+    console.error('Admin push error:', error.message);
+  });
 }
 
 async function ensureVoucherTables() {
@@ -714,7 +777,9 @@ async function createPublicPickup(input) {
     input.promoLabel || '',
     input.notes || '',
   ]);
-  return { success: true, requestCode: rows[0]?.request_code };
+  const requestCode = rows[0]?.request_code;
+  notifyAdmin('pickup', 'Pickup request baru', `${input.fullName} • ${input.pickupAddress}`, '/#pickups');
+  return { success: true, requestCode };
 }
 
 function normalizeSessionId(value) {
@@ -751,11 +816,24 @@ async function publicChatThread(sessionId) {
       COALESCE((
         SELECT json_agg(cm ORDER BY cm.created_at ASC)
         FROM chat_messages cm WHERE cm.thread_id = ct.id
-      ), '[]'::json) AS messages
+      ), '[]'::json) AS messages,
+      COALESCE((
+        SELECT count(*)::int FROM chat_messages cm
+        WHERE cm.thread_id = ct.id
+          AND cm.sender_type = 'admin'
+          AND cm.created_at > ct.last_public_read_at
+      ), 0) AS "unreadAdminCount"
     FROM chat_threads ct
     WHERE ct.session_id = $1
   `, [sessionId]);
   return rows[0] || null;
+}
+
+async function markPublicChatRead(sessionId) {
+  await ensureChatTables();
+  if (!sessionId) throw new Error('Session chat tidak valid.');
+  await pool.query('UPDATE chat_threads SET last_public_read_at = now(), updated_at = now() WHERE session_id = $1', [sessionId]);
+  return { ok: true };
 }
 
 async function createPublicChatMessage(input) {
@@ -806,6 +884,7 @@ async function createPublicChatMessage(input) {
       [thread.id, 'public', message]
     );
     await client.query('COMMIT');
+    notifyAdmin('chat', 'Chat baru dari customer', `${customerName || 'Customer'}: ${message.slice(0, 90)}`, '/#chats');
     return await publicChatThread(sessionId);
   } catch (error) {
     await client.query('ROLLBACK');
@@ -1008,6 +1087,7 @@ async function createReviewClaim(input) {
     ON CONFLICT (member_id) DO UPDATE SET screenshot_url = EXCLUDED.screenshot_url, status = 'pending', admin_note = '', created_at = now(), reviewed_at = null
     RETURNING *
   `, [member.id, screenshotUrl]);
+  notifyAdmin('review', 'Klaim review baru', 'Member mengirim screenshot review untuk diverifikasi.', '/#review-claims');
   return { success: true, claim: rows[0] };
 }
 
@@ -1093,6 +1173,7 @@ async function createWarrantyClaim(input) {
     RETURNING id, status, created_at
   `, [item.orderId, item.itemId, input.customerName, input.whatsappNumber || item.orderWhatsapp, input.treatmentName, input.warrantyDays, input.reason || '']);
 
+  notifyAdmin('warranty', 'Klaim garansi baru', `${input.customerName} • ${input.treatmentName}`, '/#dashboard');
   return { ok: true, claim: rows[0] };
 }
 
@@ -1118,6 +1199,7 @@ async function createPaymentProof(input) {
   `, [orderId, proofUrl]);
   if (!rows.length) throw new Error('Order tidak ditemukan atau sudah lunas.');
   await pool.query(`UPDATE orders SET payment_method = 'qris', payment_status = 'menunggu_verifikasi' WHERE id = $1`, [orderId]);
+  notifyAdmin('payment', 'Bukti pembayaran baru', 'Customer mengirim bukti QRIS untuk diverifikasi.', '/#payment-proofs');
   return { ok: true, proof: rows[0] };
 }
 
@@ -1182,6 +1264,7 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
   if (resource === 'chat' && url.pathname.endsWith('/identity') && req.method === 'POST') return sendJson(res, await publicChatIdentity((await readJson(req)).whatsappNumber));
   if (resource === 'chat' && url.pathname.endsWith('/templates') && req.method === 'GET') return sendJson(res, await publicChatTemplates());
+  if (resource === 'chat' && url.pathname.endsWith('/read') && req.method === 'PATCH') return sendJson(res, await markPublicChatRead(normalizeSessionId((await readJson(req)).sessionId)));
   if (resource === 'chat' && req.method === 'GET') return sendJson(res, await publicChatThread(normalizeSessionId(url.searchParams.get('sessionId'))) || { messages: [] });
   if (resource === 'chat' && req.method === 'POST') return sendJson(res, await createPublicChatMessage(await readJson(req)), 201);
   if (resource === 'tracking' && req.method === 'GET') {
@@ -1282,6 +1365,12 @@ async function api(req, res, url) {
   if (route === 'public') return publicApi(req, res, url, parts);
   if (!isAuthed(req)) return sendJson(res, { error: 'Unauthorized.' }, 401);
   if (route === 'dashboard' && req.method === 'GET') return sendJson(res, await dashboard());
+  if (route === 'push-public-key' && req.method === 'GET') return sendJson(res, { publicKey: VAPID_PUBLIC_KEY, configured: Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) });
+  if (route === 'push-subscriptions' && req.method === 'POST') {
+    const body = await readJson(req);
+    return sendJson(res, await savePushSubscription(body.subscription, req.headers['user-agent']), 201);
+  }
+  if (route === 'push-subscriptions' && req.method === 'DELETE') return sendJson(res, await removePushSubscription((await readJson(req)).endpoint));
   if (route === 'upload-photo' && req.method === 'POST') return uploadPhoto(req, res, url);
   if (route === 'upload-photo' && req.method === 'DELETE') return deletePhoto(req, res, url);
   if (route === 'orders' && req.method === 'POST') return sendJson(res, await createOrder(await readJson(req)), 201);
