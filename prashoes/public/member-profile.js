@@ -277,9 +277,18 @@ photoInput?.addEventListener('change', async () => {
 });
 
 document.getElementById('logoutButton')?.addEventListener('click', () => {
-  localStorage.removeItem(TOKEN_KEY);
-  loginCard.classList.remove('hidden');
-  dashboard.classList.add('hidden');
+  [
+    TOKEN_KEY,
+    'prashoes_is_member',
+    'prashoes_member_name',
+    'prashoes_member_whatsapp',
+    'prashoes_member_email',
+    'prashoes_member_address',
+    'prashoes_member_code',
+    'prashoes_member_photo',
+    'prashoes_identity_submitted',
+  ].forEach((key) => localStorage.removeItem(key));
+  window.location.replace('/');
 });
 
 loadProfile();
