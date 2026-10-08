@@ -58,6 +58,12 @@ function safeEqual(left, right) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/[^0-9]/g, '');
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`;
+  return digits;
+}
+
 function memberToken(memberId) {
   const payload = Buffer.from(JSON.stringify({ memberId, expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000 })).toString('base64url');
   const signature = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('base64url');
@@ -249,7 +255,7 @@ async function savePublicPushSubscription(input, userAgent = '') {
   const subscription = input.subscription;
   if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) throw new Error('Push subscription tidak valid.');
   const chatSessionId = String(input.chatSessionId || '').trim().slice(0, 120);
-  const whatsappNumber = cleanPhone(input.whatsappNumber || '').slice(0, 40);
+  const whatsappNumber = normalizePhone(input.whatsappNumber || '').slice(0, 40);
   const memberCode = String(input.memberCode || '').trim().slice(0, 40);
   await pool.query(`
     INSERT INTO push_subscriptions (endpoint, subscription, user_agent, audience, chat_session_id, whatsapp_number, member_code, updated_at)
@@ -319,7 +325,7 @@ async function sendPublicPushByChatSession(chatSessionId, payload) {
 
 async function sendPublicOrderPush(order, payload) {
   await ensurePushTables();
-  const phone = cleanPhone(order.whatsapp_number || order.whatsappNumber || '');
+  const phone = normalizePhone(order.whatsapp_number || order.whatsappNumber || '');
   const memberCode = String(order.member_code || order.memberCode || '').trim();
   const rows = await queryRows(`
     SELECT DISTINCT ON (endpoint) endpoint, subscription
