@@ -1,6 +1,14 @@
 (() => {
+  const ADMIN_BASE = 'https://adminprashoes.prasapp.com';
+
+  function resolveProfilePhoto(value) {
+    const url = String(value || '').trim();
+    if (!url) return '';
+    return url.startsWith('/uploads/') ? `${ADMIN_BASE}${url}` : url;
+  }
+
   function updateBottomProfileAvatar() {
-    const photo = localStorage.getItem('prashoes_member_photo') || '';
+    const photo = resolveProfilePhoto(localStorage.getItem('prashoes_member_photo'));
     document.querySelectorAll('[data-bottom-profile-shell]').forEach((shell) => {
       const image = shell.querySelector('[data-bottom-profile-avatar]');
       if (!image) return;

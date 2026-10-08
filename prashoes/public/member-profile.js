@@ -147,6 +147,7 @@ function orderCard(order) {
 function renderProfile(payload) {
   const member = payload.member || {};
   saveMember(member, localStorage.getItem(TOKEN_KEY) || '');
+  window.updateBottomProfileAvatar?.();
   loginCard.classList.add('hidden');
   dashboard.classList.remove('hidden');
   document.getElementById('memberAvatar').src = photoUrl(member.profile_photo_url);
