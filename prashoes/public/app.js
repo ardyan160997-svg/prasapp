@@ -641,11 +641,14 @@ function bindTracking() {
   };
 
   type?.addEventListener("change", () => {
-    if (input) input.placeholder = placeholders[type.value] || placeholders.name;
+    if (!input) return;
+    input.placeholder = placeholders[type.value] || placeholders.whatsapp;
+    input.type = type.value === "whatsapp" ? "tel" : "text";
+    input.inputMode = type.value === "whatsapp" ? "tel" : "text";
   });
 
   async function track() {
-    const searchType = type?.value || "name";
+    const searchType = type?.value || "whatsapp";
     const value = input?.value?.trim();
     if (!value) {
       if (error) {
