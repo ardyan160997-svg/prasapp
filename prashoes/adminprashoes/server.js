@@ -438,6 +438,8 @@ async function ensureFinanceTables() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'belum_bayar'`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'cod'`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_request_id uuid`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS orders_pickup_request_unique ON orders (pickup_request_id) WHERE pickup_request_id IS NOT NULL`);
   await pool.query(`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS treatment_price numeric NOT NULL DEFAULT 0`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS payment_proofs (
@@ -624,27 +626,82 @@ async function dashboard() {
 
 async function createOrder(input) {
   await ensureFinanceTables();
-  if (!input.customerName) throw new Error('Nama customer wajib diisi.');
   const items = Array.isArray(input.items) ? input.items.filter((item) => item.shoeDescription) : [];
   if (!items.length) throw new Error('Data sepatu wajib diisi.');
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const orderResult = await client.query(`
-      INSERT INTO orders
-        (order_code, customer_name, whatsapp_number, member_id, status, revenue_amount, payment_status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      RETURNING *
-    `, [
-      makeOrderCode(), input.customerName, input.whatsappNumber || '', input.memberId || null, 'Sepatu diterima', num(input.revenueAmount), 'belum_bayar',
-    ]);
-    const order = orderResult.rows[0];
+    let pickup = null;
+    if (input.pickupRequestId) {
+      const pickupResult = await client.query('SELECT * FROM pickup_requests WHERE id = $1 FOR UPDATE', [input.pickupRequestId]);
+      pickup = pickupResult.rows[0] || null;
+      if (!pickup) throw new Error('Pickup request tidak ditemukan.');
+      if (['Sudah dijemput', 'Dibatalkan'].includes(pickup.status)) throw new Error('Pickup request sudah masuk riwayat.');
+      const existing = await client.query('SELECT id, order_code FROM orders WHERE pickup_request_id = $1 LIMIT 1', [pickup.id]);
+      if (existing.rows.length) throw new Error(`Pickup sudah dibuat menjadi order ${existing.rows[0].order_code}.`);
+    }
+    const customerName = String(pickup?.full_name || input.customerName || '').trim();
+    const whatsappNumber = String(pickup?.whatsapp_number || input.whatsappNumber || '').trim();
+    if (!customerName) throw new Error('Nama customer wajib diisi.');
+    const normalizedPhone = normalizePhone(whatsappNumber);
+    let memberId = pickup?.member_id || input.memberId || null;
+    if (!memberId && normalizedPhone) {
+      const memberRows = await client.query(`
+        SELECT id FROM members
+        WHERE regexp_replace(whatsapp_number, '[^0-9]', '', 'g') IN ($1,$2)
+        LIMIT 1
+      `, [normalizedPhone, normalizedPhone.startsWith('62') ? `0${normalizedPhone.slice(2)}` : normalizedPhone]);
+      memberId = memberRows.rows[0]?.id || null;
+    }
+    let order = null;
+    let startItemNumber = 0;
+    if (!pickup && normalizedPhone) {
+      const activeOrderResult = await client.query(`
+        SELECT o.*,
+          COALESCE((SELECT MAX(oi.item_number) FROM order_items oi WHERE oi.order_id = o.id), 0) AS last_item_number
+        FROM orders o
+        WHERE o.payment_status != 'terbayar'
+          AND regexp_replace(o.whatsapp_number, '[^0-9]', '', 'g') IN ($1,$2)
+        ORDER BY o.created_at DESC
+        LIMIT 1
+        FOR UPDATE
+      `, [normalizedPhone, normalizedPhone.startsWith('62') ? `0${normalizedPhone.slice(2)}` : normalizedPhone]);
+      order = activeOrderResult.rows[0] || null;
+      startItemNumber = Number(order?.last_item_number || 0);
+      if (order) {
+        const updated = await client.query(`
+          UPDATE orders
+          SET revenue_amount = revenue_amount + $1,
+              member_id = COALESCE(member_id, $2)
+          WHERE id = $3
+          RETURNING *
+        `, [num(input.revenueAmount), memberId, order.id]);
+        order = { ...updated.rows[0], appended_to_existing: true };
+      }
+    }
+    if (!order) {
+      const orderResult = await client.query(`
+        INSERT INTO orders
+          (order_code, customer_name, whatsapp_number, member_id, status, revenue_amount, payment_status, pickup_request_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        RETURNING *
+      `, [
+        makeOrderCode(), customerName, whatsappNumber, memberId, 'Sepatu diterima', num(input.revenueAmount), 'belum_bayar', pickup?.id || null,
+      ]);
+      order = orderResult.rows[0];
+    }
     for (const [index, item] of items.entries()) {
       await client.query(`
         INSERT INTO order_items (order_id, item_number, shoe_description, item_status, notes)
         VALUES ($1,$2,$3,$4,$5)
-      `, [order.id, index + 1, item.shoeDescription, 'Sepatu diterima', '']);
+      `, [order.id, startItemNumber + index + 1, item.shoeDescription, 'Sepatu diterima', '']);
+    }
+    if (pickup) {
+      const rows = await client.query(`
+        UPDATE pickup_requests SET status = 'Sudah dijemput', updated_at = now() WHERE id = $1 RETURNING *
+      `, [pickup.id]);
+      notifyPublicPickup(rows.rows[0]);
     }
     await client.query('COMMIT');
     return order;
@@ -747,6 +804,19 @@ async function updatePickupRequest(input) {
     [input.status, input.id]
   );
   if (!rows.length) throw new Error('Pickup request tidak ditemukan.');
+  notifyPublicPickup(rows[0]);
+  return rows[0];
+}
+
+async function cancelMemberPickupRequest(memberId, id) {
+  if (!id) throw new Error('Pickup request wajib dipilih.');
+  const rows = await queryRows(`
+    UPDATE pickup_requests
+    SET status = 'Dibatalkan', updated_at = now(), notes = trim(concat_ws(' ', notes, '[Dibatalkan oleh member]'))
+    WHERE id = $1 AND member_id = $2 AND status IN ('Menunggu konfirmasi', 'Dikonfirmasi')
+    RETURNING *
+  `, [id, memberId]);
+  if (!rows.length) throw new Error('Pickup request tidak bisa dibatalkan. Hubungi admin jika kurir sudah menuju lokasi.');
   notifyPublicPickup(rows[0]);
   return rows[0];
 }
@@ -1487,7 +1557,18 @@ async function api(req, res, url) {
       GROUP BY o.id
       ORDER BY o.created_at DESC
     `, [memberId]);
-    return sendJson(res, { member, orders });
+    const pickups = await queryRows(`
+      SELECT id, request_code, status, pickup_address, service_type, shoe_quantity, notes, created_at, updated_at
+      FROM pickup_requests
+      WHERE member_id = $1
+      ORDER BY created_at DESC
+    `, [memberId]);
+    return sendJson(res, { member, orders, pickups });
+  }
+  if (route === 'member-pickup-cancel' && req.method === 'PATCH') {
+    const memberData = isMemberAuthed(req);
+    if (!memberData) return sendJson(res, { error: 'Unauthorized.' }, 401);
+    return sendJson(res, await cancelMemberPickupRequest(memberData.memberId, (await readJson(req)).id));
   }
   if (route === 'member-profile-photo' && req.method === 'PATCH') {
     const memberData = isMemberAuthed(req);

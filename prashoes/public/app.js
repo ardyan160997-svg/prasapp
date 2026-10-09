@@ -2,6 +2,7 @@ const data = window.PRASHOES_DATA || {};
 
 const ADMIN_BASE = "https://adminprashoes.prasapp.com";
 const API_BASE = `${ADMIN_BASE}/api/public`;
+const PUSH_PROMPT_SEEN_KEY = 'prashoes_push_prompt_seen';
 
 const state = {
   pickupLatitude: null,
@@ -15,6 +16,8 @@ const state = {
   chatPollTimer: null,
   chatBadgeTimer: null,
   publicPushSubscription: null,
+  publicPushContextual: false,
+  chatUserMessageCount: 0,
 };
 
 async function fetchApi(path, options = {}) {
@@ -59,6 +62,40 @@ function publicPushButtons() {
   return [document.getElementById('publicPushBtn'), document.getElementById('publicPushFab')].filter(Boolean);
 }
 
+function isIosDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isStandaloneApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+function showIosPushInstallGuide() {
+  alert('Untuk aktifkan notifikasi di iPhone:\n\n1. Buka lewat Safari\n2. Tekan tombol Share\n3. Pilih Add to Home Screen / Tambahkan ke Layar Utama\n4. Buka Prashoes dari ikon Home Screen\n5. Tekan Aktifkan Notifikasi lagi');
+}
+
+function updatePublicPushPromptVisibility() {
+  const prompt = document.getElementById('publicPushPrompt');
+  if (!prompt) return;
+  const unavailable = typeof Notification === 'undefined' || state.publicPushSubscription || Notification.permission === 'denied';
+  const firstVisit = localStorage.getItem(PUSH_PROMPT_SEEN_KEY) !== 'true';
+  const visible = !unavailable && (firstVisit || state.publicPushContextual);
+  prompt.classList.toggle('hidden', !visible);
+  if (visible && firstVisit) localStorage.setItem(PUSH_PROMPT_SEEN_KEY, 'true');
+}
+
+function showContextualPushPrompt() {
+  if (typeof Notification === 'undefined' || state.publicPushSubscription || Notification.permission === 'denied') return;
+  state.publicPushContextual = true;
+  updatePublicPushPromptVisibility();
+}
+
+function dismissPublicPushPrompt() {
+  localStorage.setItem(PUSH_PROMPT_SEEN_KEY, 'true');
+  state.publicPushContextual = false;
+  document.getElementById('publicPushPrompt')?.classList.add('hidden');
+}
+
 function updatePublicPushButton(active = false) {
   publicPushButtons().forEach((button) => {
     const label = button.dataset.pushLabel || (active ? 'Notifikasi Aktif' : 'Aktifkan Notifikasi');
@@ -66,6 +103,7 @@ function updatePublicPushButton(active = false) {
     button.classList.toggle('active', active);
     button.classList.toggle('hidden', active);
   });
+  updatePublicPushPromptVisibility();
 }
 
 async function refreshPublicPushButton() {
@@ -86,6 +124,10 @@ async function refreshPublicPushButton() {
 }
 
 async function togglePublicPush() {
+  if (isIosDevice() && !isStandaloneApp()) {
+    showIosPushInstallGuide();
+    return;
+  }
   const buttons = publicPushButtons();
   if (!buttons.length) return;
   buttons.forEach((button) => { button.disabled = true; });
@@ -111,6 +153,7 @@ async function togglePublicPush() {
     alert(error.message || 'Gagal mengatur notifikasi.');
   } finally {
     buttons.forEach((button) => { button.disabled = false; });
+    updatePublicPushPromptVisibility();
   }
 }
 
@@ -553,6 +596,7 @@ function bindPickupForm() {
         }),
       });
       setMemberInfoFromPayload(payload, result);
+      showContextualPushPrompt();
 
       const wrapper = document.getElementById("pickup-form-wrapper");
       if (wrapper) {
@@ -656,6 +700,10 @@ function bindTracking() {
         const paymentName = `payment-${escapeHtml(tracking.orderCode || tracking.customerName || 'order')}`;
         const paymentConfirm = isPaid ? `
           <div class="tracking-payment-confirm paid">
+            <div class="payment-total-box">
+              <span>Total pembayaran</span>
+              <strong>${escapeHtml(rupiah(paymentAmount))}</strong>
+            </div>
             <div class="payment-paid-status">
               <span class="payment-paid-icon">✓</span>
               <div><strong>Sudah Terbayar / Lunas</strong><p>Dibayar ${escapeHtml(dt(tracking.paidAt))} melalui ${escapeHtml(String(tracking.paymentMethod || "Pembayaran").toUpperCase())}.</p></div>
@@ -676,7 +724,7 @@ function bindTracking() {
               </div>
             </div>
             <div class="payment-total-box">
-              <span>Total nominal pembayaran</span>
+              <span>Total yang harus dibayar</span>
               <strong>${escapeHtml(rupiah(paymentAmount))}</strong>
             </div>
             <div class="payment-toggle" role="radiogroup" aria-label="Pilihan pembayaran">
@@ -723,6 +771,7 @@ function bindTracking() {
           </article>
         `;
       }).join("");
+      showContextualPushPrompt();
     } catch (err) {
       result.innerHTML = `
         <div class="notice-card">
@@ -960,6 +1009,7 @@ async function loadChatHistory(markRead = false) {
   if (!state.chatSessionId) return;
   try {
     state.chatThread = await fetchChatThread(state.chatSessionId);
+    state.chatUserMessageCount = (state.chatThread?.messages || []).filter((message) => message.sender_type === 'user').length;
     const unread = Number(state.chatThread?.unreadAdminCount || 0);
     updateChatFabBadge(state.chatOpen ? 0 : unread);
     renderChatMessages();
@@ -977,6 +1027,8 @@ async function handleChatSend(form) {
   if (button) button.disabled = true;
   try {
     state.chatThread = await sendChatMessage(state.chatSessionId, message);
+    state.chatUserMessageCount += 1;
+    if (state.chatUserMessageCount >= 2) showContextualPushPrompt();
     if (textarea) textarea.value = "";
     renderChatMessages();
   } catch (error) {
@@ -1011,7 +1063,10 @@ async function renderChatWidget() {
   ]);
   const hasSubmittedIdentity = identity.fullName && localStorage.getItem('prashoes_identity_submitted') === 'true';
   root.innerHTML = `
-    <button class="push-fab hidden" id="publicPushFab" data-push-label="🔔 Dapatkan Notifikasi" aria-label="Dapatkan notifikasi Prashoes" type="button">🔔 Dapatkan Notifikasi</button>
+    <div class="push-prompt hidden" id="publicPushPrompt">
+      <button class="push-fab" id="publicPushFab" data-push-label="🔔 Dapatkan Notifikasi" aria-label="Dapatkan notifikasi Prashoes" type="button">🔔 Dapatkan Notifikasi</button>
+      <button class="push-prompt-close" id="publicPushPromptClose" aria-label="Tutup pengingat notifikasi" type="button">×</button>
+    </div>
     <button class="chat-fab" id="chatFab" aria-label="Buka chat Prashoes" type="button">
       <svg class="chat-fab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M12 3.5a7.5 7.5 0 0 0-7.5 7.5v3.1c0 .86.7 1.56 1.56 1.56h1.2v-5.2h-1.1A5.86 5.86 0 0 1 12 5.1a5.86 5.86 0 0 1 5.84 5.36h-1.1v5.2h1.08a4.54 4.54 0 0 1-4.13 2.65h-1.2a1.1 1.1 0 0 0 0 2.2h1.2a6.75 6.75 0 0 0 6.6-5.32 1.56 1.56 0 0 0 1.21-1.52V11A7.5 7.5 0 0 0 12 3.5Z" />
@@ -1048,6 +1103,7 @@ async function renderChatWidget() {
   document.getElementById("chatClose")?.addEventListener("click", () => toggleChatPanel(false));
   document.getElementById("publicPushBtn")?.addEventListener("click", togglePublicPush);
   document.getElementById("publicPushFab")?.addEventListener("click", togglePublicPush);
+  document.getElementById("publicPushPromptClose")?.addEventListener("click", dismissPublicPushPrompt);
   document.getElementById("chatWhatsapp")?.addEventListener("blur", detectChatIdentity);
   document.getElementById("chatTemplates")?.addEventListener("click", async (event) => {
     const button = event.target.closest('[data-chat-template]');
@@ -1055,6 +1111,8 @@ async function renderChatWidget() {
     const ok = await validateIdentityBeforeSend();
     if (!ok) return;
     state.chatThread = await sendChatMessage(state.chatSessionId, button.dataset.chatTemplate);
+    state.chatUserMessageCount += 1;
+    if (state.chatUserMessageCount >= 2) showContextualPushPrompt();
     renderChatMessages();
   });
   document.getElementById("chatInputForm")?.addEventListener("submit", async (event) => {

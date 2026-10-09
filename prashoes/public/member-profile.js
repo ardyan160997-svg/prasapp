@@ -110,6 +110,28 @@ function downloadReceipt(order) {
   URL.revokeObjectURL(url);
 }
 
+function pickupCard(pickup) {
+  const status = pickup.status || 'Menunggu konfirmasi';
+  const canCancel = ['Menunggu konfirmasi', 'Dikonfirmasi'].includes(status);
+  return `
+    <article class="member-order-card member-pickup-card" data-pickup-id="${escapeHtml(pickup.id)}">
+      <div class="member-order-top">
+        <div>
+          <strong>${escapeHtml(pickup.request_code || 'Pickup')}</strong>
+          <p>${escapeHtml(status)}</p>
+        </div>
+        <span class="member-payment-badge ${status === 'Dibatalkan' ? '' : 'paid'}">Pickup</span>
+      </div>
+      <ul class="member-order-items">
+        <li>${escapeHtml(pickup.service_type || 'Layanan pickup')} <span>${Number(pickup.shoe_quantity || 0)} pasang</span></li>
+        <li>${escapeHtml(pickup.pickup_address || '-')}</li>
+      </ul>
+      ${canCancel ? '<button class="btn btn-secondary btn-full" type="button" data-cancel-pickup>Batalkan Request Pickup</button>' : ''}
+      <p class="profile-message" data-pickup-message></p>
+    </article>
+  `;
+}
+
 function orderCard(order) {
   const paid = order.payment_status === 'terbayar';
   const proof = order.paymentProof || null;
@@ -154,7 +176,17 @@ function renderProfile(payload) {
   document.getElementById('memberName').textContent = member.full_name || 'Member Prashoes';
   document.getElementById('memberMeta').textContent = `${member.member_code || '-'} • ${member.email || member.whatsapp_number || '-'}`;
   const orders = payload.orders || [];
-  ordersRoot.innerHTML = orders.length ? orders.map(orderCard).join('') : '<div class="member-empty">Belum ada order berjalan. Buat order baru dari dashboard Prashoes.</div>';
+  const pickups = payload.pickups || [];
+  const activePickups = pickups.filter((pickup) => !['Sudah dijemput', 'Dibatalkan'].includes(pickup.status));
+  const pickupHistory = pickups.filter((pickup) => ['Sudah dijemput', 'Dibatalkan'].includes(pickup.status));
+  ordersRoot.innerHTML = `
+    <h3>Order Berjalan</h3>
+    ${orders.length ? orders.map(orderCard).join('') : '<div class="member-empty">Belum ada order berjalan.</div>'}
+    <h3>Pickup Request</h3>
+    ${activePickups.length ? activePickups.map(pickupCard).join('') : '<div class="member-empty">Belum ada pickup request aktif.</div>'}
+    <h3>Riwayat Pickup</h3>
+    ${pickupHistory.length ? pickupHistory.map(pickupCard).join('') : '<div class="member-empty">Belum ada riwayat pickup.</div>'}
+  `;
 }
 
 async function loadProfile() {
@@ -223,6 +255,23 @@ ordersRoot?.addEventListener('change', async (event) => {
 });
 
 ordersRoot?.addEventListener('click', async (event) => {
+  const cancelPickupButton = event.target.closest('[data-cancel-pickup]');
+  if (cancelPickupButton) {
+    const card = cancelPickupButton.closest('[data-pickup-id]');
+    const message = card?.querySelector('[data-pickup-message]');
+    if (!card || !confirm('Yakin ingin membatalkan request pickup ini?')) return;
+    cancelPickupButton.disabled = true;
+    if (message) message.textContent = 'Membatalkan pickup...';
+    try {
+      await api('/member-pickup-cancel', { method: 'PATCH', body: JSON.stringify({ id: card.dataset.pickupId }) });
+      await loadProfile();
+    } catch (error) {
+      if (message) message.textContent = error.message || 'Pickup gagal dibatalkan.';
+      cancelPickupButton.disabled = false;
+    }
+    return;
+  }
+
   const receiptButton = event.target.closest('[data-receipt]');
   if (receiptButton) {
     const payload = await api('/member-profile');

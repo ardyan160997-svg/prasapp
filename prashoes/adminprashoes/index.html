@@ -11,7 +11,7 @@
   <link rel="icon" type="image/avif" href="images/icon.avif">
   <link rel="apple-touch-icon" href="images/pwa-icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=dark-bottom-nav-1">
+  <link rel="stylesheet" href="styles.css?v=tracking-photo-upload-1">
   <link rel="stylesheet" href="order-accordion.css?v=order-accordion-1">
 </head>
 <body>
@@ -69,6 +69,13 @@
       </section>
 
       <section class="content hidden" id="adminContent">
+        <aside class="admin-push-required hidden" id="pushRequiredBanner" role="status">
+          <div>
+            <strong>Notifikasi Operasional Wajib Diaktifkan</strong>
+            <p id="pushRequiredMessage">Aktifkan notifikasi agar order, chat, pickup, dan bukti pembayaran tidak terlewat.</p>
+          </div>
+          <button class="primary-btn small" id="pushRequiredBtn" type="button">Aktifkan Notifikasi</button>
+        </aside>
         <section class="section active" id="dashboardSection" data-section-panel="dashboard">
           <div class="stats-grid" id="statsGrid"></div>
           <div class="grid-2">
@@ -110,11 +117,24 @@
                 <span class="accordion-toggle" aria-hidden="true">+</span>
               </summary>
               <form id="orderForm" class="stack-form accordion-body">
+                <div class="order-source-toggle" role="group" aria-label="Sumber customer">
+                  <button class="secondary-btn active" type="button" data-order-source="manual">Tambah Manual</button>
+                  <button class="secondary-btn" type="button" data-order-source="pickup">Dari Pickup Request</button>
+                </div>
+                <input name="orderSource" type="hidden" value="manual">
+                <label class="hidden" id="pickupSourceField">Cari Pickup Request
+                  <select name="pickupRequestId" id="pickupRequestSelect">
+                    <option value="">Pilih nama, WhatsApp, atau kode pickup</option>
+                  </select>
+                </label>
                 <label>Nama Customer
                   <div class="inline-field">
                     <input name="customerName" required placeholder="Nama customer" list="memberNameList" autocomplete="off">
                     <button type="button" class="ghost-btn" id="checkMemberBtn">Cek Member</button>
                   </div>
+                </label>
+                <label>Nomor WhatsApp
+                  <input name="whatsappNumber" required placeholder="08xxxxxxxxxx" inputmode="tel" autocomplete="tel">
                 </label>
                 <datalist id="memberNameList"></datalist>
                 <p class="form-message" id="memberCheckMessage"></p>
@@ -156,6 +176,13 @@
               <span class="pill" id="orderHistoryCountPill">0 terbayar</span>
             </div>
             <div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Sepatu</th><th>Status</th><th>Status Pembayaran</th><th>Aksi</th></tr></thead><tbody id="orderHistoryBody"></tbody></table></div>
+            <div class="panel-header history-pickup-header">
+              <div>
+                <p class="eyebrow">Riwayat Pickup</p>
+                <h2>Sudah Dijemput & Dibatalkan</h2>
+              </div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Request</th><th>Customer</th><th>Alamat</th><th>Layanan</th><th>Status</th><th>Update</th></tr></thead><tbody id="pickupHistoryBody"></tbody></table></div>
           </article>
         </section>
 
@@ -328,6 +355,20 @@
     </div>
   </template>
 
+  <div class="payment-modal hidden" id="pickupConfirmModal" role="dialog" aria-modal="true" aria-labelledby="pickupModalTitle">
+    <button class="payment-modal-backdrop" data-pickup-confirm-cancel type="button" aria-label="Tutup konfirmasi"></button>
+    <article class="payment-modal-card">
+      <div class="payment-modal-icon">!</div>
+      <p class="eyebrow">Konfirmasi Pickup</p>
+      <h2 id="pickupModalTitle">Konfirmasi status pickup</h2>
+      <p class="payment-modal-copy" id="pickupModalCopy"></p>
+      <div class="payment-modal-actions">
+        <button class="ghost-btn" data-pickup-confirm-cancel type="button">Tidak</button>
+        <button class="primary-btn" id="confirmPickupStatusBtn" type="button">Ya, Konfirmasi</button>
+      </div>
+    </article>
+  </div>
+
   <div class="payment-modal hidden" id="paymentConfirmModal" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
     <button class="payment-modal-backdrop" data-payment-cancel type="button" aria-label="Tutup konfirmasi"></button>
     <article class="payment-modal-card">
@@ -347,6 +388,6 @@
     </article>
   </div>
 
-  <script src="app.js?v=split-order-input-1"></script>
+  <script src="app.js?v=tracking-photo-upload-1"></script>
 </body>
 </html>
