@@ -162,8 +162,9 @@ button {
 
 .logo {
   display: block;
-  width: 150px;
-  flex: 0 0 auto;
+  width: 140px;
+  max-width: 140px;
+  flex: 0 0 140px;
   overflow: visible;
   opacity: 1;
   transform: translateY(0);
@@ -326,7 +327,7 @@ body.menu-open .member-login-badge {
   min-height: calc(100vh - 73px);
   flex-direction: column;
   justify-content: flex-start;
-  padding-top: 4rem;
+  padding-top: 3.2rem;
   padding-bottom: 4rem;
 }
 
@@ -1782,7 +1783,7 @@ body.menu-open .member-login-badge {
   }
 
   .hero-content {
-    padding-top: 5rem;
+    padding-top: 4.2rem;
     padding-bottom: 6rem;
   }
 
@@ -1926,7 +1927,7 @@ body.menu-open .member-login-badge {
 
 @media (max-width: 767px){
   .header-inner{min-height:54px;padding-block:.5rem;gap:.55rem}
-  .logo{width:124px}
+  .logo{width:114px;max-width:114px;flex-basis:114px}
   .mobile-menu-btn{width:2.18rem;height:2.18rem;border-radius:.68rem}
   .nav-mobile{inset:55px 0 auto 0;padding:.65rem 1rem 1rem}
 }
