@@ -157,14 +157,14 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-block: 1rem;
+  padding-block: calc(1rem + 2.5px);
 }
 
 .logo {
   display: block;
-  width: 140px;
-  max-width: 140px;
-  flex: 0 0 140px;
+  width: 145px;
+  max-width: 145px;
+  flex: 0 0 145px;
   overflow: visible;
   opacity: 1;
   transform: translateY(0);
@@ -1926,10 +1926,10 @@ body.menu-open .member-login-badge {
 
 
 @media (max-width: 767px){
-  .header-inner{min-height:54px;padding-block:.5rem;gap:.55rem}
-  .logo{width:114px;max-width:114px;flex-basis:114px}
+  .header-inner{min-height:59px;padding-block:.5rem;gap:.55rem}
+  .logo{width:119px;max-width:119px;flex-basis:119px}
   .mobile-menu-btn{width:2.18rem;height:2.18rem;border-radius:.68rem}
-  .nav-mobile{inset:55px 0 auto 0;padding:.65rem 1rem 1rem}
+  .nav-mobile{inset:60px 0 auto 0;padding:.65rem 1rem 1rem}
 }
 
 .public-profile-avatar{display:grid;width:1.35rem;height:1.35rem;place-items:center;overflow:hidden;border:1px solid rgba(255,255,255,.34);border-radius:50%;background:rgba(255,255,255,.08);color:currentColor}
