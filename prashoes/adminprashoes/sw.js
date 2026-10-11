@@ -10,7 +10,11 @@ self.addEventListener('push', (event) => {
     data: { url: data.url || '/' },
     requireInteraction: true,
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    const clientsList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    await Promise.all(clientsList.map((client) => client.postMessage({ type: 'prashoes-admin-refresh', payload: data })));
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
