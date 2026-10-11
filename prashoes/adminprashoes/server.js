@@ -4,6 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { Pool } = require('pg');
 const webPush = require('web-push');
+const { calculateDeliveryFee, routeDistanceFromStore, STORE_LOCATION } = require('./delivery');
 
 const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = path.join(__dirname, 'dist');
@@ -506,12 +507,44 @@ async function ensureWarrantyTables() {
   `);
 }
 
+async function ensureDeliveryTables() {
+  await ensureWarrantyTables();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS delivery_requests (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      request_code text NOT NULL UNIQUE DEFAULT ('DLV-' || upper(substr(md5(random()::text), 1, 6))),
+      order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      pickup_request_id uuid REFERENCES pickup_requests(id) ON DELETE SET NULL,
+      member_id uuid REFERENCES members(id) ON DELETE SET NULL,
+      customer_name text NOT NULL,
+      whatsapp_number text NOT NULL DEFAULT '',
+      delivery_address text NOT NULL,
+      delivery_latitude numeric NOT NULL,
+      delivery_longitude numeric NOT NULL,
+      delivery_share_url text NOT NULL DEFAULT '',
+      address_source text NOT NULL DEFAULT 'manual',
+      distance_meters integer NOT NULL DEFAULT 0,
+      duration_seconds integer NOT NULL DEFAULT 0,
+      pickup_used boolean NOT NULL DEFAULT false,
+      delivery_fee numeric NOT NULL DEFAULT 0,
+      status text NOT NULL DEFAULT 'Menunggu konfirmasi',
+      notes text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT delivery_requests_order_key UNIQUE (order_id),
+      CONSTRAINT delivery_requests_status_check CHECK (status IN ('Menunggu konfirmasi','Dikonfirmasi','Kurir menuju lokasi','Selesai','Dibatalkan')),
+      CONSTRAINT delivery_requests_address_source_check CHECK (address_source IN ('pickup','member','manual'))
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS delivery_requests_status_idx ON delivery_requests(status)');
+}
+
 async function dashboard() {
   await ensureChatTables();
   await ensureVoucherTables();
-  await ensureWarrantyTables();
+  await ensureDeliveryTables();
   await syncPaidOrderRevenue();
-  const [services, members, orders, cashflow, pickups, promos, chats, chatTemplates, vouchers, reviewClaims, paymentProofs] = await Promise.all([
+  const [services, members, orders, cashflow, pickups, deliveries, promos, chats, chatTemplates, vouchers, reviewClaims, paymentProofs] = await Promise.all([
     queryRows('SELECT id, name, slug, starting_price FROM services ORDER BY created_at ASC'),
     queryRows('SELECT * FROM members ORDER BY created_at DESC'),
     queryRows(`
@@ -534,6 +567,11 @@ async function dashboard() {
     `),
     queryRows('SELECT * FROM cashflow_transactions ORDER BY transaction_date DESC'),
     queryRows('SELECT * FROM pickup_requests ORDER BY created_at DESC'),
+    queryRows(`
+      SELECT dr.*, o.order_code, o.status AS order_status, o.payment_status, o.payment_method, o.revenue_amount
+      FROM delivery_requests dr JOIN orders o ON o.id = dr.order_id
+      ORDER BY dr.created_at DESC
+    `),
     queryRows('SELECT id FROM promos WHERE is_active = true'),
     queryRows(`
       SELECT ct.*,
@@ -599,6 +637,7 @@ async function dashboard() {
     paymentGroups: Array.from(paymentGroups.values()),
     cashflow: financeRows,
     pickups,
+    deliveries,
     promos,
     chats,
     chatTemplates,
@@ -611,6 +650,7 @@ async function dashboard() {
       unreadChatThreads: chats.filter((row) => Number(row.unread_count || 0) > 0).length,
       openChats: chats.filter((row) => row.status === 'open').length,
       pickupRequests: pickups.length,
+      deliveryRequests: deliveries.length,
       orders: normalizedOrders.length,
       members: members.length,
       activePromos: promos.length,
@@ -776,6 +816,114 @@ async function markCustomerOrdersPaid(input) {
       orders: result.rows,
       amount: result.rows.reduce((sum, order) => sum + num(order.revenue_amount), 0),
     };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function deliveryOrder(input, lock = false, client = pool) {
+  const orderId = String(input.orderId || '').trim();
+  const phone = normalizePhone(input.whatsappNumber || '');
+  if (!orderId || !phone) throw new Error('Order dan WhatsApp wajib diisi.');
+  const suffix = lock ? ' FOR UPDATE OF o' : '';
+  const result = await client.query(`
+    SELECT o.*, m.pickup_address AS member_address, m.pickup_latitude AS member_latitude,
+      m.pickup_longitude AS member_longitude, m.pickup_share_url AS member_share_url,
+      p.id AS source_pickup_id, p.pickup_address AS source_pickup_address,
+      p.pickup_latitude AS source_pickup_latitude, p.pickup_longitude AS source_pickup_longitude,
+      p.pickup_share_url AS source_pickup_share_url
+    FROM orders o
+    LEFT JOIN members m ON m.id = o.member_id
+    LEFT JOIN pickup_requests p ON p.id = o.pickup_request_id
+    WHERE o.id = $1
+      AND regexp_replace(COALESCE(NULLIF(o.whatsapp_number, ''), m.whatsapp_number, ''), '[^0-9]', '', 'g') IN ($2,$3)
+    LIMIT 1${suffix}
+  `, [orderId, phone, phone.startsWith('62') ? `0${phone.slice(2)}` : phone]);
+  const order = result.rows[0];
+  if (!order) throw new Error('Order tidak ditemukan untuk nomor WhatsApp ini.');
+  if (order.status !== 'Siap diambil') throw new Error('Request antar tersedia saat order berstatus Siap diambil.');
+  if (order.payment_status === 'terbayar') throw new Error('Order sudah lunas. Hubungi admin untuk request antar.');
+  return order;
+}
+
+function deliveryLocation(order, input) {
+  const hasManualCoordinates = input.latitude !== null && input.latitude !== undefined && input.latitude !== '' && input.longitude !== null && input.longitude !== undefined && input.longitude !== '';
+  const manualLat = Number(input.latitude);
+  const manualLon = Number(input.longitude);
+  if (hasManualCoordinates && Number.isFinite(manualLat) && Number.isFinite(manualLon)) {
+    return {
+      latitude: manualLat,
+      longitude: manualLon,
+      address: String(input.address || order.source_pickup_address || order.member_address || '').trim(),
+      shareUrl: `https://www.openstreetmap.org/?mlat=${manualLat}&mlon=${manualLon}#map=18/${manualLat}/${manualLon}`,
+      source: 'manual',
+    };
+  }
+  if (order.source_pickup_latitude != null && order.source_pickup_longitude != null) return { latitude: Number(order.source_pickup_latitude), longitude: Number(order.source_pickup_longitude), address: order.source_pickup_address || '', shareUrl: order.source_pickup_share_url || '', source: 'pickup' };
+  if (order.member_latitude != null && order.member_longitude != null) return { latitude: Number(order.member_latitude), longitude: Number(order.member_longitude), address: order.member_address || '', shareUrl: order.member_share_url || '', source: 'member' };
+  throw new Error('Share lokasi diperlukan karena koordinat alamat belum tersimpan.');
+}
+
+async function deliveryQuote(input) {
+  await ensureDeliveryTables();
+  const order = await deliveryOrder(input);
+  const location = deliveryLocation(order, input);
+  if (!location.address) throw new Error('Alamat antar wajib diisi.');
+  const route = await routeDistanceFromStore(location.latitude, location.longitude);
+  const pickupUsed = Boolean(order.pickup_request_id);
+  const deliveryFee = calculateDeliveryFee(route.distanceMeters, pickupUsed);
+  return { orderId: order.id, orderCode: order.order_code, address: location.address, latitude: location.latitude, longitude: location.longitude, shareUrl: location.shareUrl, addressSource: location.source, distanceMeters: route.distanceMeters, durationSeconds: route.durationSeconds, pickupUsed, deliveryFee, totalCod: num(order.revenue_amount) + deliveryFee, storeLocation: STORE_LOCATION };
+}
+
+async function createDeliveryRequest(input) {
+  await ensureDeliveryTables();
+  const quote = await deliveryQuote(input);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const order = await deliveryOrder(input, true, client);
+    const existing = await client.query('SELECT * FROM delivery_requests WHERE order_id = $1 FOR UPDATE', [order.id]);
+    const previous = existing.rows[0] || null;
+    if (previous && previous.status !== 'Dibatalkan') throw new Error(`Request antar ${previous.request_code} sudah aktif.`);
+    const oldFee = previous ? num(previous.delivery_fee) : 0;
+    const rows = await client.query(`
+      INSERT INTO delivery_requests (order_id, pickup_request_id, member_id, customer_name, whatsapp_number, delivery_address, delivery_latitude, delivery_longitude, delivery_share_url, address_source, distance_meters, duration_seconds, pickup_used, delivery_fee, notes)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      ON CONFLICT (order_id) DO UPDATE SET pickup_request_id = EXCLUDED.pickup_request_id, member_id = EXCLUDED.member_id, customer_name = EXCLUDED.customer_name, whatsapp_number = EXCLUDED.whatsapp_number, delivery_address = EXCLUDED.delivery_address, delivery_latitude = EXCLUDED.delivery_latitude, delivery_longitude = EXCLUDED.delivery_longitude, delivery_share_url = EXCLUDED.delivery_share_url, address_source = EXCLUDED.address_source, distance_meters = EXCLUDED.distance_meters, duration_seconds = EXCLUDED.duration_seconds, pickup_used = EXCLUDED.pickup_used, delivery_fee = EXCLUDED.delivery_fee, status = 'Menunggu konfirmasi', notes = EXCLUDED.notes, updated_at = now()
+      RETURNING *
+    `, [order.id, order.pickup_request_id, order.member_id, order.customer_name, order.whatsapp_number, quote.address, quote.latitude, quote.longitude, quote.shareUrl, quote.addressSource, quote.distanceMeters, quote.durationSeconds, quote.pickupUsed, quote.deliveryFee, String(input.notes || '').trim()]);
+    await client.query('UPDATE orders SET revenue_amount = GREATEST(0, revenue_amount - $1 + $2), payment_method = $3 WHERE id = $4', [oldFee, quote.deliveryFee, 'cod', order.id]);
+    await client.query('COMMIT');
+    const delivery = rows.rows[0];
+    notifyAdmin('delivery', 'Request antar baru', `${order.customer_name} • ${order.order_code} • ${quote.deliveryFee ? `Rp${quote.deliveryFee.toLocaleString('id-ID')}` : 'Gratis'}`, '/#deliveries');
+    return { success: true, delivery, quote: { ...quote, totalCod: num(order.revenue_amount) - oldFee + quote.deliveryFee } };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function updateDeliveryRequest(input) {
+  await ensureDeliveryTables();
+  const valid = ['Menunggu konfirmasi','Dikonfirmasi','Kurir menuju lokasi','Selesai','Dibatalkan'];
+  if (!input.id || !valid.includes(input.status)) throw new Error('Request antar dan status wajib valid.');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query('SELECT * FROM delivery_requests WHERE id = $1 FOR UPDATE', [input.id]);
+    const delivery = current.rows[0];
+    if (!delivery) throw new Error('Request antar tidak ditemukan.');
+    if (input.status === 'Dibatalkan' && delivery.status !== 'Dibatalkan' && num(delivery.delivery_fee) > 0) await client.query('UPDATE orders SET revenue_amount = GREATEST(0, revenue_amount - $1) WHERE id = $2 AND payment_status <> $3', [num(delivery.delivery_fee), delivery.order_id, 'terbayar']);
+    const rows = await client.query('UPDATE delivery_requests SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', [input.status, input.id]);
+    await client.query('COMMIT');
+    const updated = rows.rows[0];
+    sendPublicPushByIdentity(updated, { type: 'delivery-status', title: `Status antar: ${updated.status}`, body: `${updated.request_code} — ${updated.status}`, url: '/#lacak', tag: `prashoes-delivery-${updated.id}` }).catch(() => {});
+    return updated;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -1182,7 +1330,7 @@ const TRACKING_FIELDS = new Set(['name', 'member', 'whatsapp', 'email', 'order']
 
 async function publicTracking(type, value) {
   if (!TRACKING_FIELDS.has(type) || !String(value || '').trim()) return [];
-  await ensureWarrantyTables();
+  await ensureDeliveryTables();
   const searchValue = String(value).trim();
   const rows = await queryRows(`
     SELECT
@@ -1199,6 +1347,10 @@ async function publicTracking(type, value) {
       o.created_at AS "createdAt",
       o.updated_at AS "updatedAt",
       o.completed_at AS "completedAt",
+      (
+        SELECT json_build_object('id', dr.id, 'requestCode', dr.request_code, 'status', dr.status, 'address', dr.delivery_address, 'distanceMeters', dr.distance_meters, 'deliveryFee', dr.delivery_fee, 'pickupUsed', dr.pickup_used, 'createdAt', dr.created_at, 'updatedAt', dr.updated_at)
+        FROM delivery_requests dr WHERE dr.order_id = o.id LIMIT 1
+      ) AS "deliveryRequest",
       (
         SELECT json_build_object('id', pp.id, 'proofUrl', pp.proof_url, 'status', pp.status, 'method', pp.method, 'createdAt', pp.created_at, 'reviewedAt', pp.reviewed_at)
         FROM payment_proofs pp WHERE pp.order_id = o.id LIMIT 1
@@ -1468,6 +1620,8 @@ async function publicApi(req, res, url, parts) {
   if (resource === 'review-claim' && req.method === 'POST') return sendJson(res, await createReviewClaim(await readJson(req)), 201);
   if (resource === 'voucher-check' && req.method === 'POST') return sendJson(res, await validateVoucher(await readJson(req)));
   if (resource === 'pickup-requests' && req.method === 'POST') return sendJson(res, await createPublicPickup(await readJson(req)), 201);
+  if (resource === 'delivery-quote' && req.method === 'POST') return sendJson(res, await deliveryQuote(await readJson(req)));
+  if (resource === 'delivery-requests' && req.method === 'POST') return sendJson(res, await createDeliveryRequest(await readJson(req)), 201);
   if (resource === 'push-public-key' && req.method === 'GET') return sendJson(res, { publicKey: VAPID_PUBLIC_KEY, configured: Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) });
   if (resource === 'push-subscriptions' && req.method === 'POST') return sendJson(res, await savePublicPushSubscription(await readJson(req), req.headers['user-agent']), 201);
   if (resource === 'push-subscriptions' && req.method === 'DELETE') return sendJson(res, await removePushSubscription((await readJson(req)).endpoint));
@@ -1597,6 +1751,7 @@ async function api(req, res, url) {
   if (route === 'orders' && req.method === 'PATCH') return sendJson(res, await updateOrder(await readJson(req)));
   if (route === 'order-notification' && req.method === 'POST') return sendJson(res, await resendPublicOrderNotification(await readJson(req)));
   if (route === 'pickup-requests' && req.method === 'PATCH') return sendJson(res, await updatePickupRequest(await readJson(req)));
+  if (route === 'delivery-requests' && req.method === 'PATCH') return sendJson(res, await updateDeliveryRequest(await readJson(req)));
   if (route === 'chat' && req.method === 'POST') return sendJson(res, await createAdminChatReply(await readJson(req)), 201);
   if (route === 'chat-unread' && req.method === 'GET') return sendJson(res, await chatUnreadSummary());
   if (route === 'chat-read' && req.method === 'PATCH') return sendJson(res, await markChatThreadRead((await readJson(req)).threadId));

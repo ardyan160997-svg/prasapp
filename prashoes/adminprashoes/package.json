@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "rm -rf dist && mkdir -p dist && cp index.html styles.css order-accordion.css app.js sw.js manifest.webmanifest dist/ && cp -R images dist/",
-    "check": "node --check app.js && node --check server.js && node --check scripts/import-data.js"
+    "check": "node --check app.js && node --check server.js && node --check delivery.js && node --check scripts/import-data.js && node tests/delivery-pricing.test.js"
   },
   "dependencies": {
     "pg": "^8.13.1",
