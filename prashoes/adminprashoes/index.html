@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="images/pwa-icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css?v=admin-live-refresh-1">
-  <link rel="stylesheet" href="order-accordion.css?v=order-accordion-1">
+  <link rel="stylesheet" href="order-accordion.css?v=chat-template-accordion-1">
 </head>
 <body>
   <main class="app-shell">
@@ -227,19 +227,25 @@
               </div>
             </div>
             <div class="chat-template-panel">
-              <div class="panel-header compact">
-                <div>
-                  <p class="eyebrow">Template cepat</p>
-                  <h3>Quick Chat Public</h3>
+              <details class="chat-template-accordion">
+                <summary class="panel-header compact chat-template-summary">
+                  <div>
+                    <p class="eyebrow">Template cepat</p>
+                    <h3>Quick Chat Public</h3>
+                    <p class="muted">Buka hanya saat perlu edit template balasan.</p>
+                  </div>
+                  <span class="accordion-toggle" aria-hidden="true">+</span>
+                </summary>
+                <div class="chat-template-body">
+                  <form id="chatTemplateForm" class="chat-template-form">
+                    <input name="message" maxlength="200" required placeholder="Contoh: Harga cuci sepatu berapa?">
+                    <input name="sortOrder" type="number" min="0" value="0" aria-label="Urutan template">
+                    <button class="primary-btn small" type="submit">Tambah</button>
+                  </form>
+                  <div class="chat-template-list" id="chatTemplateList"></div>
+                  <p class="form-message" id="chatTemplateMessage"></p>
                 </div>
-              </div>
-              <form id="chatTemplateForm" class="chat-template-form">
-                <input name="message" maxlength="200" required placeholder="Contoh: Harga cuci sepatu berapa?">
-                <input name="sortOrder" type="number" min="0" value="0" aria-label="Urutan template">
-                <button class="primary-btn small" type="submit">Tambah</button>
-              </form>
-              <div class="chat-template-list" id="chatTemplateList"></div>
-              <p class="form-message" id="chatTemplateMessage"></p>
+              </details>
             </div>
           </article>
         </section>
