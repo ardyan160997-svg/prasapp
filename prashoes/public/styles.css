@@ -1951,7 +1951,7 @@ body.menu-open .member-login-badge {
 
 /* Request antar */
 .tracking-delivery-card{margin:1rem 0;padding:1rem;border:1px solid rgba(250,204,21,.35);border-radius:18px;background:rgba(250,204,21,.08)}
-.tracking-delivery-card summary{cursor:pointer;font-weight:800;color:#111827}
+.tracking-delivery-card summary{cursor:pointer;font-weight:800;color:#facc15;text-shadow:0 1px 12px rgba(250,204,21,.18)}
 .tracking-delivery-card.active{background:#fff7ed;border-color:#fed7aa}
 .delivery-request-form{display:grid;gap:.75rem;margin-top:.75rem}
 .delivery-request-form textarea,.delivery-request-form input{width:100%;border:1px solid #e5e7eb;border-radius:14px;padding:.75rem;font:inherit}

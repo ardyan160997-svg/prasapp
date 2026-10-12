@@ -27,12 +27,12 @@ function buildOsrmRouteUrl(latitude, longitude) {
 async function routeDistanceFromStore(latitude, longitude, fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new Error('OSRM fetch tidak tersedia.');
   const response = await fetchImpl(buildOsrmRouteUrl(latitude, longitude), { headers: { 'user-agent': 'Prashoes/1.0 delivery-distance' } });
-  if (!response.ok) throw new Error('Gagal menghitung rute OSRM.');
+  if (!response.ok) throw new Error('Estimasi jarak belum tersedia. Coba lagi beberapa saat.');
   const json = await response.json();
   const route = Array.isArray(json.routes) ? json.routes[0] : null;
   const distance = Number(route?.distance);
   const duration = Number(route?.duration || 0);
-  if (!Number.isFinite(distance)) throw new Error('Rute OSRM tidak ditemukan.');
+  if (!Number.isFinite(distance)) throw new Error('Estimasi jarak belum tersedia. Coba lagi beberapa saat.');
   return { distanceMeters: Math.round(distance), durationSeconds: Math.round(duration) };
 }
 

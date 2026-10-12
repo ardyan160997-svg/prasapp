@@ -883,7 +883,7 @@ function bindTracking() {
           submit?.classList.remove("hidden");
           if (msg) msg.textContent = "Estimasi siap. Konfirmasi untuk kirim request antar.";
         } catch (error) {
-          if (msg) msg.textContent = error.message || "Gagal menghitung estimasi ongkir.";
+          if (msg) msg.textContent = "Estimasi jarak belum tersedia. Coba lagi beberapa saat.";
         } finally {
           locButton.disabled = false;
         }
