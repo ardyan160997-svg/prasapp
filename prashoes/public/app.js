@@ -711,16 +711,11 @@ function bindTracking() {
           <details class="tracking-delivery-card">
             <summary>Request Antar</summary>
             <div class="delivery-request-form" data-delivery-form data-order-id="${escapeHtml(tracking.orderId || "")}" data-whatsapp-number="${escapeHtml(tracking.whatsappNumber || "")}">
-              <p>Alamat otomatis memakai lokasi request jemput atau data member. Jika koordinat belum ada, tekan Share Lokasi.</p>
-              <label>Alamat antar<textarea rows="2" data-delivery-address placeholder="Alamat rumah lengkap"></textarea></label>
-              <div class="delivery-location-actions">
-                <button class="btn btn-secondary" type="button" data-delivery-location>Share Lokasi</button>
-                <span data-delivery-location-status>Lokasi tersimpan akan dipakai jika tersedia.</span>
-              </div>
+              <p>Bagikan lokasi tujuan untuk melihat estimasi jarak, waktu, dan ongkir otomatis.</p>
+              <button class="btn btn-primary" type="button" data-delivery-location>Gunakan Lokasi Saya</button>
+              <span data-delivery-location-status>Lokasi belum dibagikan.</span>
               <input type="hidden" data-delivery-latitude>
               <input type="hidden" data-delivery-longitude>
-              <label>Catatan untuk admin<input data-delivery-notes placeholder="Patokan rumah / waktu antar"></label>
-              <button class="btn btn-primary" type="button" data-delivery-quote>Cek Jarak & Ongkir</button>
               <div class="delivery-quote hidden" data-delivery-quote-result></div>
               <button class="btn btn-primary hidden" type="button" data-delivery-submit>Konfirmasi Request Antar</button>
               <p class="form-message" data-delivery-message></p>
@@ -872,40 +867,30 @@ function bindTracking() {
       if (!navigator.geolocation) { if (msg) msg.textContent = "Browser belum mendukung share lokasi."; return; }
       locButton.disabled = true;
       if (msg) msg.textContent = "Mengambil lokasi...";
-      navigator.geolocation.getCurrentPosition((pos) => {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
         form.querySelector("[data-delivery-latitude]").value = pos.coords.latitude;
         form.querySelector("[data-delivery-longitude]").value = pos.coords.longitude;
-        if (msg) msg.textContent = "Lokasi tersimpan. Cek jarak & ongkir.";
-        locButton.disabled = false;
+        const quoteBox = form?.querySelector("[data-delivery-quote-result]");
+        const submit = form?.querySelector("[data-delivery-submit]");
+        if (msg) msg.textContent = "Lokasi ditemukan. Menghitung estimasi ongkir...";
+        try {
+          const quote = await fetchApi("/delivery-quote", { method: "POST", body: JSON.stringify({ orderId: form.dataset.orderId, whatsappNumber: form.dataset.whatsappNumber, latitude: pos.coords.latitude, longitude: pos.coords.longitude }) });
+          form.dataset.deliveryQuote = JSON.stringify(quote);
+          if (quoteBox) {
+            quoteBox.innerHTML = `<strong>Estimasi jarak ${(Number(quote.distanceMeters || 0) / 1000).toFixed(1)} km</strong><span>Estimasi waktu ${Math.round(Number(quote.durationSeconds || 0) / 60)} menit</span><span>Estimasi ongkir: ${escapeHtml(rupiah(quote.deliveryFee || 0))}</span><small>Total COD: ${escapeHtml(rupiah(quote.totalCod || 0))}</small>`;
+            quoteBox.classList.remove("hidden");
+          }
+          submit?.classList.remove("hidden");
+          if (msg) msg.textContent = "Estimasi siap. Konfirmasi untuk kirim request antar.";
+        } catch (error) {
+          if (msg) msg.textContent = error.message || "Gagal menghitung estimasi ongkir.";
+        } finally {
+          locButton.disabled = false;
+        }
       }, () => {
         if (msg) msg.textContent = "Gagal mengambil lokasi. Aktifkan izin lokasi.";
         locButton.disabled = false;
       }, { enableHighAccuracy: true, timeout: 15000 });
-      return;
-    }
-
-    const quoteButton = event.target.closest("[data-delivery-quote]");
-    if (quoteButton) {
-      const form = quoteButton.closest("[data-delivery-form]");
-      const msg = form?.querySelector("[data-delivery-message]");
-      const quoteBox = form?.querySelector("[data-delivery-quote-result]");
-      const submit = form?.querySelector("[data-delivery-submit]");
-      quoteButton.disabled = true;
-      if (msg) msg.textContent = "Menghitung jarak OSRM...";
-      try {
-        const quote = await fetchApi("/delivery-quote", { method: "POST", body: JSON.stringify({ orderId: form.dataset.orderId, whatsappNumber: form.dataset.whatsappNumber, address: form.querySelector("[data-delivery-address]")?.value || "", latitude: form.querySelector("[data-delivery-latitude]")?.value || null, longitude: form.querySelector("[data-delivery-longitude]")?.value || null }) });
-        form.dataset.deliveryQuote = JSON.stringify(quote);
-        if (quoteBox) {
-          quoteBox.innerHTML = `<strong>Jarak ${(Number(quote.distanceMeters || 0) / 1000).toFixed(1)} km</strong><span>Biaya antar: ${escapeHtml(rupiah(quote.deliveryFee || 0))}</span><small>Total COD: ${escapeHtml(rupiah(quote.totalCod || 0))}</small>`;
-          quoteBox.classList.remove("hidden");
-        }
-        submit?.classList.remove("hidden");
-        if (msg) msg.textContent = "Ongkir siap. Konfirmasi untuk kirim request antar.";
-      } catch (error) {
-        if (msg) msg.textContent = error.message || "Gagal menghitung ongkir.";
-      } finally {
-        quoteButton.disabled = false;
-      }
       return;
     }
 
@@ -916,7 +901,7 @@ function bindTracking() {
       deliverySubmit.disabled = true;
       if (msg) msg.textContent = "Mengirim request antar...";
       try {
-        await fetchApi("/delivery-requests", { method: "POST", body: JSON.stringify({ orderId: form.dataset.orderId, whatsappNumber: form.dataset.whatsappNumber, address: form.querySelector("[data-delivery-address]")?.value || "", latitude: form.querySelector("[data-delivery-latitude]")?.value || null, longitude: form.querySelector("[data-delivery-longitude]")?.value || null, notes: form.querySelector("[data-delivery-notes]")?.value || "" }) });
+        await fetchApi("/delivery-requests", { method: "POST", body: JSON.stringify({ orderId: form.dataset.orderId, whatsappNumber: form.dataset.whatsappNumber, latitude: form.querySelector("[data-delivery-latitude]")?.value || null, longitude: form.querySelector("[data-delivery-longitude]")?.value || null }) });
         if (msg) msg.textContent = "Request antar terkirim. Admin akan konfirmasi.";
         deliverySubmit.classList.add("hidden");
       } catch (error) {
