@@ -98,7 +98,7 @@
   <link rel="icon" type="image/avif" href="images/icon.avif">
   <link rel="apple-touch-icon" href="images/pwa-icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=request-antar-contrast-2">
+  <link rel="stylesheet" href="styles.css?v=order-location-toggle-3">
 </head>
 <body id="top">
   <!-- Header -->
@@ -355,6 +355,16 @@
     <!-- Pickup Form Section -->
     <section id="antar-jemput" class="section pickup-section" aria-labelledby="pickup-title">
       <div class="container">
+        <div class="order-location-toggle" role="group" aria-label="Pilihan pemesanan">
+          <a class="order-location-option active" href="#pickup-form-wrapper">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5Z"></path><path d="M8 8a4 4 0 0 1 8 0M9 13h6"></path></svg>
+            <span><strong>Request Pickup</strong><small>Jemput sepatu ke rumah</small></span>
+          </a>
+          <a class="order-location-option" href="https://www.google.com/maps/dir/?api=1&amp;destination=-7.555535424233545,110.7448938988555" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+            <span><strong>Datang ke Toko</strong><small>Buka rute Google Maps</small></span>
+          </a>
+        </div>
         <div class="pickup-card" id="pickup-form-wrapper">
           <!-- Form state will be rendered by JS -->
         </div>
