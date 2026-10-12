@@ -701,17 +701,21 @@ function bindTracking() {
         const isPaid = tracking.paymentStatus === "terbayar";
         const proof = tracking.paymentProof || null;
         const delivery = tracking.deliveryRequest || null;
+        const canRequestDelivery = !isPaid && !["Selesai", "Dibatalkan"].includes(String(tracking.status || ""));
+        const deliveryReady = tracking.status === "Siap diambil";
+        const deliveryTitle = deliveryReady ? "Request Antar Sekarang" : "Minta Diantar Saat Selesai";
+        const deliveryCopy = deliveryReady ? "Bagikan lokasi tujuan untuk melihat estimasi jarak, waktu, dan ongkir otomatis." : "Bagikan lokasi tujuan sekarang. Admin akan mengantar setelah pesanan selesai dan siap diambil.";
         const deliveryRequest = delivery ? `
           <div class="tracking-delivery-card active">
             <div><span class="tracking-kicker">Request Antar</span><strong>${escapeHtml(delivery.requestCode || "-")}</strong></div>
             <p>Antar ke: ${escapeHtml(delivery.address || "-")}</p>
             <div class="delivery-summary"><span>${(Number(delivery.distanceMeters || 0) / 1000).toFixed(1)} km</span><span>${escapeHtml(rupiah(delivery.deliveryFee || 0))}</span><span>${escapeHtml(delivery.status || "Menunggu konfirmasi")}</span></div>
           </div>
-        ` : tracking.status === "Siap diambil" && !isPaid ? `
+        ` : canRequestDelivery ? `
           <details class="tracking-delivery-card">
-            <summary>Request Antar</summary>
+            <summary>${deliveryTitle}</summary>
             <div class="delivery-request-form" data-delivery-form data-order-id="${escapeHtml(tracking.orderId || "")}" data-whatsapp-number="${escapeHtml(tracking.whatsappNumber || "")}">
-              <p>Bagikan lokasi tujuan untuk melihat estimasi jarak, waktu, dan ongkir otomatis.</p>
+              <p>${deliveryCopy}</p>
               <button class="btn btn-primary" type="button" data-delivery-location>Gunakan Lokasi Saya</button>
               <span data-delivery-location-status>Lokasi belum dibagikan.</span>
               <input type="hidden" data-delivery-latitude>
