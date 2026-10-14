@@ -7,4 +7,4 @@ async function submitAuth(path,body){try{showFeedback('Memproses...');const data
 const loginForm=document.querySelector('#login-form');
 if(loginForm)loginForm.onsubmit=event=>{event.preventDefault();submitAuth('/api/public/members/login',{whatsapp:loginForm.whatsapp.value,password:loginForm.password.value})};
 const registerForm=document.querySelector('#register-form');
-if(registerForm)registerForm.onsubmit=async event=>{event.preventDefault();try{const photo=await profilePhoto(registerForm.profilePhoto.files[0]);submitAuth('/api/public/members/register',{name:registerForm.name.value,whatsapp:registerForm.whatsapp.value,password:registerForm.password.value,profilePhoto:photo})}catch(error){showFeedback(error.message)}};
+if(registerForm)registerForm.onsubmit=event=>{event.preventDefault();submitAuth('/api/public/members/register',{name:registerForm.name.value,whatsapp:registerForm.whatsapp.value,password:registerForm.password.value})};
