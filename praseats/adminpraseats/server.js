@@ -125,8 +125,9 @@ async function setup() {
     CREATE TABLE IF NOT EXISTS order_items(id SERIAL PRIMARY KEY,order_id INTEGER REFERENCES orders(id),menu_id INTEGER,menu_name TEXT NOT NULL,brand_name TEXT DEFAULT '',qty INTEGER DEFAULT 1,price INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS chats(id SERIAL PRIMARY KEY,session_id TEXT NOT NULL,message TEXT NOT NULL,from_admin BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
     CREATE TABLE IF NOT EXISTS daily_menus(id SERIAL PRIMARY KEY,menu_id INTEGER UNIQUE REFERENCES menus(id) ON DELETE CASCADE,is_available BOOLEAN DEFAULT true,display_order INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());
-    CREATE TABLE IF NOT EXISTS members(id SERIAL PRIMARY KEY,name TEXT NOT NULL,whatsapp_number TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,profile_photo TEXT DEFAULT '',created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS members(id SERIAL PRIMARY KEY,name TEXT NOT NULL,whatsapp_number TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,profile_photo TEXT DEFAULT '',home_address TEXT DEFAULT '',created_at TIMESTAMPTZ DEFAULT now());
     ALTER TABLE members ADD COLUMN IF NOT EXISTS profile_photo TEXT DEFAULT '';
+    ALTER TABLE members ADD COLUMN IF NOT EXISTS home_address TEXT DEFAULT '';
   `);
   const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
   if (!dailyCount.rows[0].count) await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
@@ -188,44 +189,49 @@ async function handle(req, res) {
     }
     if (url.pathname === '/api/public/members/register' && req.method === 'POST') {
       const body = await readBody(req);
-      requireFields(body, ['name', 'whatsapp', 'password']);
+      requireFields(body, ['name', 'whatsapp', 'password', 'homeAddress']);
       if (String(body.password).length < 6) throw new Error('Password minimal 6 karakter');
       const phone = normalizePhone(body.whatsapp);
       const profilePhoto = validateProfilePhoto(body.profilePhoto);
+      const homeAddress = String(body.homeAddress || '').trim();
       if (pool) {
         const existing = await query('SELECT id FROM members WHERE whatsapp_number=$1', [phone]);
         if (existing.rows.length) throw new Error('Nomor WhatsApp sudah terdaftar');
-        const member = (await query('INSERT INTO members(name,whatsapp_number,password_hash,profile_photo) VALUES($1,$2,$3,$4) RETURNING id,name,whatsapp_number,profile_photo', [String(body.name).trim(), phone, hashPassword(body.password), profilePhoto])).rows[0];
+        const member = (await query('INSERT INTO members(name,whatsapp_number,password_hash,profile_photo,home_address) VALUES($1,$2,$3,$4,$5) RETURNING id,name,whatsapp_number,profile_photo,home_address', [String(body.name).trim(), phone, hashPassword(body.password), profilePhoto, homeAddress])).rows[0];
         return json(res, 200, { ok: true, token: memberToken(member), member });
       }
       if (fallback.members.some((member) => member.whatsapp_number === phone)) throw new Error('Nomor WhatsApp sudah terdaftar');
-      const member = { id: Date.now(), name: String(body.name).trim(), whatsapp_number: phone, password_hash: hashPassword(body.password), profile_photo: profilePhoto };
+      const member = { id: Date.now(), name: String(body.name).trim(), whatsapp_number: phone, password_hash: hashPassword(body.password), profile_photo: profilePhoto, home_address: homeAddress };
       fallback.members.push(member);
-      return json(res, 200, { ok: true, token: memberToken(member), member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number, profile_photo: member.profile_photo } });
+      return json(res, 200, { ok: true, token: memberToken(member), member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number, profile_photo: member.profile_photo, home_address: member.home_address } });
     }
     if (url.pathname === '/api/public/members/login' && req.method === 'POST') {
       const body = await readBody(req);
       requireFields(body, ['whatsapp', 'password']);
       const phone = normalizePhone(body.whatsapp);
       const member = pool
-        ? (await query('SELECT id,name,whatsapp_number,password_hash,profile_photo FROM members WHERE whatsapp_number=$1', [phone])).rows[0]
+        ? (await query('SELECT id,name,whatsapp_number,password_hash,profile_photo,home_address FROM members WHERE whatsapp_number=$1', [phone])).rows[0]
         : fallback.members.find((item) => item.whatsapp_number === phone);
       if (!member || !passwordMatches(body.password, member.password_hash)) return json(res, 401, { ok: false, error: 'WhatsApp atau password salah' });
-      return json(res, 200, { ok: true, token: memberToken(member), member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number, profile_photo: member.profile_photo || '' } });
+      return json(res, 200, { ok: true, token: memberToken(member), member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number, profile_photo: member.profile_photo || '', home_address: member.home_address || '' } });
     }
     if (url.pathname === '/api/public/members/profile' && req.method === 'PATCH') {
       const identity = memberFromRequest(req);
       const body = await readBody(req);
-      const profilePhoto = validateProfilePhoto(body.profilePhoto);
+      const wantsPhoto = Object.prototype.hasOwnProperty.call(body, 'profilePhoto');
+      const wantsAddress = Object.prototype.hasOwnProperty.call(body, 'homeAddress');
+      const profilePhoto = wantsPhoto ? validateProfilePhoto(body.profilePhoto) : undefined;
+      const homeAddress = wantsAddress ? String(body.homeAddress || '').trim() : undefined;
       if (pool) {
-        const member = (await query('UPDATE members SET profile_photo=$1 WHERE id=$2 RETURNING id,name,whatsapp_number,profile_photo', [profilePhoto, identity.id])).rows[0];
+        const member = (await query('UPDATE members SET profile_photo=COALESCE($1,profile_photo),home_address=COALESCE($2,home_address) WHERE id=$3 RETURNING id,name,whatsapp_number,profile_photo,home_address', [profilePhoto, homeAddress, identity.id])).rows[0];
         if (!member) throw Object.assign(new Error('Member tidak ditemukan'), { status: 404 });
         return json(res, 200, { ok: true, member });
       }
       const member = fallback.members.find((item) => item.id === identity.id);
       if (!member) throw Object.assign(new Error('Member tidak ditemukan'), { status: 404 });
-      member.profile_photo = profilePhoto;
-      return json(res, 200, { ok: true, member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number, profile_photo: member.profile_photo } });
+      if (wantsPhoto) member.profile_photo = profilePhoto;
+      if (wantsAddress) member.home_address = homeAddress;
+      return json(res, 200, { ok: true, member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number, profile_photo: member.profile_photo, home_address: member.home_address || '' } });
     }
     if (url.pathname === '/api/public/orders' && req.method === 'POST') {
       const body = await readBody(req);
