@@ -1,0 +1,265 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { Pool } = require('pg');
+const {
+  normalizePhone,
+  makeOrderCode,
+  calculateCart,
+  requireFields,
+  ORDER_STATUSES,
+  PAYMENT_METHODS,
+  FULFILLMENT_TYPES,
+} = require('./domain');
+
+const PORT = Number(process.env.PORT || 3020);
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'praseats-admin';
+const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
+const tokens = new Set();
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const PAYMENT_STATUSES = ['pending', 'paid'];
+const fallback = {
+  brands: [
+    { id: 1, name: 'Sayur', description: 'Menu sayuran harian', is_active: true },
+    { id: 2, name: 'Lauk', description: 'Lauk pendamping nasi', is_active: true },
+    { id: 3, name: 'Gorengan', description: 'Aneka gorengan hangat', is_active: true },
+    { id: 4, name: 'Makanan', description: 'Menu makanan utama', is_active: true },
+    { id: 5, name: 'Minuman', description: 'Minuman segar', is_active: true },
+  ],  menus: [
+    { id: 1, brand_id: 1, brand_name: 'Sayur', name: 'Chicken Teriyaki Bowl', description: 'Nasi, ayam teriyaki, sayur', price: 22000, category: 'Rice Bowl', is_available: true },
+    { id: 2, brand_id: 2, brand_name: 'Lauk', name: 'Ayam Geprek Sambal Bawang', description: 'Nasi, ayam crispy, sambal bawang', price: 18000, category: 'Ayam', is_available: true },
+    { id: 3, brand_id: 5, brand_name: 'Minuman', name: 'Es Teh Lemon', description: 'Teh lemon dingin', price: 8000, category: 'Minuman', is_available: true },
+  ],
+  orders: [],
+  chats: [],
+  dailyMenuIds: [1, 2, 3],
+};
+
+function saveMenuImage(body) {
+  if (!body.imageData) return body.imageUrl || '';
+  const match = String(body.imageData).match(/^data:(image\/(?:png|jpe?g|webp|avif));base64,(.+)$/);
+  if (!match) throw new Error('Format gambar tidak valid');
+  const buffer = Buffer.from(match[2], 'base64');
+  if (buffer.length > 3 * 1024 * 1024) throw new Error('Ukuran gambar maksimal 3MB');
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[match[1]];
+  const name = `menu-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buffer);
+  return `/uploads/${name}`;
+}
+
+function json(res, status, data) {
+  res.writeHead(status, {
+    'content-type': 'application/json',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'content-type,authorization',
+    'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
+  });
+  res.end(JSON.stringify(data));
+}
+
+async function readBody(req) {
+  let raw = '';
+  for await (const chunk of req) {
+    raw += chunk;
+    if (raw.length > 5 * 1024 * 1024) throw Object.assign(new Error('Payload terlalu besar'), { status: 413 });
+  }
+  return raw ? JSON.parse(raw) : {};
+}
+
+function needAuth(req) {
+  const value = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!tokens.has(value)) throw Object.assign(new Error('Unauthorized'), { status: 401 });
+}
+
+async function query(sql, params = []) {
+  if (!pool) return null;
+  return pool.query(sql, params);
+}
+
+async function setup() {
+  if (!pool) return;
+  await query(`
+    CREATE TABLE IF NOT EXISTS brands(id SERIAL PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT '',is_active BOOLEAN DEFAULT true,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS menus(id SERIAL PRIMARY KEY,brand_id INTEGER REFERENCES brands(id),name TEXT NOT NULL,description TEXT DEFAULT '',category TEXT DEFAULT '',price INTEGER DEFAULT 0,image_url TEXT DEFAULT '',is_available BOOLEAN DEFAULT true,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS orders(id SERIAL PRIMARY KEY,order_code TEXT UNIQUE NOT NULL,customer_name TEXT NOT NULL,whatsapp_number TEXT NOT NULL,fulfillment_type TEXT NOT NULL,payment_method TEXT NOT NULL,address TEXT DEFAULT '',notes TEXT DEFAULT '',status TEXT DEFAULT 'baru',payment_status TEXT DEFAULT 'pending',subtotal INTEGER DEFAULT 0,delivery_fee INTEGER DEFAULT 0,total INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());
+    ALTER TABLE menus ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending';
+    CREATE TABLE IF NOT EXISTS order_items(id SERIAL PRIMARY KEY,order_id INTEGER REFERENCES orders(id),menu_id INTEGER,menu_name TEXT NOT NULL,brand_name TEXT DEFAULT '',qty INTEGER DEFAULT 1,price INTEGER DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS chats(id SERIAL PRIMARY KEY,session_id TEXT NOT NULL,message TEXT NOT NULL,from_admin BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS daily_menus(id SERIAL PRIMARY KEY,menu_id INTEGER UNIQUE REFERENCES menus(id) ON DELETE CASCADE,is_available BOOLEAN DEFAULT true,display_order INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());
+  `);
+  const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
+  if (!dailyCount.rows[0].count) await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
+  const count = await query('SELECT COUNT(*)::int AS count FROM brands');
+  if (count.rows[0].count) return;
+  for (const brand of fallback.brands) {
+    await query('INSERT INTO brands(name,description,is_active) VALUES($1,$2,true)', [brand.name, brand.description]);
+  }
+  for (const menu of fallback.menus) {
+    await query('INSERT INTO menus(brand_id,name,description,category,price,image_url,is_available) VALUES($1,$2,$3,$4,$5,$6,true)', [menu.brand_id, menu.name, menu.description, menu.category, menu.price, menu.image_url || '']);
+  }
+  await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
+}
+
+async function catalog(dailyOnly = false) {
+  if (!pool) {
+    const menus = dailyOnly ? fallback.menus.filter((menu) => fallback.dailyMenuIds.includes(menu.id)) : fallback.menus;
+    return { brands: fallback.brands, menus };
+  }
+  const brands = (await query('SELECT * FROM brands ORDER BY id')).rows;
+  const sql = dailyOnly
+    ? 'SELECT m.*,b.name brand_name,dm.display_order FROM daily_menus dm JOIN menus m ON m.id=dm.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE dm.is_available=true ORDER BY dm.display_order,m.id'
+    : 'SELECT m.*,b.name brand_name FROM menus m LEFT JOIN brands b ON b.id=m.brand_id ORDER BY m.id';
+  const menus = (await query(sql)).rows;
+  return { brands, menus };
+}
+
+async function dashboard() {
+  if (!pool) return { ...fallback, dailyMenus: fallback.menus.filter((menu) => fallback.dailyMenuIds.includes(menu.id)), statuses: ORDER_STATUSES, paymentStatuses: PAYMENT_STATUSES };
+  const data = await catalog();
+  const dailyMenus = pool ? (await query('SELECT dm.*,m.name,m.price,m.category,b.name brand_name FROM daily_menus dm JOIN menus m ON m.id=dm.menu_id LEFT JOIN brands b ON b.id=m.brand_id ORDER BY dm.display_order,dm.id')).rows : fallback.menus.filter((menu) => fallback.dailyMenuIds.includes(menu.id));
+  const orders = (await query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 100')).rows;
+  const items = (await query('SELECT * FROM order_items WHERE order_id = ANY($1::int[]) ORDER BY id', [orders.map((order) => order.id)])).rows;
+  for (const order of orders) order.items = items.filter((item) => item.order_id === order.id);
+  const chats = (await query('SELECT session_id,max(created_at) last_message,count(*)::int total FROM chats GROUP BY session_id ORDER BY last_message DESC LIMIT 50')).rows;
+  return { ...data, dailyMenus, orders, chats, statuses: ORDER_STATUSES, paymentStatuses: PAYMENT_STATUSES };
+}
+
+function serveStatic(req, res, pathname) {
+  const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
+  const file = path.join(__dirname, relative);
+  if (!file.startsWith(__dirname) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return json(res, 404, { ok: false, error: 'Not found' });
+  const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.webmanifest': 'application/manifest+json', '.avif': 'image/avif', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+  res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' });
+  fs.createReadStream(file).pipe(res);
+}
+
+async function handle(req, res) {
+  try {
+    if (req.method === 'OPTIONS') return json(res, 204, {});
+    const url = new URL(req.url, 'http://local');
+
+    if (url.pathname === '/api/health') return json(res, 200, { ok: true, service: 'adminpraseats' });
+    if (url.pathname === '/api/public/catalog') {
+      const data = await catalog(true);
+      data.brands = data.brands.filter((brand) => brand.is_active);
+      data.menus = data.menus.filter((menu) => menu.is_available && data.brands.some((brand) => brand.id === menu.brand_id));
+      return json(res, 200, { ok: true, data });
+    }
+    if (url.pathname === '/api/public/orders' && req.method === 'POST') {
+      const body = await readBody(req);
+      requireFields(body, ['customerName', 'whatsapp', 'fulfillmentType', 'paymentMethod']);
+      if (!FULFILLMENT_TYPES.includes(body.fulfillmentType) || !PAYMENT_METHODS.includes(body.paymentMethod)) throw new Error('Metode tidak valid');
+      const items = (body.items || []).map((item) => ({ ...item, qty: Math.max(1, Number(item.qty || 1)) }));
+      if (!items.length) throw new Error('Keranjang kosong');
+      const deliveryFee = body.fulfillmentType === 'delivery' ? 5000 : 0;
+      const totals = calculateCart(items, deliveryFee);
+      const order = {
+        id: Date.now(), order_code: makeOrderCode(), customer_name: body.customerName,
+        whatsapp_number: normalizePhone(body.whatsapp), fulfillment_type: body.fulfillmentType,
+        payment_method: body.paymentMethod, payment_status: 'pending', address: body.address || '',
+        notes: body.notes || '', status: 'baru', ...totals, items,
+      };
+      if (!pool) { fallback.orders.unshift(order); return json(res, 200, { ok: true, order }); }
+      const saved = (await query('INSERT INTO orders(order_code,customer_name,whatsapp_number,fulfillment_type,payment_method,address,notes,subtotal,delivery_fee,total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [order.order_code, order.customer_name, order.whatsapp_number, order.fulfillment_type, order.payment_method, order.address, order.notes, order.subtotal, deliveryFee, order.total])).rows[0];
+      for (const item of items) await query('INSERT INTO order_items(order_id,menu_id,menu_name,brand_name,qty,price) VALUES($1,$2,$3,$4,$5,$6)', [saved.id, item.id, item.name, item.brandName || '', item.qty, item.price]);
+      return json(res, 200, { ok: true, order: saved });
+    }
+    if (url.pathname === '/api/public/tracking') {
+      const code = url.searchParams.get('code') || '';
+      const phone = normalizePhone(url.searchParams.get('phone') || '');
+      const orders = pool
+        ? (await query('SELECT * FROM orders WHERE order_code=$1 OR whatsapp_number=$2 ORDER BY created_at DESC LIMIT 20', [code, phone])).rows
+        : fallback.orders.filter((order) => order.order_code === code || order.whatsapp_number === phone);
+      return json(res, 200, { ok: true, orders });
+    }
+    if (url.pathname === '/api/public/chat' && req.method === 'POST') {
+      const body = await readBody(req); requireFields(body, ['sessionId', 'message']);
+      if (pool) await query('INSERT INTO chats(session_id,message,from_admin) VALUES($1,$2,false)', [body.sessionId, body.message]);
+      else fallback.chats.push({ id: Date.now(), session_id: body.sessionId, message: body.message, from_admin: false, created_at: new Date().toISOString() });
+      return json(res, 200, { ok: true });
+    }
+
+    if (url.pathname === '/api/admin/login' && req.method === 'POST') {
+      const body = await readBody(req);
+      if (body.password !== ADMIN_PASSWORD) return json(res, 401, { ok: false, error: 'Password salah' });
+      const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      tokens.add(token); return json(res, 200, { ok: true, token });
+    }
+    if (url.pathname === '/api/admin/dashboard') { needAuth(req); return json(res, 200, { ok: true, data: await dashboard() }); }
+    if (url.pathname === '/api/admin/brands' && req.method === 'POST') {
+      needAuth(req); const body = await readBody(req); requireFields(body, ['name']);
+      if (pool) await query('INSERT INTO brands(name,description,is_active) VALUES($1,$2,true)', [body.name, body.description || '']);
+      else fallback.brands.push({ id: Date.now(), name: body.name, description: body.description || '', is_active: true });
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/brands' && req.method === 'PATCH') {
+      needAuth(req); const body = await readBody(req);
+      if (pool) await query('UPDATE brands SET is_active=$1 WHERE id=$2', [Boolean(body.isActive), body.id]);
+      else { const brand = fallback.brands.find((item) => String(item.id) === String(body.id)); if (brand) brand.is_active = Boolean(body.isActive); }
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/menus' && req.method === 'POST') {
+      needAuth(req); const body = await readBody(req); requireFields(body, ['brandId', 'name', 'price']);
+      const imageUrl = saveMenuImage(body);
+      if (pool) await query('INSERT INTO menus(brand_id,name,description,category,price,image_url,is_available) VALUES($1,$2,$3,$4,$5,$6,true)', [body.brandId, body.name, body.description || '', body.category || '', Number(body.price), imageUrl]);
+      else fallback.menus.push({ id: Date.now(), brand_id: Number(body.brandId), brand_name: fallback.brands.find((brand) => String(brand.id) === String(body.brandId))?.name || '', name: body.name, description: body.description || '', category: body.category || '', price: Number(body.price), image_url: imageUrl, is_available: true });
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/menus' && req.method === 'PATCH') {
+      needAuth(req); const body = await readBody(req);
+      if (body.name || body.brandId || body.price !== undefined || body.description !== undefined || body.imageData) {
+        requireFields(body, ['id', 'brandId', 'name', 'price']);
+        const imageUrl = body.imageData ? saveMenuImage(body) : (body.imageUrl || '');
+        if (pool) {
+          const current = (await query('SELECT image_url FROM menus WHERE id=$1', [body.id])).rows[0] || {};
+          await query('UPDATE menus SET brand_id=$1,name=$2,description=$3,category=$4,price=$5,image_url=$6 WHERE id=$7', [body.brandId, body.name, body.description || '', '', Number(body.price), imageUrl || current.image_url || '', body.id]);
+        } else {
+          const menu = fallback.menus.find((item) => String(item.id) === String(body.id));
+          const brand = fallback.brands.find((item) => String(item.id) === String(body.brandId));
+          if (menu) Object.assign(menu, { brand_id: Number(body.brandId), brand_name: brand?.name || '', name: body.name, description: body.description || '', category: '', price: Number(body.price), image_url: imageUrl || menu.image_url || '' });
+        }
+      } else if (pool) await query('UPDATE menus SET is_available=$1 WHERE id=$2', [Boolean(body.isAvailable), body.id]);
+      else { const menu = fallback.menus.find((item) => String(item.id) === String(body.id)); if (menu) menu.is_available = Boolean(body.isAvailable); }
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/daily-menus' && req.method === 'POST') {
+      needAuth(req); const body = await readBody(req); requireFields(body, ['menuId']);
+      if (pool) await query('INSERT INTO daily_menus(menu_id,display_order,is_available) VALUES($1,$2,true) ON CONFLICT(menu_id) DO UPDATE SET is_available=true,display_order=EXCLUDED.display_order', [body.menuId, Number(body.displayOrder || 0)]);
+      else if (!fallback.dailyMenuIds.includes(Number(body.menuId))) fallback.dailyMenuIds.push(Number(body.menuId));
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/daily-menus' && req.method === 'PATCH') {
+      needAuth(req); const body = await readBody(req); requireFields(body, ['menuId']);
+      if (pool) await query('UPDATE daily_menus SET is_available=$1,display_order=$2 WHERE menu_id=$3', [Boolean(body.isAvailable), Number(body.displayOrder || 0), body.menuId]);
+      else fallback.dailyMenuIds = Boolean(body.isAvailable) ? Array.from(new Set([...fallback.dailyMenuIds, Number(body.menuId)])) : fallback.dailyMenuIds.filter((id) => id !== Number(body.menuId));
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') {
+      needAuth(req); const body = await readBody(req);
+      if (!ORDER_STATUSES.includes(body.status) || !PAYMENT_STATUSES.includes(body.paymentStatus)) throw new Error('Status tidak valid');
+      if (pool) await query('UPDATE orders SET status=$1,payment_status=$2 WHERE id=$3', [body.status, body.paymentStatus, body.id]);
+      else { const order = fallback.orders.find((item) => String(item.id) === String(body.id)); if (order) { order.status = body.status; order.payment_status = body.paymentStatus; } }
+      return json(res, 200, { ok: true });
+    }
+    if (url.pathname === '/api/admin/chat' && req.method === 'GET') {
+      needAuth(req); const sessionId = url.searchParams.get('sessionId') || '';
+      const messages = pool ? (await query('SELECT * FROM chats WHERE session_id=$1 ORDER BY created_at', [sessionId])).rows : fallback.chats.filter((chat) => chat.session_id === sessionId);
+      return json(res, 200, { ok: true, messages });
+    }
+    if (url.pathname === '/api/admin/chat' && req.method === 'POST') {
+      needAuth(req); const body = await readBody(req); requireFields(body, ['sessionId', 'message']);
+      if (pool) await query('INSERT INTO chats(session_id,message,from_admin) VALUES($1,$2,true)', [body.sessionId, body.message]);
+      else fallback.chats.push({ id: Date.now(), session_id: body.sessionId, message: body.message, from_admin: true, created_at: new Date().toISOString() });
+      return json(res, 200, { ok: true });
+    }
+
+    if (req.method === 'GET') return serveStatic(req, res, url.pathname);
+    return json(res, 404, { ok: false, error: 'Not found' });
+  } catch (error) {
+    return json(res, error.status || 400, { ok: false, error: error.message });
+  }
+}
+
+setup().then(() => http.createServer(handle).listen(PORT, () => console.log(`adminpraseats on ${PORT}`)));
