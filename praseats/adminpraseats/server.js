@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const {
   normalizePhone,
@@ -33,6 +34,7 @@ const fallback = {
   ],
   orders: [],
   chats: [],
+  members: [],
   dailyMenuIds: [1, 2, 3],
 };
 
@@ -72,6 +74,25 @@ function needAuth(req) {
   if (!tokens.has(value)) throw Object.assign(new Error('Unauthorized'), { status: 401 });
 }
 
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function passwordMatches(password, stored) {
+  const [salt, expected] = String(stored || '').split(':');
+  if (!salt || !expected) return false;
+  const actual = crypto.scryptSync(String(password), salt, 64);
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  return actual.length === expectedBuffer.length && crypto.timingSafeEqual(actual, expectedBuffer);
+}
+
+function memberToken(member) {
+  const payload = Buffer.from(JSON.stringify({ id: member.id, phone: member.whatsapp_number })).toString('base64url');
+  const signature = crypto.createHmac('sha256', ADMIN_PASSWORD).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
 async function query(sql, params = []) {
   if (!pool) return null;
   return pool.query(sql, params);
@@ -88,6 +109,7 @@ async function setup() {
     CREATE TABLE IF NOT EXISTS order_items(id SERIAL PRIMARY KEY,order_id INTEGER REFERENCES orders(id),menu_id INTEGER,menu_name TEXT NOT NULL,brand_name TEXT DEFAULT '',qty INTEGER DEFAULT 1,price INTEGER DEFAULT 0);
     CREATE TABLE IF NOT EXISTS chats(id SERIAL PRIMARY KEY,session_id TEXT NOT NULL,message TEXT NOT NULL,from_admin BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
     CREATE TABLE IF NOT EXISTS daily_menus(id SERIAL PRIMARY KEY,menu_id INTEGER UNIQUE REFERENCES menus(id) ON DELETE CASCADE,is_available BOOLEAN DEFAULT true,display_order INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS members(id SERIAL PRIMARY KEY,name TEXT NOT NULL,whatsapp_number TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT now());
   `);
   const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
   if (!dailyCount.rows[0].count) await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
@@ -146,6 +168,32 @@ async function handle(req, res) {
       data.brands = data.brands.filter((brand) => brand.is_active);
       data.menus = data.menus.filter((menu) => menu.is_available && data.brands.some((brand) => brand.id === menu.brand_id));
       return json(res, 200, { ok: true, data });
+    }
+    if (url.pathname === '/api/public/members/register' && req.method === 'POST') {
+      const body = await readBody(req);
+      requireFields(body, ['name', 'whatsapp', 'password']);
+      if (String(body.password).length < 6) throw new Error('Password minimal 6 karakter');
+      const phone = normalizePhone(body.whatsapp);
+      if (pool) {
+        const existing = await query('SELECT id FROM members WHERE whatsapp_number=$1', [phone]);
+        if (existing.rows.length) throw new Error('Nomor WhatsApp sudah terdaftar');
+        const member = (await query('INSERT INTO members(name,whatsapp_number,password_hash) VALUES($1,$2,$3) RETURNING id,name,whatsapp_number', [String(body.name).trim(), phone, hashPassword(body.password)])).rows[0];
+        return json(res, 200, { ok: true, token: memberToken(member), member });
+      }
+      if (fallback.members.some((member) => member.whatsapp_number === phone)) throw new Error('Nomor WhatsApp sudah terdaftar');
+      const member = { id: Date.now(), name: String(body.name).trim(), whatsapp_number: phone, password_hash: hashPassword(body.password) };
+      fallback.members.push(member);
+      return json(res, 200, { ok: true, token: memberToken(member), member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number } });
+    }
+    if (url.pathname === '/api/public/members/login' && req.method === 'POST') {
+      const body = await readBody(req);
+      requireFields(body, ['whatsapp', 'password']);
+      const phone = normalizePhone(body.whatsapp);
+      const member = pool
+        ? (await query('SELECT id,name,whatsapp_number,password_hash FROM members WHERE whatsapp_number=$1', [phone])).rows[0]
+        : fallback.members.find((item) => item.whatsapp_number === phone);
+      if (!member || !passwordMatches(body.password, member.password_hash)) return json(res, 401, { ok: false, error: 'WhatsApp atau password salah' });
+      return json(res, 200, { ok: true, token: memberToken(member), member: { id: member.id, name: member.name, whatsapp_number: member.whatsapp_number } });
     }
     if (url.pathname === '/api/public/orders' && req.method === 'POST') {
       const body = await readBody(req);
