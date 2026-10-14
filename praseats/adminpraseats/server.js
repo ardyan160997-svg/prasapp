@@ -246,7 +246,7 @@ async function handle(req, res) {
       }
       const orders = (await query('SELECT * FROM orders WHERE whatsapp_number=$1 ORDER BY created_at DESC LIMIT 50', [identity.phone])).rows;
       if (orders.length) {
-        const items = (await query('SELECT * FROM order_items WHERE order_id=ANY($1::int[]) ORDER BY id', [orders.map((order) => order.id)])).rows;
+        const items = (await query('SELECT oi.*,m.image_url FROM order_items oi LEFT JOIN menus m ON m.id=oi.menu_id WHERE oi.order_id=ANY($1::int[]) ORDER BY oi.id', [orders.map((order) => order.id)])).rows;
         for (const order of orders) order.items = items.filter((item) => item.order_id === order.id);
       }
       return json(res, 200, { ok: true, orders });
