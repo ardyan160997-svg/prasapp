@@ -132,7 +132,9 @@ async function setup() {
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_address TEXT DEFAULT '';
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_detail TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS member_carts(member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,menu_id INTEGER NOT NULL REFERENCES menus(id) ON DELETE CASCADE,qty INTEGER NOT NULL DEFAULT 1,updated_at TIMESTAMPTZ DEFAULT now(),PRIMARY KEY(member_id,menu_id));
-    CREATE TABLE IF NOT EXISTS member_addresses(id SERIAL PRIMARY KEY,member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,label TEXT NOT NULL,address TEXT NOT NULL,detail TEXT DEFAULT '',is_default BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS member_addresses(id SERIAL PRIMARY KEY,member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,label TEXT NOT NULL,address TEXT NOT NULL,detail TEXT DEFAULT '',latitude DOUBLE PRECISION,longitude DOUBLE PRECISION,is_default BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
+    ALTER TABLE member_addresses ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+    ALTER TABLE member_addresses ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
     CREATE INDEX IF NOT EXISTS member_addresses_member_id_idx ON member_addresses(member_id);
   `);
   const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
@@ -259,10 +261,10 @@ async function handle(req, res) {
     if (url.pathname === '/api/public/members/addresses' && req.method === 'GET') {
       const identity = memberFromRequest(req);
       if (pool) {
-        let addresses = (await query('SELECT id,label,address,detail,is_default FROM member_addresses WHERE member_id=$1 ORDER BY is_default DESC,id', [identity.id])).rows;
+        let addresses = (await query('SELECT id,label,address,detail,latitude,longitude,is_default FROM member_addresses WHERE member_id=$1 ORDER BY is_default DESC,id', [identity.id])).rows;
         if (!addresses.length) {
           const member = (await query('SELECT home_address,home_detail FROM members WHERE id=$1', [identity.id])).rows[0];
-          if (member?.home_address) addresses = (await query('INSERT INTO member_addresses(member_id,label,address,detail,is_default) VALUES($1,$2,$3,$4,true) RETURNING id,label,address,detail,is_default', [identity.id, 'Rumah', member.home_address, member.home_detail || ''])).rows;
+          if (member?.home_address) addresses = (await query('INSERT INTO member_addresses(member_id,label,address,detail,is_default) VALUES($1,$2,$3,$4,true) RETURNING id,label,address,detail,latitude,longitude,is_default', [identity.id, 'Rumah', member.home_address, member.home_detail || ''])).rows;
         }
         return json(res, 200, { ok: true, addresses });
       }
@@ -280,13 +282,16 @@ async function handle(req, res) {
       const identity = memberFromRequest(req), body = await readBody(req);
       requireFields(body, ['label', 'address']);
       const label = String(body.label).trim().slice(0, 40), address = String(body.address).trim(), detail = String(body.detail || '').trim(), makeDefault = Boolean(body.isDefault);
+      const latitude = body.latitude !== undefined && body.latitude !== '' && Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : null;
+      const longitude = body.longitude !== undefined && body.longitude !== '' && Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : null;
+      if ((latitude !== null && (latitude < -90 || latitude > 90)) || (longitude !== null && (longitude < -180 || longitude > 180))) throw new Error('Koordinat lokasi tidak valid');
       if (pool) {
         if (makeDefault) await query('UPDATE member_addresses SET is_default=false WHERE member_id=$1', [identity.id]);
-        const saved = (await query('INSERT INTO member_addresses(member_id,label,address,detail,is_default) VALUES($1,$2,$3,$4,$5) RETURNING id,label,address,detail,is_default', [identity.id, label, address, detail, makeDefault])).rows[0];
+        const saved = (await query('INSERT INTO member_addresses(member_id,label,address,detail,latitude,longitude,is_default) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,label,address,detail,latitude,longitude,is_default', [identity.id, label, address, detail, latitude, longitude, makeDefault])).rows[0];
         return json(res, 200, { ok: true, address: saved });
       }
       if (makeDefault) fallback.memberAddresses.filter((item) => item.member_id === identity.id).forEach((item) => { item.is_default = false; });
-      const saved = { id: Date.now(), member_id: identity.id, label, address, detail, is_default: makeDefault };
+      const saved = { id: Date.now(), member_id: identity.id, label, address, detail, latitude, longitude, is_default: makeDefault };
       fallback.memberAddresses.push(saved);
       return json(res, 200, { ok: true, address: saved });
     }
