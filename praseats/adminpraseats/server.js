@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const webpush = require('web-push');
 const {
   normalizePhone,
   makeOrderCode,
@@ -20,6 +21,9 @@ const tokens = new Set();
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const PAYMENT_STATUSES = ['pending', 'paid'];
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) webpush.setVapidDetails('mailto:admin@prasapp.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 const fallback = {
   brands: [
     { id: 1, name: 'Sayur', description: 'Menu sayuran harian', is_active: true },
@@ -37,6 +41,7 @@ const fallback = {
   members: [],
   memberCarts: new Map(),
   memberAddresses: [],
+  pushSubscriptions: [],
   dailyMenuIds: [1, 2, 3],
 };
 
@@ -136,6 +141,9 @@ async function setup() {
     ALTER TABLE member_addresses ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
     ALTER TABLE member_addresses ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
     CREATE INDEX IF NOT EXISTS member_addresses_member_id_idx ON member_addresses(member_id);
+    CREATE TABLE IF NOT EXISTS push_subscriptions(id SERIAL PRIMARY KEY,member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,endpoint TEXT UNIQUE NOT NULL,p256dh TEXT NOT NULL,auth TEXT NOT NULL,chat_session_id TEXT DEFAULT '',created_at TIMESTAMPTZ DEFAULT now(),updated_at TIMESTAMPTZ DEFAULT now());
+    CREATE INDEX IF NOT EXISTS push_subscriptions_member_id_idx ON push_subscriptions(member_id);
+    CREATE INDEX IF NOT EXISTS push_subscriptions_chat_session_idx ON push_subscriptions(chat_session_id);
   `);
   const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
   if (!dailyCount.rows[0].count) await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
@@ -161,6 +169,32 @@ async function catalog(dailyOnly = false) {
     : 'SELECT m.*,b.name brand_name FROM menus m LEFT JOIN brands b ON b.id=m.brand_id ORDER BY m.id';
   const menus = (await query(sql)).rows;
   return { brands, menus };
+}
+
+async function sendPushRows(rows, payload) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return 0;
+  let sent = 0;
+  for (const row of rows) {
+    try {
+      await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, JSON.stringify(payload));
+      sent += 1;
+    } catch (error) {
+      if ((error.statusCode === 404 || error.statusCode === 410) && pool) await query('DELETE FROM push_subscriptions WHERE endpoint=$1', [row.endpoint]);
+    }
+  }
+  return sent;
+}
+async function pushOrderStatus(order) {
+  if (!pool || !order) return 0;
+  const rows = (await query('SELECT ps.* FROM push_subscriptions ps JOIN members m ON m.id=ps.member_id WHERE m.whatsapp_number=$1', [normalizePhone(order.whatsapp_number)])).rows;
+  const labels = { baru: 'Pesanan diterima', diterima: 'Pesanan dikonfirmasi', dimasak: 'Pesanan sedang dimasak', siap: 'Pesanan siap', diantar: 'Pesanan sedang diantar', selesai: 'Pesanan selesai', batal: 'Pesanan dibatalkan' };
+  const status = labels[order.status] || String(order.status);
+  return sendPushRows(rows, { title: status, body: `${order.order_code} · ${status}`, url: `/tracking.html?code=${encodeURIComponent(order.order_code)}`, tag: `order-${order.id}` });
+}
+async function pushChatReply(sessionId, message) {
+  if (!pool) return 0;
+  const rows = (await query('SELECT * FROM push_subscriptions WHERE chat_session_id=$1', [sessionId])).rows;
+  return sendPushRows(rows, { title: 'Balasan Chat PrasEats', body: String(message).slice(0, 180), url: '/index.html?openChat=1', tag: `chat-${sessionId}` });
 }
 
 async function dashboard() {
@@ -365,6 +399,18 @@ async function handle(req, res) {
       if (identity) await query('DELETE FROM member_carts WHERE member_id=$1', [identity.id]);
       return json(res, 200, { ok: true, order: saved });
     }
+    if (url.pathname === '/api/public/push/key' && req.method === 'GET') return json(res, 200, { ok: true, publicKey: VAPID_PUBLIC_KEY });
+    if (url.pathname === '/api/public/push/subscribe' && req.method === 'POST') {
+      const identity = memberFromRequest(req), body = await readBody(req), subscription = body.subscription || {}, keys = subscription.keys || {};
+      requireFields({ endpoint: subscription.endpoint, p256dh: keys.p256dh, auth: keys.auth }, ['endpoint', 'p256dh', 'auth']);
+      const chatSessionId = `member-${identity.id}`;
+      if (pool) await query('INSERT INTO push_subscriptions(member_id,endpoint,p256dh,auth,chat_session_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(endpoint) DO UPDATE SET member_id=EXCLUDED.member_id,p256dh=EXCLUDED.p256dh,auth=EXCLUDED.auth,chat_session_id=EXCLUDED.chat_session_id,updated_at=now()', [identity.id, subscription.endpoint, keys.p256dh, keys.auth, chatSessionId]);
+      else {
+        const existing = fallback.pushSubscriptions.find((item) => item.endpoint === subscription.endpoint), row = { member_id: identity.id, endpoint: subscription.endpoint, p256dh: keys.p256dh, auth: keys.auth, chat_session_id: chatSessionId };
+        existing ? Object.assign(existing, row) : fallback.pushSubscriptions.push(row);
+      }
+      return json(res, 200, { ok: true });
+    }
     if (url.pathname === '/api/public/tracking') {
       const code = url.searchParams.get('code') || '';
       const phone = normalizePhone(url.searchParams.get('phone') || '');
@@ -444,9 +490,11 @@ async function handle(req, res) {
     if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') {
       needAuth(req); const body = await readBody(req);
       if (!ORDER_STATUSES.includes(body.status) || !PAYMENT_STATUSES.includes(body.paymentStatus)) throw new Error('Status tidak valid');
-      if (pool) await query('UPDATE orders SET status=$1,payment_status=$2 WHERE id=$3', [body.status, body.paymentStatus, body.id]);
-      else { const order = fallback.orders.find((item) => String(item.id) === String(body.id)); if (order) { order.status = body.status; order.payment_status = body.paymentStatus; } }
-      return json(res, 200, { ok: true });
+      let order;
+      if (pool) order = (await query('UPDATE orders SET status=$1,payment_status=$2 WHERE id=$3 RETURNING *', [body.status, body.paymentStatus, body.id])).rows[0];
+      else { order = fallback.orders.find((item) => String(item.id) === String(body.id)); if (order) { order.status = body.status; order.payment_status = body.paymentStatus; } }
+      const sent = await pushOrderStatus(order);
+      return json(res, 200, { ok: true, sent });
     }
     if (url.pathname === '/api/admin/chat' && req.method === 'GET') {
       needAuth(req); const sessionId = url.searchParams.get('sessionId') || '';
@@ -457,7 +505,8 @@ async function handle(req, res) {
       needAuth(req); const body = await readBody(req); requireFields(body, ['sessionId', 'message']);
       if (pool) await query('INSERT INTO chats(session_id,message,from_admin) VALUES($1,$2,true)', [body.sessionId, body.message]);
       else fallback.chats.push({ id: Date.now(), session_id: body.sessionId, message: body.message, from_admin: true, created_at: new Date().toISOString() });
-      return json(res, 200, { ok: true });
+      const sent = await pushChatReply(body.sessionId, body.message);
+      return json(res, 200, { ok: true, sent });
     }
 
     if (req.method === 'GET') return serveStatic(req, res, url.pathname);
