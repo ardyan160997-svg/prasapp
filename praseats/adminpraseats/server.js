@@ -35,6 +35,7 @@ const fallback = {
   orders: [],
   chats: [],
   members: [],
+  memberCarts: new Map(),
   dailyMenuIds: [1, 2, 3],
 };
 
@@ -55,7 +56,7 @@ function json(res, status, data) {
     'content-type': 'application/json',
     'access-control-allow-origin': '*',
     'access-control-allow-headers': 'content-type,authorization',
-    'access-control-allow-methods': 'GET,POST,PATCH,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PUT,PATCH,OPTIONS',
   });
   res.end(JSON.stringify(data));
 }
@@ -129,6 +130,7 @@ async function setup() {
     ALTER TABLE members ADD COLUMN IF NOT EXISTS profile_photo TEXT DEFAULT '';
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_address TEXT DEFAULT '';
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_detail TEXT DEFAULT '';
+    CREATE TABLE IF NOT EXISTS member_carts(member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,menu_id INTEGER NOT NULL REFERENCES menus(id) ON DELETE CASCADE,qty INTEGER NOT NULL DEFAULT 1,updated_at TIMESTAMPTZ DEFAULT now(),PRIMARY KEY(member_id,menu_id));
   `);
   const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
   if (!dailyCount.rows[0].count) await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
@@ -251,11 +253,48 @@ async function handle(req, res) {
       }
       return json(res, 200, { ok: true, orders });
     }
+    if (url.pathname === '/api/public/members/cart' && req.method === 'GET') {
+      const identity = memberFromRequest(req);
+      if (!pool) return json(res, 200, { ok: true, items: fallback.memberCarts.get(identity.id) || [] });
+      const items = (await query('SELECT m.*,b.name brand_name,mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
+      return json(res, 200, { ok: true, items });
+    }
+    if (url.pathname === '/api/public/members/cart' && req.method === 'PUT') {
+      const identity = memberFromRequest(req);
+      const body = await readBody(req);
+      const requested = (body.items || []).map((item) => ({ id: Number(item.id), qty: Math.max(1, Math.min(99, Number(item.qty || 1))) })).filter((item) => Number.isInteger(item.id));
+      const quantities = new Map();
+      for (const item of requested) quantities.set(item.id, Math.min(99, (quantities.get(item.id) || 0) + item.qty));
+      if (!pool) {
+        const items = fallback.menus.filter((menu) => quantities.has(menu.id) && menu.is_available).map((menu) => ({ ...menu, qty: quantities.get(menu.id), brandName: menu.brand_name }));
+        fallback.memberCarts.set(identity.id, items);
+        return json(res, 200, { ok: true, items });
+      }
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM member_carts WHERE member_id=$1', [identity.id]);
+        for (const [menuId, qty] of quantities) await client.query('INSERT INTO member_carts(member_id,menu_id,qty) SELECT $1,id,$3 FROM menus WHERE id=$2 AND is_available=true', [identity.id, menuId, qty]);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally { client.release(); }
+      const items = (await query('SELECT m.*,b.name brand_name,mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
+      return json(res, 200, { ok: true, items });
+    }
     if (url.pathname === '/api/public/orders' && req.method === 'POST') {
       const body = await readBody(req);
       requireFields(body, ['customerName', 'whatsapp', 'fulfillmentType', 'paymentMethod']);
       if (!FULFILLMENT_TYPES.includes(body.fulfillmentType) || !PAYMENT_METHODS.includes(body.paymentMethod)) throw new Error('Metode tidak valid');
-      const items = (body.items || []).map((item) => ({ ...item, qty: Math.max(1, Number(item.qty || 1)) }));
+      let identity = null;
+      try { identity = memberFromRequest(req); } catch {}
+      let items = (body.items || []).map((item) => ({ ...item, qty: Math.max(1, Number(item.qty || 1)) }));
+      if (identity) {
+        if (pool) items = (await query('SELECT m.id,m.name,m.price,b.name "brandName",mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1', [identity.id])).rows;
+        else items = fallback.memberCarts.get(identity.id) || [];
+        body.whatsapp = identity.phone;
+      }
       if (!items.length) throw new Error('Keranjang kosong');
       const deliveryFee = body.fulfillmentType === 'delivery' ? 5000 : 0;
       const totals = calculateCart(items, deliveryFee);
@@ -265,9 +304,10 @@ async function handle(req, res) {
         payment_method: body.paymentMethod, payment_status: 'pending', address: body.address || '',
         notes: body.notes || '', status: 'baru', ...totals, items,
       };
-      if (!pool) { fallback.orders.unshift(order); return json(res, 200, { ok: true, order }); }
+      if (!pool) { fallback.orders.unshift(order); if (identity) fallback.memberCarts.delete(identity.id); return json(res, 200, { ok: true, order }); }
       const saved = (await query('INSERT INTO orders(order_code,customer_name,whatsapp_number,fulfillment_type,payment_method,address,notes,subtotal,delivery_fee,total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [order.order_code, order.customer_name, order.whatsapp_number, order.fulfillment_type, order.payment_method, order.address, order.notes, order.subtotal, deliveryFee, order.total])).rows[0];
       for (const item of items) await query('INSERT INTO order_items(order_id,menu_id,menu_name,brand_name,qty,price) VALUES($1,$2,$3,$4,$5,$6)', [saved.id, item.id, item.name, item.brandName || '', item.qty, item.price]);
+      if (identity) await query('DELETE FROM member_carts WHERE member_id=$1', [identity.id]);
       return json(res, 200, { ok: true, order: saved });
     }
     if (url.pathname === '/api/public/tracking') {
