@@ -36,6 +36,7 @@ const fallback = {
   chats: [],
   members: [],
   memberCarts: new Map(),
+  memberAddresses: [],
   dailyMenuIds: [1, 2, 3],
 };
 
@@ -56,7 +57,7 @@ function json(res, status, data) {
     'content-type': 'application/json',
     'access-control-allow-origin': '*',
     'access-control-allow-headers': 'content-type,authorization',
-    'access-control-allow-methods': 'GET,POST,PUT,PATCH,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
   });
   res.end(JSON.stringify(data));
 }
@@ -131,6 +132,8 @@ async function setup() {
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_address TEXT DEFAULT '';
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_detail TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS member_carts(member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,menu_id INTEGER NOT NULL REFERENCES menus(id) ON DELETE CASCADE,qty INTEGER NOT NULL DEFAULT 1,updated_at TIMESTAMPTZ DEFAULT now(),PRIMARY KEY(member_id,menu_id));
+    CREATE TABLE IF NOT EXISTS member_addresses(id SERIAL PRIMARY KEY,member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,label TEXT NOT NULL,address TEXT NOT NULL,detail TEXT DEFAULT '',is_default BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
+    CREATE INDEX IF NOT EXISTS member_addresses_member_id_idx ON member_addresses(member_id);
   `);
   const dailyCount = await query('SELECT COUNT(*)::int AS count FROM daily_menus');
   if (!dailyCount.rows[0].count) await query('INSERT INTO daily_menus(menu_id,display_order) SELECT id,id FROM menus WHERE is_available=true ON CONFLICT(menu_id) DO NOTHING');
@@ -252,6 +255,53 @@ async function handle(req, res) {
         for (const order of orders) order.items = items.filter((item) => item.order_id === order.id);
       }
       return json(res, 200, { ok: true, orders });
+    }
+    if (url.pathname === '/api/public/members/addresses' && req.method === 'GET') {
+      const identity = memberFromRequest(req);
+      if (pool) {
+        let addresses = (await query('SELECT id,label,address,detail,is_default FROM member_addresses WHERE member_id=$1 ORDER BY is_default DESC,id', [identity.id])).rows;
+        if (!addresses.length) {
+          const member = (await query('SELECT home_address,home_detail FROM members WHERE id=$1', [identity.id])).rows[0];
+          if (member?.home_address) addresses = (await query('INSERT INTO member_addresses(member_id,label,address,detail,is_default) VALUES($1,$2,$3,$4,true) RETURNING id,label,address,detail,is_default', [identity.id, 'Rumah', member.home_address, member.home_detail || ''])).rows;
+        }
+        return json(res, 200, { ok: true, addresses });
+      }
+      let addresses = fallback.memberAddresses.filter((item) => item.member_id === identity.id);
+      if (!addresses.length) {
+        const member = fallback.members.find((item) => item.id === identity.id);
+        if (member?.home_address) {
+          const address = { id: Date.now(), member_id: identity.id, label: 'Rumah', address: member.home_address, detail: member.home_detail || '', is_default: true };
+          fallback.memberAddresses.push(address); addresses = [address];
+        }
+      }
+      return json(res, 200, { ok: true, addresses });
+    }
+    if (url.pathname === '/api/public/members/addresses' && req.method === 'POST') {
+      const identity = memberFromRequest(req), body = await readBody(req);
+      requireFields(body, ['label', 'address']);
+      const label = String(body.label).trim().slice(0, 40), address = String(body.address).trim(), detail = String(body.detail || '').trim(), makeDefault = Boolean(body.isDefault);
+      if (pool) {
+        if (makeDefault) await query('UPDATE member_addresses SET is_default=false WHERE member_id=$1', [identity.id]);
+        const saved = (await query('INSERT INTO member_addresses(member_id,label,address,detail,is_default) VALUES($1,$2,$3,$4,$5) RETURNING id,label,address,detail,is_default', [identity.id, label, address, detail, makeDefault])).rows[0];
+        return json(res, 200, { ok: true, address: saved });
+      }
+      if (makeDefault) fallback.memberAddresses.filter((item) => item.member_id === identity.id).forEach((item) => { item.is_default = false; });
+      const saved = { id: Date.now(), member_id: identity.id, label, address, detail, is_default: makeDefault };
+      fallback.memberAddresses.push(saved);
+      return json(res, 200, { ok: true, address: saved });
+    }
+    const addressMatch = url.pathname.match(/^\/api\/public\/members\/addresses\/(\d+)$/);
+    if (addressMatch && req.method === 'DELETE') {
+      const identity = memberFromRequest(req), addressId = Number(addressMatch[1]);
+      if (pool) {
+        const removed = await query('DELETE FROM member_addresses WHERE id=$1 AND member_id=$2 RETURNING id', [addressId, identity.id]);
+        if (!removed.rowCount) throw Object.assign(new Error('Alamat tidak ditemukan'), { status: 404 });
+      } else {
+        const index = fallback.memberAddresses.findIndex((item) => item.id === addressId && item.member_id === identity.id);
+        if (index < 0) throw Object.assign(new Error('Alamat tidak ditemukan'), { status: 404 });
+        fallback.memberAddresses.splice(index, 1);
+      }
+      return json(res, 200, { ok: true });
     }
     if (url.pathname === '/api/public/members/cart' && req.method === 'GET') {
       const identity = memberFromRequest(req);

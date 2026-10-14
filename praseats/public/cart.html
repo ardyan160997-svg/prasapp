@@ -9,7 +9,7 @@
   <title>Keranjang — PrasEats</title>
   <link rel="icon" type="image/avif" href="images/praseats.avif">
   <link rel="stylesheet" href="styles.css?v=38">
-  <link rel="stylesheet" href="cart.css?v=2">
+  <link rel="stylesheet" href="cart.css?v=4">
 </head>
 <body class="cart-app">
   <header class="cart-header">
@@ -20,14 +20,35 @@
 
   <main class="cart-shell">
     <form id="checkout">
+      <section class="checkout-card order-options">
+        <fieldset class="method-group">
+          <legend>Metode pesanan</legend>
+          <div class="choice">
+            <label><input type="radio" name="fulfillmentType" value="delivery" checked><span><b>Diantar</b><small>Pilih alamat tersimpan</small></span></label>
+            <label><input type="radio" name="fulfillmentType" value="pickup"><span><b>Ambil sendiri</b><small>Ambil di dapur PrasEats</small></span></label>
+          </div>
+        </fieldset>
+      </section>
+
       <section class="checkout-card delivery-card">
-        <div class="card-title"><span class="card-icon location-icon">⌖</span><div><small>DIANTAR KE</small><h2 id="delivery-name">Alamat member</h2></div></div>
+        <div class="card-title"><span class="card-icon location-icon">⌖</span><div><small>DIANTAR KE</small><h2 id="delivery-name">Pilih alamat</h2></div></div>
+        <div class="quick-address-head"><b>Quick Address</b><button type="button" id="add-address-toggle">+ Alamat baru</button></div>
+        <div id="quick-address-list" class="quick-address-list"></div>
+        <div id="address-editor" class="address-editor" hidden>
+          <label class="field"><span>Nama alamat</span><input id="address-label" placeholder="Rumah, Kantor, Kos"></label>
+          <label class="field"><span>Alamat lengkap</span><textarea id="address-value" rows="2" placeholder="Nama jalan, nomor rumah, RT/RW"></textarea></label>
+          <label class="field"><span>Patokan <small>(opsional)</small></span><textarea id="address-detail" rows="2" placeholder="Contoh: pagar hitam, depan mushola"></textarea></label>
+          <label class="default-address"><input id="address-default" type="checkbox"> Jadikan alamat utama</label>
+          <div class="address-editor-actions"><button type="button" id="cancel-address">Batal</button><button type="button" id="save-address">Simpan alamat</button></div>
+        </div>
+        <div class="recipient-fields">
         <div class="field-grid">
           <label class="field"><span>Nama penerima</span><input name="customerName" autocomplete="name" required></label>
           <label class="field"><span>Nomor WhatsApp</span><input name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" required></label>
         </div>
         <label class="field"><span>Alamat pengantaran</span><textarea name="address" rows="2" placeholder="Nama jalan, nomor rumah, RT/RW"></textarea></label>
         <label class="field address-note"><span>Catatan lokasi</span><textarea name="deliveryDetail" rows="2" placeholder="Contoh: pagar hitam, depan mushola, rumah pojok"></textarea></label>
+        </div>
       </section>
 
       <section class="checkout-card items-card">
@@ -35,15 +56,6 @@
         <div id="cart-items"></div>
       </section>
 
-      <section class="checkout-card order-options">
-        <fieldset class="method-group">
-          <legend>Metode pesanan</legend>
-          <div class="choice">
-            <label><input type="radio" name="fulfillmentType" value="delivery" checked><span><b>Diantar</b><small>Ke alamat tersimpan</small></span></label>
-            <label><input type="radio" name="fulfillmentType" value="pickup"><span><b>Ambil sendiri</b><small>Ambil di dapur PrasEats</small></span></label>
-          </div>
-        </fieldset>
-      </section>
 
       <section class="checkout-card payment-card">
         <div class="card-title"><span class="card-icon payment-icon">Rp</span><div><small>PEMBAYARAN</small><h2>Pilih metode pembayaran</h2></div></div>
@@ -66,6 +78,6 @@
   </aside>
 
   <script src="common.js?v=3"></script>
-  <script src="cart.js?v=5"></script>
+  <script src="cart.js?v=6"></script>
 </body>
 </html>
