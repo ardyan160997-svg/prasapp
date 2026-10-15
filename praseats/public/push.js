@@ -11,16 +11,19 @@
   const sessionId=`member-${member.id}`;
   localStorage.setItem(`praseats_chat_session_member_${member.id}`,sessionId);
   const decode=value=>{const padding='='.repeat((4-value.length%4)%4),base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(base64);return Uint8Array.from([...raw].map(char=>char.charCodeAt(0)))};
+  const withTimeout=(promise,message,ms=15000)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error(message)),ms);Promise.resolve(promise).then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})});
   const close=()=>{modal.hidden=true;document.body.classList.remove('push-modal-open')};
   const open=()=>{info.innerHTML=isIOS&&!isStandalone?'<b>Khusus iPhone</b><span>Tekan Share, pilih <strong>Add to Home Screen</strong>, lalu buka PrasEats dari ikon Home Screen.</span>':'<b>Notifikasi aman dan pribadi</b><span>Hanya status pesanan dan balasan Chat milik akunmu yang dikirim.</span>';primary.textContent=isIOS&&!isStandalone?'Mengerti':'Nyalakan Notifikasi';modal.hidden=false;document.body.classList.add('push-modal-open')};
   async function syncSubscription(requestPermission=false){
     if(requestPermission&&Notification.permission==='default')await Notification.requestPermission();
     if(Notification.permission!=='granted')throw new Error(Notification.permission==='denied'?'Notifikasi diblokir. Aktifkan melalui pengaturan browser.':'Izin notifikasi belum diberikan.');
-    const registration=await navigator.serviceWorker.register('sw.js'),keyData=await api('/api/public/push/key');
+    await withTimeout(navigator.serviceWorker.register('sw.js'),'Service notifikasi belum siap. Coba lagi.');
+    const registration=await withTimeout(navigator.serviceWorker.ready,'Service notifikasi belum aktif. Tutup lalu buka kembali aplikasi.');
+    const keyData=await withTimeout(api('/api/public/push/key'),'Koneksi notifikasi terlalu lama. Coba lagi.');
     if(!keyData.publicKey)throw new Error('Notifikasi sedang disiapkan. Coba lagi nanti.');
-    let subscription=await registration.pushManager.getSubscription();
-    if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decode(keyData.publicKey)});
-    await api('/api/public/push/subscribe',{method:'POST',headers:{authorization:`Bearer ${token}`},body:JSON.stringify({subscription:subscription.toJSON(),chatSessionId:sessionId})});
+    let subscription=await withTimeout(registration.pushManager.getSubscription(),'Pemeriksaan notifikasi terlalu lama. Coba lagi.');
+    if(!subscription)subscription=await withTimeout(registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decode(keyData.publicKey)}),'Aktivasi dari perangkat terlalu lama. Tutup lalu buka kembali aplikasi.');
+    await withTimeout(api('/api/public/push/subscribe',{method:'POST',headers:{authorization:`Bearer ${token}`},body:JSON.stringify({subscription:subscription.toJSON(),chatSessionId:sessionId})}),'Notifikasi aktif di perangkat, tetapi belum tersimpan. Coba lagi.');
     button.hidden=true;close();
   }
   button.onclick=open;
