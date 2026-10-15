@@ -23,6 +23,9 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const PAYMENT_STATUSES = ['pending', 'paid'];
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const KITCHEN_LOCATION = { latitude: -7.555935555247186, longitude: 110.74503868818353 };
+const FREE_DELIVERY_MINIMUM = 30000;
+const FREE_DELIVERY_RADIUS_KM = 5;
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) webpush.setVapidDetails('mailto:admin@prasapp.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 const fallback = {
   brands: [
@@ -119,6 +122,33 @@ function memberFromRequest(req) {
   const actual = Buffer.from(signature, 'base64url');
   if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) throw Object.assign(new Error('Unauthorized'), { status: 401 });
   return JSON.parse(Buffer.from(payload, 'base64url').toString());
+}
+
+function distanceKm(latitude, longitude) {
+  const radians = (value) => value * Math.PI / 180;
+  const deltaLatitude = radians(latitude - KITCHEN_LOCATION.latitude);
+  const deltaLongitude = radians(longitude - KITCHEN_LOCATION.longitude);
+  const a = Math.sin(deltaLatitude / 2) ** 2 + Math.cos(radians(KITCHEN_LOCATION.latitude)) * Math.cos(radians(latitude)) * Math.sin(deltaLongitude / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function deliveryQuoteToken(memberId, subtotal, distance, address) {
+  const addressHash = crypto.createHash('sha256').update(String(address).trim()).digest('base64url');
+  const payload = Buffer.from(JSON.stringify({ memberId, subtotal, distance, addressHash, expiresAt: Date.now() + 15 * 60 * 1000 })).toString('base64url');
+  const signature = crypto.createHmac('sha256', ADMIN_PASSWORD).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function validFreeDeliveryQuote(token, memberId, subtotal, address) {
+  try {
+    const [payload, signature] = String(token || '').split('.');
+    const expected = crypto.createHmac('sha256', ADMIN_PASSWORD).update(payload).digest();
+    const actual = Buffer.from(signature, 'base64url');
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return false;
+    const quote = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    const addressHash = crypto.createHash('sha256').update(String(address).trim()).digest('base64url');
+    return quote.memberId === memberId && quote.subtotal === subtotal && quote.addressHash === addressHash && quote.distance <= FREE_DELIVERY_RADIUS_KM && quote.expiresAt >= Date.now();
+  } catch { return false; }
 }
 
 function validateProfilePhoto(value) {
@@ -386,6 +416,19 @@ async function handle(req, res) {
       const items = (await query('SELECT m.*,b.name brand_name,mc.qty,mc.notes FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
       return json(res, 200, { ok: true, items });
     }
+    if (url.pathname === '/api/public/delivery-quote' && req.method === 'POST') {
+      const identity = memberFromRequest(req), body = await readBody(req), address = String(body.address || '').trim();
+      const latitude = Number(body.latitude), longitude = Number(body.longitude);
+      if (!address) throw new Error('Pilih atau tambahkan alamat pengantaran');
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) throw new Error('Lokasi GPS tidak valid');
+      const items = pool
+        ? (await query('SELECT m.price,mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id WHERE mc.member_id=$1', [identity.id])).rows
+        : (fallback.memberCarts.get(identity.id) || []).map((cartItem) => ({ ...cartItem, price: fallback.menus.find((menu) => menu.id === cartItem.id)?.price || 0 }));
+      if (!items.length) throw new Error('Keranjang kosong');
+      const subtotal = calculateCart(items, 0).subtotal, distance = distanceKm(latitude, longitude);
+      const eligible = subtotal >= FREE_DELIVERY_MINIMUM && distance <= FREE_DELIVERY_RADIUS_KM;
+      return json(res, 200, { ok: true, subtotal, distanceKm: Number(distance.toFixed(2)), eligible, deliveryFee: eligible ? 0 : 5000, quoteToken: eligible ? deliveryQuoteToken(identity.id, subtotal, distance, address) : '' });
+    }
     if (url.pathname === '/api/public/orders' && req.method === 'POST') {
       const body = await readBody(req);
       requireFields(body, ['customerName', 'whatsapp', 'fulfillmentType', 'paymentMethod']);
@@ -402,7 +445,9 @@ async function handle(req, res) {
       }
       if (!items.length) throw new Error('Keranjang kosong');
       const paymentProofUrl = requiresProof ? savePaymentProof(body.paymentProofData) : '';
-      const deliveryFee = body.fulfillmentType === 'delivery' ? 5000 : 0;
+      const subtotal = calculateCart(items, 0).subtotal;
+      const freeDelivery = body.fulfillmentType === 'delivery' && identity && subtotal >= FREE_DELIVERY_MINIMUM && validFreeDeliveryQuote(body.deliveryQuoteToken, identity.id, subtotal, body.address);
+      const deliveryFee = body.fulfillmentType === 'delivery' && !freeDelivery ? 5000 : 0;
       const totals = calculateCart(items, deliveryFee);
       const order = {
         id: Date.now(), order_code: makeOrderCode(), customer_name: body.customerName,

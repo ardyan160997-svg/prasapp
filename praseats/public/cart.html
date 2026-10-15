@@ -9,7 +9,7 @@
   <title>Keranjang — PrasEats</title>
   <link rel="icon" type="image/avif" href="images/praseats.avif">
   <link rel="stylesheet" href="styles.css?v=43">
-  <link rel="stylesheet" href="cart.css?v=7">
+  <link rel="stylesheet" href="cart.css?v=8">
 </head>
 <body class="cart-app">
   <header class="cart-header">
@@ -32,7 +32,8 @@
 
       <section class="checkout-card delivery-card">
         <div class="card-title"><span class="card-icon location-icon">⌖</span><div><small>DIANTAR KE</small><h2 id="delivery-name">Pilih alamat</h2></div></div>
-        <div class="quick-address-head"><b>Quick Address</b><div class="quick-address-actions"><button type="button" id="use-location" aria-label="Ambil lokasi GPS"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><circle cx="12" cy="12" r="9"></circle><path d="M12 1v3M12 20v3M1 12h3M20 12h3"></path></svg><span>Lokasi GPS</span></button><button type="button" id="add-address-toggle">+ Alamat baru</button></div></div>
+        <div class="quick-address-head"><b>Quick Address</b><div class="quick-address-actions"><button type="button" id="use-location" aria-label="Share lokasi dan cek gratis ongkir"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><circle cx="12" cy="12" r="9"></circle><path d="M12 1v3M12 20v3M1 12h3M20 12h3"></path></svg><span>Share lokasi & cek ongkir</span></button><button type="button" id="add-address-toggle">+ Alamat baru</button></div></div>
+        <div id="delivery-quote" class="delivery-quote"><b>Ongkir Rp5.000</b><span>Share lokasi untuk cek gratis ongkir minimal belanja Rp30.000 dalam radius 5 km.</span></div>
         <div id="quick-address-list" class="quick-address-list"></div>
         <div id="address-editor" class="address-editor" hidden>
           <label class="field"><span>Nama alamat</span><input id="address-label" placeholder="Rumah, Kantor, Kos"></label>
@@ -83,6 +84,6 @@
   </aside>
 
   <script src="common.js?v=4"></script>
-  <script src="cart.js?v=8"></script>
+  <script src="cart.js?v=9"></script>
 <script src="push.js?v=2"></script></body>
 </html>
