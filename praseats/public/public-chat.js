@@ -5,13 +5,13 @@
   localStorage.setItem(key,sessionId)
   const wrap=document.createElement('div');
   wrap.className='public-chat';
-  wrap.innerHTML=`<button class="public-chat-toggle" type="button" aria-label="Chat admin">💬<span>Chat</span></button><section class="public-chat-panel" hidden><div class="public-chat-head"><div><b>Chat PrasEats</b>${member?.name?`<span class="public-chat-member">👤 ${esc(member.name)}</span>`:''}</div><button type="button" aria-label="Tutup chat">×</button></div><div class="public-chat-body"><p class="public-chat-welcome">Tulis pesan untuk admin. Balasan admin tampil di sini.</p></div><form class="public-chat-form"><input name="message" placeholder="Tulis pesan..." autocomplete="off" required><button type="submit">Kirim</button></form><p class="public-chat-feedback" role="status"></p></section>`;
+  wrap.innerHTML=`<button class="public-chat-toggle" type="button" aria-label="Chat admin">💬<span>Chat</span></button><section class="public-chat-panel" hidden><div class="public-chat-head"><div><b>Chat PrasEats</b>${member?.name?`<span class="public-chat-member">👤 ${esc(member.name)}</span>`:''}</div><button type="button" aria-label="Tutup chat">×</button></div><div class="public-chat-body"><p class="public-chat-welcome">Belum ada chat nih.<br><b>Mau tanya apa?</b></p></div><form class="public-chat-form"><input name="message" placeholder="Tulis pesan..." autocomplete="off" required><button type="submit">Kirim</button></form><p class="public-chat-feedback" role="status"></p></section>`;
   document.body.appendChild(wrap);
   const navChatButtons=[...document.querySelectorAll('[data-public-chat-open]')];
   if(navChatButtons.length)wrap.classList.add('public-chat-nav-mode');
   const panel=wrap.querySelector('.public-chat-panel'),body=wrap.querySelector('.public-chat-body'),feedback=wrap.querySelector('.public-chat-feedback');
   function esc(value){return String(value||'').replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]))}
-  async function loadMessages(){try{const data=await api(`/api/public/chat?sessionId=${encodeURIComponent(sessionId)}`);body.innerHTML=data.messages.map(item=>`<p class="public-chat-bubble ${item.from_admin?'admin':'user'}">${esc(item.message)}</p>`).join('')||'<p class="public-chat-welcome">Tulis pesan untuk admin. Balasan admin tampil di sini.</p>';body.scrollTop=body.scrollHeight}catch{}}
+  async function loadMessages(){try{const data=await api(`/api/public/chat?sessionId=${encodeURIComponent(sessionId)}`);body.innerHTML=data.messages.map(item=>`<p class="public-chat-bubble ${item.from_admin?'admin':'user'}">${esc(item.message)}</p>`).join('')||'<p class="public-chat-welcome">Belum ada chat nih.<br><b>Mau tanya apa?</b></p>';body.scrollTop=body.scrollHeight}catch{}}
   function syncState(){const open=!panel.hidden;navChatButtons.forEach(button=>button.classList.toggle('active',open));document.body.classList.toggle('public-chat-open',open)}
   function togglePanel(){panel.hidden=!panel.hidden;syncState();if(!panel.hidden){loadMessages();wrap.querySelector('input').focus()}}
   wrap.querySelector('.public-chat-toggle').onclick=togglePanel;
