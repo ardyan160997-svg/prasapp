@@ -57,6 +57,17 @@ function saveMenuImage(body) {
   return `/uploads/${name}`;
 }
 
+function savePaymentProof(imageData) {
+  const match = String(imageData || '').match(/^data:(image\/(?:png|jpe?g|webp|avif));base64,(.+)$/);
+  if (!match) throw new Error('Bukti pembayaran wajib berupa gambar');
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length || buffer.length > 3 * 1024 * 1024) throw new Error('Ukuran bukti pembayaran maksimal 3MB');
+  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[match[1]];
+  const name = `payment-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buffer);
+  return `/uploads/${name}`;
+}
+
 function json(res, status, data) {
   res.writeHead(status, {
     'content-type': 'application/json',
@@ -129,7 +140,9 @@ async function setup() {
     CREATE TABLE IF NOT EXISTS orders(id SERIAL PRIMARY KEY,order_code TEXT UNIQUE NOT NULL,customer_name TEXT NOT NULL,whatsapp_number TEXT NOT NULL,fulfillment_type TEXT NOT NULL,payment_method TEXT NOT NULL,address TEXT DEFAULT '',notes TEXT DEFAULT '',status TEXT DEFAULT 'baru',payment_status TEXT DEFAULT 'pending',subtotal INTEGER DEFAULT 0,delivery_fee INTEGER DEFAULT 0,total INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());
     ALTER TABLE menus ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending';
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_proof_url TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS order_items(id SERIAL PRIMARY KEY,order_id INTEGER REFERENCES orders(id),menu_id INTEGER,menu_name TEXT NOT NULL,brand_name TEXT DEFAULT '',qty INTEGER DEFAULT 1,price INTEGER DEFAULT 0);
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS chats(id SERIAL PRIMARY KEY,session_id TEXT NOT NULL,message TEXT NOT NULL,from_admin BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
     CREATE TABLE IF NOT EXISTS daily_menus(id SERIAL PRIMARY KEY,menu_id INTEGER UNIQUE REFERENCES menus(id) ON DELETE CASCADE,is_available BOOLEAN DEFAULT true,display_order INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());
     CREATE TABLE IF NOT EXISTS members(id SERIAL PRIMARY KEY,name TEXT NOT NULL,whatsapp_number TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,profile_photo TEXT DEFAULT '',home_address TEXT DEFAULT '',home_detail TEXT DEFAULT '',created_at TIMESTAMPTZ DEFAULT now());
@@ -137,6 +150,7 @@ async function setup() {
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_address TEXT DEFAULT '';
     ALTER TABLE members ADD COLUMN IF NOT EXISTS home_detail TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS member_carts(member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,menu_id INTEGER NOT NULL REFERENCES menus(id) ON DELETE CASCADE,qty INTEGER NOT NULL DEFAULT 1,updated_at TIMESTAMPTZ DEFAULT now(),PRIMARY KEY(member_id,menu_id));
+    ALTER TABLE member_carts ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
     CREATE TABLE IF NOT EXISTS member_addresses(id SERIAL PRIMARY KEY,member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,label TEXT NOT NULL,address TEXT NOT NULL,detail TEXT DEFAULT '',latitude DOUBLE PRECISION,longitude DOUBLE PRECISION,is_default BOOLEAN DEFAULT false,created_at TIMESTAMPTZ DEFAULT now());
     ALTER TABLE member_addresses ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
     ALTER TABLE member_addresses ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
@@ -345,17 +359,17 @@ async function handle(req, res) {
     if (url.pathname === '/api/public/members/cart' && req.method === 'GET') {
       const identity = memberFromRequest(req);
       if (!pool) return json(res, 200, { ok: true, items: fallback.memberCarts.get(identity.id) || [] });
-      const items = (await query('SELECT m.*,b.name brand_name,mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
+      const items = (await query('SELECT m.*,b.name brand_name,mc.qty,mc.notes FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
       return json(res, 200, { ok: true, items });
     }
     if (url.pathname === '/api/public/members/cart' && req.method === 'PUT') {
       const identity = memberFromRequest(req);
       const body = await readBody(req);
-      const requested = (body.items || []).map((item) => ({ id: Number(item.id), qty: Math.max(1, Math.min(99, Number(item.qty || 1))) })).filter((item) => Number.isInteger(item.id));
+      const requested = (body.items || []).map((item) => ({ id: Number(item.id), qty: Math.max(1, Math.min(99, Number(item.qty || 1))), notes: String(item.notes || '').trim().slice(0, 300) })).filter((item) => Number.isInteger(item.id));
       const quantities = new Map();
-      for (const item of requested) quantities.set(item.id, Math.min(99, (quantities.get(item.id) || 0) + item.qty));
+      for (const item of requested) quantities.set(item.id, { qty: Math.min(99, (quantities.get(item.id)?.qty || 0) + item.qty), notes: item.notes || quantities.get(item.id)?.notes || '' });
       if (!pool) {
-        const items = fallback.menus.filter((menu) => quantities.has(menu.id) && menu.is_available).map((menu) => ({ ...menu, qty: quantities.get(menu.id), brandName: menu.brand_name }));
+        const items = fallback.menus.filter((menu) => quantities.has(menu.id) && menu.is_available).map((menu) => ({ ...menu, ...quantities.get(menu.id), brandName: menu.brand_name }));
         fallback.memberCarts.set(identity.id, items);
         return json(res, 200, { ok: true, items });
       }
@@ -363,39 +377,42 @@ async function handle(req, res) {
       try {
         await client.query('BEGIN');
         await client.query('DELETE FROM member_carts WHERE member_id=$1', [identity.id]);
-        for (const [menuId, qty] of quantities) await client.query('INSERT INTO member_carts(member_id,menu_id,qty) SELECT $1,id,$3 FROM menus WHERE id=$2 AND is_available=true', [identity.id, menuId, qty]);
+        for (const [menuId, item] of quantities) await client.query('INSERT INTO member_carts(member_id,menu_id,qty,notes) SELECT $1,id,$3,$4 FROM menus WHERE id=$2 AND is_available=true', [identity.id, menuId, item.qty, item.notes]);
         await client.query('COMMIT');
       } catch (error) {
         await client.query('ROLLBACK');
         throw error;
       } finally { client.release(); }
-      const items = (await query('SELECT m.*,b.name brand_name,mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
+      const items = (await query('SELECT m.*,b.name brand_name,mc.qty,mc.notes FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1 ORDER BY mc.updated_at,m.id', [identity.id])).rows;
       return json(res, 200, { ok: true, items });
     }
     if (url.pathname === '/api/public/orders' && req.method === 'POST') {
       const body = await readBody(req);
       requireFields(body, ['customerName', 'whatsapp', 'fulfillmentType', 'paymentMethod']);
       if (!FULFILLMENT_TYPES.includes(body.fulfillmentType) || !PAYMENT_METHODS.includes(body.paymentMethod)) throw new Error('Metode tidak valid');
+      const requiresProof = ['transfer', 'qris'].includes(body.paymentMethod);
+      if (requiresProof && !body.paymentProofData) throw new Error('Lakukan pembayaran dan upload bukti transfer terlebih dahulu, atau ganti metode pembayaran');
       let identity = null;
       try { identity = memberFromRequest(req); } catch {}
       let items = (body.items || []).map((item) => ({ ...item, qty: Math.max(1, Number(item.qty || 1)) }));
       if (identity) {
-        if (pool) items = (await query('SELECT m.id,m.name,m.price,b.name "brandName",mc.qty FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1', [identity.id])).rows;
+        if (pool) items = (await query('SELECT m.id,m.name,m.price,b.name "brandName",mc.qty,mc.notes FROM member_carts mc JOIN menus m ON m.id=mc.menu_id LEFT JOIN brands b ON b.id=m.brand_id WHERE mc.member_id=$1', [identity.id])).rows;
         else items = fallback.memberCarts.get(identity.id) || [];
         body.whatsapp = identity.phone;
       }
       if (!items.length) throw new Error('Keranjang kosong');
+      const paymentProofUrl = requiresProof ? savePaymentProof(body.paymentProofData) : '';
       const deliveryFee = body.fulfillmentType === 'delivery' ? 5000 : 0;
       const totals = calculateCart(items, deliveryFee);
       const order = {
         id: Date.now(), order_code: makeOrderCode(), customer_name: body.customerName,
         whatsapp_number: normalizePhone(body.whatsapp), fulfillment_type: body.fulfillmentType,
         payment_method: body.paymentMethod, payment_status: 'pending', address: body.address || '',
-        notes: body.notes || '', status: 'baru', ...totals, items,
+        notes: body.notes || '', payment_proof_url: paymentProofUrl, status: 'baru', ...totals, items,
       };
       if (!pool) { fallback.orders.unshift(order); if (identity) fallback.memberCarts.delete(identity.id); return json(res, 200, { ok: true, order }); }
-      const saved = (await query('INSERT INTO orders(order_code,customer_name,whatsapp_number,fulfillment_type,payment_method,address,notes,subtotal,delivery_fee,total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [order.order_code, order.customer_name, order.whatsapp_number, order.fulfillment_type, order.payment_method, order.address, order.notes, order.subtotal, deliveryFee, order.total])).rows[0];
-      for (const item of items) await query('INSERT INTO order_items(order_id,menu_id,menu_name,brand_name,qty,price) VALUES($1,$2,$3,$4,$5,$6)', [saved.id, item.id, item.name, item.brandName || '', item.qty, item.price]);
+      const saved = (await query('INSERT INTO orders(order_code,customer_name,whatsapp_number,fulfillment_type,payment_method,address,notes,payment_proof_url,subtotal,delivery_fee,total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *', [order.order_code, order.customer_name, order.whatsapp_number, order.fulfillment_type, order.payment_method, order.address, order.notes, order.payment_proof_url, order.subtotal, deliveryFee, order.total])).rows[0];
+      for (const item of items) await query('INSERT INTO order_items(order_id,menu_id,menu_name,brand_name,qty,price,notes) VALUES($1,$2,$3,$4,$5,$6,$7)', [saved.id, item.id, item.name, item.brandName || item.brand_name || '', item.qty, item.price, item.notes || '']);
       if (identity) await query('DELETE FROM member_carts WHERE member_id=$1', [identity.id]);
       return json(res, 200, { ok: true, order: saved });
     }

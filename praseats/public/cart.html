@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Keranjang — PrasEats</title>
   <link rel="icon" type="image/avif" href="images/praseats.avif">
-  <link rel="stylesheet" href="styles.css?v=42">
-  <link rel="stylesheet" href="cart.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=43">
+  <link rel="stylesheet" href="cart.css?v=7">
 </head>
 <body class="cart-app">
   <header class="cart-header">
@@ -53,7 +53,19 @@
       <section class="checkout-card payment-card">
         <div class="card-title"><span class="card-icon payment-icon">Rp</span><div><small>PEMBAYARAN</small><h2>Pilih metode pembayaran</h2></div></div>
         <label class="field payment-select"><select name="paymentMethod"><option value="qris">QRIS</option><option value="transfer">Transfer bank</option><option value="cod">COD / Bayar saat diterima</option></select></label>
-        <label class="field"><span>Catatan pesanan <small>(opsional)</small></span><textarea name="notes" rows="2" placeholder="Contoh: tidak pedas, tanpa bawang"></textarea></label>
+        <div id="bank-payment" class="payment-detail" hidden>
+          <div class="payment-detail-head"><div><small>TRANSFER BANK</small><b>A/n ARDYAN RATNA PRASEYA</b></div><span>Klik nomor untuk salin</span></div>
+          <div class="bank-accounts">
+            <button type="button" data-copy-account="3930737410"><span>BCA</span><b>3930737410</b><small>Salin</small></button>
+            <button type="button" data-copy-account="009701112317506"><span>BRI</span><b>009701112317506</b><small>Salin</small></button>
+            <button type="button" data-copy-account="106318824136"><span>Bank Jago</span><b>106318824136</b><small>Salin</small></button>
+          </div>
+        </div>
+        <div id="qris-payment" class="payment-detail qris-payment">
+          <div class="payment-detail-head"><div><small>SCAN QRIS</small><b>PrasEats</b></div><a href="images/qrispraseats.avif" download="QRIS-PrasEats.avif">Download QR</a></div>
+          <img src="images/qrispraseats.avif" alt="QRIS PrasEats">
+        </div>
+        <label id="payment-proof-field" class="payment-proof"><span>Upload bukti pembayaran <b>*</b></span><input id="payment-proof" type="file" accept="image/png,image/jpeg,image/webp,image/avif"><small id="payment-proof-name">JPG, PNG, WEBP, atau AVIF · maksimal 3MB</small></label>
       </section>
 
       <section class="checkout-card summary-card">
@@ -70,7 +82,7 @@
     <button class="checkout-btn" type="submit" form="checkout">Buat pesanan</button>
   </aside>
 
-  <script src="common.js?v=3"></script>
-  <script src="cart.js?v=7"></script>
+  <script src="common.js?v=4"></script>
+  <script src="cart.js?v=8"></script>
 <script src="push.js?v=2"></script></body>
 </html>
