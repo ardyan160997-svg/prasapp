@@ -1889,3 +1889,49 @@ Mengaktifkan Web Push di `prashoes.prasapp.com` untuk customer public dengan sco
 ### Result
 
 Selesai lokal. Public PWA dan tombol `Aktifkan Notifikasi` tersedia di panel chat. Subscription public disimpan dengan audience `public` serta mapping chat session, WhatsApp, dan member code. Update status order mengirim push hanya ke subscription dengan WhatsApp/member terkait, dan balasan admin mengirim push hanya ke chat session terkait. Deploy menunggu instruksi `commit deploy`.
+
+---
+
+## TASK-024 — Bangun Prashine public dan admin laundry antar-jemput
+
+- Status: completed-local
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: none
+
+### Objective
+
+Membuat aplikasi baru Prashine untuk laundry antar-jemput dengan public member, request pickup, tracking, admin operasional, layanan/harga editable, dan PostgreSQL terpisah.
+
+### Scope
+
+- `prashine/public/**`
+- `prashine/adminprashine/**`
+- `prashine/package.json`
+- `TODO.md`
+
+### Requirements
+
+- Public menampilkan layanan dan harga, registrasi/login WhatsApp, request pickup dengan alamat dan GPS, serta tracking order.
+- Admin memiliki login, pengelolaan layanan, daftar order, berat/harga final, dan perubahan status.
+- Status order: diajukan, dijemput, ditimbang, dicuci, selesai, diantar.
+- PostgreSQL, port, service, dan data sepenuhnya terpisah dari aplikasi lain.
+- Harga awal: cuci kering Rp6.000/kg, cuci setrika Rp8.000/kg, setrika Rp5.000/kg, express tambahan Rp5.000/kg, minimal 3 kg.
+
+### Validation
+
+- Syntax check semua JavaScript.
+- Domain tests.
+- Static build public/admin lengkap.
+- Focused API smoke test lokal.
+- `git diff --check` berhasil.
+
+### Result
+
+Selesai lokal. Fondasi Prashine sudah mencakup public mobile untuk katalog layanan,
+registrasi/login WhatsApp, request pickup dengan GPS, pesanan member, dan tracking kode.
+Admin memiliki login, ringkasan operasional, pengelolaan layanan/harga, penimbangan,
+perhitungan harga final, dan status berurutan. API mendukung PostgreSQL terpisah dengan
+migration/rollback, serta fallback memory khusus development. Belum commit atau deploy.
