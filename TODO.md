@@ -1935,3 +1935,37 @@ registrasi/login WhatsApp, request pickup dengan GPS, pesanan member, dan tracki
 Admin memiliki login, ringkasan operasional, pengelolaan layanan/harga, penimbangan,
 perhitungan harga final, dan status berurutan. API mendukung PostgreSQL terpisah dengan
 migration/rollback, serta fallback memory khusus development. Belum commit atau deploy.
+
+---
+
+## TASK-025 — Ganti header Prashine dengan aset logo
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: medium
+- Risk: low
+- Dependencies: TASK-024
+
+### Objective
+
+Mengganti ikon dan tulisan header public Prashine dengan aset logo AVIF yang diberikan.
+
+### Scope
+
+- `prashine/public/images/**`
+- `prashine/public/app.js`
+- `prashine/public/styles.css`
+- halaman HTML public dan service worker untuk cache busting
+- `prashine/package.json`
+- `TODO.md`
+
+### Validation
+
+- Logo tidak terpotong pada header desktop/mobile.
+- Kedua asset masuk output build.
+- Syntax check, build, dan focused asset verification berhasil sebelum commit/deploy.
+
+### Result
+
+Selesai. Public Prashine memakai logo header dan favicon AVIF yang diberikan, background Beranda responsive desktop/mobile, carousel proses empat tahap dengan gambar dan auto-slide lima detik, serta pemilih tiga layanan berbentuk toggle yang meneruskan pilihan ke Pickup. Canonical check/build dan focused asset/behavior verification berhasil; perubahan di-commit dan dideploy ke production.
