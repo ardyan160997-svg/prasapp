@@ -4,11 +4,11 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1869ff">
   <title>Chat PrasCell</title>
   <link rel="icon" type="image/avif" href="images/icon.avif?v=1"><link rel="apple-touch-icon" href="images/icon.avif?v=1">
-  <link rel="stylesheet" href="styles.css?v=14"><link rel="stylesheet" href="chat.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=14"><link rel="stylesheet" href="chat.css?v=4">
 </head>
 <body class="page-chat">
   <header class="topbar"><a class="brand brand-logo" href="index.html"><img class="brand-mark" src="images/prascelllogo.avif?v=2" alt=""><img class="brand-wordmark" src="images/prascelltag.avif?v=2" alt="PrasCell"></a><nav><a href="estimasi.html">Estimasi</a><a href="tracking.html">Tracking</a><a href="member.html">Member</a></nav><a class="top-cta" href="member.html">Daftar Member</a></header>
-  <main><section class="section panel page-hero chat-page-wrap"><div class="section-head"><p class="eyebrow">Bantuan admin</p><h1>Chat PrasCell</h1><p>Tanya estimasi, status servis, atau detail perangkat langsung dari web app.</p></div><div class="chat-page-box"><div id="chat-messages" class="chat-messages"><p class="bubble admin">Halo, ada yang bisa dibantu?</p></div><form id="chat-form"><input id="chat-input" placeholder="Tulis pesan..." required><button>Kirim</button></form></div></section></main>
+  <main><section class="section panel page-hero chat-page-wrap"><div class="section-head"><p class="eyebrow">Bantuan admin</p><h1>Chat PrasCell</h1><p>Tanya estimasi, status servis, atau detail perangkat langsung dari web app.</p></div><div class="chat-page-box"><header class="chat-page-status"><span class="chat-avatar">PC</span><div><b>Admin PrasCell</b><small><i></i> Siap membantu estimasi dan servis</small></div></header><div id="chat-messages" class="chat-messages" aria-live="polite"><p class="bubble admin">Halo, ceritakan kendala HP kamu. Sertakan merek dan model agar kami bisa membantu lebih cepat.</p></div><form id="chat-form" class="chat-composer"><div class="chat-input-wrap"><textarea id="chat-input" rows="1" maxlength="1000" placeholder="Tulis kendala HP kamu..." aria-label="Pesan untuk admin" required></textarea><small>Enter untuk kirim · Shift+Enter untuk baris baru</small></div><button type="submit" aria-label="Kirim pesan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 9-18 9 4-9Z"></path><path d="M7 12h14"></path></svg><span>Kirim</span></button></form></div></section></main>
   <nav class="bottom-nav" aria-label="Navigasi cepat">
     <a class="bottom-nav-item" href="index.html"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3Z"></path></svg><span>Home</span></a>
     <a class="bottom-nav-item" href="tracking.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg><span>Lacak</span></a>
@@ -16,5 +16,5 @@
     <a class="bottom-nav-item active" href="chat.html"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Chat</span></a>
     <a class="bottom-nav-item" href="member.html"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Member</span></a>
   </nav>
-  <script>window.PRASCELL_API='https://adminprascell.prasapp.com';</script><script src="chat.js?v=1"></script>
+  <script>window.PRASCELL_API='https://adminprascell.prasapp.com';</script><script src="chat.js?v=2"></script>
 </body></html>

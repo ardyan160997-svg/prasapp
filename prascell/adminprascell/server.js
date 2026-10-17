@@ -105,6 +105,7 @@ async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS repair_services (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       phone_model_id uuid REFERENCES phone_models(id) ON DELETE SET NULL,
+      issue_category text NOT NULL DEFAULT 'hardware',
       issue_name text NOT NULL,
       symptoms text NOT NULL DEFAULT '',
       cause text NOT NULL DEFAULT '',
@@ -119,6 +120,18 @@ async function ensureSchema() {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS issue_category text NOT NULL DEFAULT 'hardware'`);
+  await db.query(`UPDATE repair_services SET issue_category = 'hardware' WHERE issue_category NOT IN ('software','hardware')`);
+  await db.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'repair_services_issue_category_check') THEN
+        ALTER TABLE repair_services ADD CONSTRAINT repair_services_issue_category_check CHECK (issue_category IN ('software','hardware'));
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'repair_services_price_check') THEN
+        ALTER TABLE repair_services ADD CONSTRAINT repair_services_price_check CHECK (price_min >= 0 AND price_max >= price_min) NOT VALID;
+      END IF;
+    END $$
   `);
   await db.query(`
     CREATE TABLE IF NOT EXISTS service_orders (
@@ -194,6 +207,21 @@ async function ensureSchema() {
       );
     }
   }
+  const iphoneModels = [
+    'iPhone 8', 'iPhone 8 Plus', 'iPhone X', 'iPhone XR', 'iPhone XS', 'iPhone XS Max',
+    'iPhone 11', 'iPhone 11 Pro', 'iPhone 11 Pro Max', 'iPhone SE (2020)',
+    'iPhone 12 mini', 'iPhone 12', 'iPhone 12 Pro', 'iPhone 12 Pro Max',
+    'iPhone 13 mini', 'iPhone 13', 'iPhone 13 Pro', 'iPhone 13 Pro Max', 'iPhone SE (2022)',
+    'iPhone 14', 'iPhone 14 Plus', 'iPhone 14 Pro', 'iPhone 14 Pro Max',
+    'iPhone 15', 'iPhone 15 Plus', 'iPhone 15 Pro', 'iPhone 15 Pro Max',
+    'iPhone 16', 'iPhone 16 Plus', 'iPhone 16 Pro', 'iPhone 16 Pro Max',
+  ];
+  for (const model of iphoneModels) {
+    await db.query(
+      `INSERT INTO phone_models (brand, model, notes) VALUES ('Apple',$1,'Model iPhone') ON CONFLICT (brand, model) DO NOTHING`,
+      [model]
+    );
+  }
 }
 
 function publicServiceShape(row) {
@@ -201,8 +229,10 @@ function publicServiceShape(row) {
     id: row.id,
     brand: row.brand,
     model: row.model,
+    issueCategory: row.issue_category,
     issueName: row.issue_name,
     symptoms: row.symptoms,
+    repairMethod: row.repair_method,
     priceMin: Number(row.price_min || 0),
     priceMax: Number(row.price_max || 0),
     durationEstimate: row.duration_estimate,
@@ -210,14 +240,18 @@ function publicServiceShape(row) {
 }
 
 async function listPublicServices() {
-  const rows = await requireDb().query(`
-    SELECT rs.*, pm.brand, pm.model
-    FROM repair_services rs
-    LEFT JOIN phone_models pm ON pm.id = rs.phone_model_id
-    WHERE rs.is_active = true
-    ORDER BY pm.brand NULLS LAST, pm.model NULLS LAST, rs.issue_name
-  `);
-  return rows.rows.map(publicServiceShape);
+  const db = requireDb();
+  const [services, models] = await Promise.all([
+    db.query(`
+      SELECT rs.*, pm.brand, pm.model
+      FROM repair_services rs
+      LEFT JOIN phone_models pm ON pm.id = rs.phone_model_id
+      WHERE rs.is_active = true AND (pm.is_active = true OR rs.phone_model_id IS NULL)
+      ORDER BY pm.brand NULLS LAST, pm.model NULLS LAST, rs.issue_category, rs.issue_name
+    `),
+    db.query(`SELECT id, brand, model FROM phone_models WHERE is_active = true ORDER BY brand, model`),
+  ]);
+  return { services: services.rows.map(publicServiceShape), models: models.rows };
 }
 
 async function dashboardData() {
@@ -269,14 +303,46 @@ async function upsertModel(data) {
   return result.rows[0];
 }
 
+function serviceCategory(value) {
+  const category = String(value || '').toLowerCase();
+  if (!['software', 'hardware'].includes(category)) throw new Error('Kategori masalah harus Software atau Hardware.');
+  return category;
+}
+
+function serviceValues(data) {
+  requireFields(data, ['phoneModelId', 'issueCategory', 'issueName']);
+  const priceMin = Number(data.priceMin || 0);
+  const priceMax = Number(data.priceMax || 0);
+  if (!Number.isFinite(priceMin) || !Number.isFinite(priceMax) || priceMin < 0 || priceMax < priceMin) throw new Error('Rentang harga tidak valid.');
+  return [data.phoneModelId, serviceCategory(data.issueCategory), data.issueName.trim(), data.symptoms || '', data.cause || '', data.repairMethod || '', data.assemblySteps || '', data.tools || '', data.spareParts || '', priceMin, priceMax, data.durationEstimate || ''];
+}
+
 async function createService(data) {
-  requireFields(data, ['issueName']);
   const result = await requireDb().query(
-    `INSERT INTO repair_services (phone_model_id, issue_name, symptoms, cause, repair_method, assembly_steps, tools, spare_parts, price_min, price_max, duration_estimate)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO repair_services (phone_model_id, issue_category, issue_name, symptoms, cause, repair_method, assembly_steps, tools, spare_parts, price_min, price_max, duration_estimate)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING *`,
-    [data.phoneModelId || null, data.issueName.trim(), data.symptoms || '', data.cause || '', data.repairMethod || '', data.assemblySteps || '', data.tools || '', data.spareParts || '', Number(data.priceMin || 0), Number(data.priceMax || 0), data.durationEstimate || '']
+    serviceValues(data)
   );
+  return result.rows[0];
+}
+
+async function updateService(data) {
+  requireFields(data, ['id']);
+  const values = serviceValues(data);
+  const result = await requireDb().query(
+    `UPDATE repair_services SET phone_model_id=$2, issue_category=$3, issue_name=$4, symptoms=$5, cause=$6, repair_method=$7, assembly_steps=$8, tools=$9, spare_parts=$10, price_min=$11, price_max=$12, duration_estimate=$13, is_active=true, updated_at=now()
+     WHERE id=$1 RETURNING *`,
+    [data.id, ...values]
+  );
+  if (!result.rowCount) throw new Error('Masalah servis tidak ditemukan.');
+  return result.rows[0];
+}
+
+async function archiveService(data) {
+  requireFields(data, ['id']);
+  const result = await requireDb().query(`UPDATE repair_services SET is_active=false, updated_at=now() WHERE id=$1 RETURNING *`, [data.id]);
+  if (!result.rowCount) throw new Error('Masalah servis tidak ditemukan.');
   return result.rows[0];
 }
 
@@ -330,7 +396,7 @@ async function route(req, res) {
       if (!ADMIN_PASSWORD || !ADMIN_SECRET || !safeEqual(body.password, ADMIN_PASSWORD)) return sendError(res, new Error('Password salah.'), 401);
       return sendJson(res, { ok: true, token: tokenFor(ADMIN_PASSWORD) });
     }
-    if (url.pathname === '/api/public/services' && req.method === 'GET') return sendJson(res, { ok: true, services: await listPublicServices() });
+    if (url.pathname === '/api/public/services' && req.method === 'GET') return sendJson(res, { ok: true, ...(await listPublicServices()) });
     if (url.pathname === '/api/public/orders' && req.method === 'POST') return sendJson(res, { ok: true, order: await createOrder(await readJson(req)) });
     if (url.pathname === '/api/public/tracking' && req.method === 'GET') return sendJson(res, { ok: true, orders: await tracking(url.searchParams.get('q')) });
     if (url.pathname === '/api/public/chat' && req.method === 'POST') return sendJson(res, { ok: true, thread: await publicChat(await readJson(req)) });
@@ -339,6 +405,8 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/dashboard' && req.method === 'GET') return sendJson(res, { ok: true, data: await dashboardData() });
       if (url.pathname === '/api/admin/models' && req.method === 'POST') return sendJson(res, { ok: true, model: await upsertModel(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'POST') return sendJson(res, { ok: true, service: await createService(await readJson(req)) });
+      if (url.pathname === '/api/admin/services' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateService(await readJson(req)) });
+      if (url.pathname === '/api/admin/services' && req.method === 'DELETE') return sendJson(res, { ok: true, service: await archiveService(await readJson(req)) });
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
     }
@@ -366,4 +434,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route };
+module.exports = { ensureSchema, route, serviceCategory, serviceValues };

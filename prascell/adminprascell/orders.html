@@ -7,7 +7,7 @@
   <title>Admin PrasCell</title>
   <link rel="icon" type="image/avif" href="images/icon.avif?v=1">
   <link rel="apple-touch-icon" href="images/icon.avif?v=1">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body class="admin-page-orders">
   <aside class="sidebar">
@@ -27,7 +27,7 @@
 
       <section id="models" class="card"><h2>Database HP</h2><form id="model-form" class="grid-form"><input name="brand" placeholder="Merek" required><input name="model" placeholder="Model" required><input name="notes" placeholder="Catatan"><button>Simpan HP</button></form><div id="model-list" class="table-lite"></div></section>
 
-      <section id="services" class="card"><h2>Biaya, Penyebab, dan Panduan Perbaikan</h2><form id="service-form" class="grid-form wide"><select name="phoneModelId"><option value="">Model umum</option></select><input name="issueName" placeholder="Masalah / kerusakan" required><input name="priceMin" type="number" placeholder="Harga min"><input name="priceMax" type="number" placeholder="Harga max"><input name="durationEstimate" placeholder="Estimasi waktu"><textarea name="symptoms" placeholder="Gejala"></textarea><textarea name="cause" placeholder="Penyebab"></textarea><textarea name="repairMethod" placeholder="Cara perbaikan"></textarea><textarea name="assemblySteps" placeholder="Cara assembly / bongkar pasang"></textarea><textarea name="tools" placeholder="Alat"></textarea><textarea name="spareParts" placeholder="Spare part"></textarea><button>Simpan Panduan</button></form><div id="service-list" class="table-lite"></div></section>
+      <section id="services" class="card"><h2>Biaya, Penyebab, dan Panduan Perbaikan</h2><form id="service-form" class="grid-form wide"><input name="id" type="hidden"><label class="field-label"><span>Model HP</span><select name="phoneModelId" required><option value="">Pilih model HP</option></select></label><label class="field-label"><span>Kategori masalah</span><select name="issueCategory" required><option value="">Pilih kategori</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label><label class="field-label"><span>Kendala / tindakan</span><input name="issueName" placeholder="Contoh: Bootloop atau ganti LCD" required></label><label class="field-label"><span>Harga minimum</span><input name="priceMin" type="number" min="0" placeholder="Rp 0"></label><label class="field-label"><span>Harga maksimum</span><input name="priceMax" type="number" min="0" placeholder="Rp 0"></label><label class="field-label"><span>Estimasi waktu</span><input name="durationEstimate" placeholder="Contoh: 1–3 jam"></label><div class="form-actions"><button type="submit">Simpan Masalah</button><button id="service-cancel" class="button-muted hidden" type="button">Batal edit</button></div><label class="field-label"><span>Gejala</span><textarea name="symptoms" placeholder="Gejala yang dialami pelanggan"></textarea></label><label class="field-label"><span>Penyebab</span><textarea name="cause" placeholder="Kemungkinan penyebab"></textarea></label><label class="field-label"><span>Tindakan / cara perbaikan</span><textarea name="repairMethod" placeholder="Langkah perbaikan"></textarea></label><label class="field-label"><span>Assembly / bongkar pasang</span><textarea name="assemblySteps" placeholder="Panduan assembly"></textarea></label><label class="field-label"><span>Alat</span><textarea name="tools" placeholder="Alat yang dibutuhkan"></textarea></label><label class="field-label"><span>Spare part</span><textarea name="spareParts" placeholder="Spare part yang dibutuhkan"></textarea></label></form><div id="service-list" class="table-lite"></div></section>
 
       <section id="orders" class="card"><h2>Order Servis</h2><div id="order-list" class="table-lite"></div></section>
       <section id="members" class="card"><h2>Member</h2><div id="member-list" class="table-lite"></div></section>
@@ -41,6 +41,6 @@
     <a class="admin-bottom-nav-item active" href="orders.html" aria-label="Order servis"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg><span>Order</span></a>
     <a class="admin-bottom-nav-item" href="chat.html" aria-label="Chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Chat</span></a>
   </nav>
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

@@ -44,12 +44,32 @@ function stats() {
 
 function renderModels() {
   const select = qs('#service-form [name="phoneModelId"]');
-  select.innerHTML = '<option value="">Model umum</option>' + state.models.map((m) => `<option value="${m.id}">${escapeHtml(m.brand)} ${escapeHtml(m.model)}</option>`).join('');
+  const selected = select.value;
+  select.innerHTML = '<option value="">Pilih model HP</option>' + state.models.filter((m) => m.is_active).map((m) => `<option value="${m.id}">${escapeHtml(m.brand)} ${escapeHtml(m.model)}</option>`).join('');
+  if ([...select.options].some((option) => option.value === selected)) select.value = selected;
   qs('#model-list').innerHTML = state.models.map((m) => `<div class="row"><div><b>${escapeHtml(m.brand)} ${escapeHtml(m.model)}</b><small>${escapeHtml(m.notes || '')}</small></div><span class="pill">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></div>`).join('') || '<p class="muted">Belum ada database HP.</p>';
 }
 
 function renderServices() {
-  qs('#service-list').innerHTML = state.services.map((s) => `<article class="row guide"><div><b>${escapeHtml(s.brand || 'Umum')} ${escapeHtml(s.model || '')} — ${escapeHtml(s.issue_name)}</b><small>${rupiah(s.price_min)} - ${rupiah(s.price_max)} · ${escapeHtml(s.duration_estimate || 'Waktu fleksibel')}</small><details><summary>Baca panduan teknisi</summary><div class="guide-grid"><div><b>Gejala</b><br>${escapeHtml(s.symptoms)}</div><div><b>Penyebab</b><br>${escapeHtml(s.cause)}</div><div><b>Perbaikan</b><br>${escapeHtml(s.repair_method)}</div><div><b>Assembly</b><br>${escapeHtml(s.assembly_steps)}</div><div><b>Alat</b><br>${escapeHtml(s.tools)}</div><div><b>Spare part</b><br>${escapeHtml(s.spare_parts)}</div></div></details></div></article>`).join('') || '<p class="muted">Belum ada panduan servis.</p>';
+  qs('#service-list').innerHTML = state.services.map((s) => `<article class="row guide ${s.is_active ? '' : 'row-inactive'}"><div><div class="row-title"><b>${escapeHtml(s.brand || 'Umum')} ${escapeHtml(s.model || '')} — ${escapeHtml(s.issue_name)}</b><span class="pill">${escapeHtml(s.issue_category || 'hardware')}</span></div><small>${rupiah(s.price_min)} - ${rupiah(s.price_max)} · ${escapeHtml(s.duration_estimate || 'Waktu fleksibel')}</small><details><summary>Baca panduan teknisi</summary><div class="guide-grid"><div><b>Gejala</b><br>${escapeHtml(s.symptoms)}</div><div><b>Penyebab</b><br>${escapeHtml(s.cause)}</div><div><b>Perbaikan</b><br>${escapeHtml(s.repair_method)}</div><div><b>Assembly</b><br>${escapeHtml(s.assembly_steps)}</div><div><b>Alat</b><br>${escapeHtml(s.tools)}</div><div><b>Spare part</b><br>${escapeHtml(s.spare_parts)}</div></div></details></div><div class="row-actions"><button type="button" data-service-edit="${s.id}">Edit</button>${s.is_active ? `<button class="button-danger" type="button" data-service-archive="${s.id}">Nonaktifkan</button>` : '<span class="pill">Nonaktif</span>'}</div></article>`).join('') || '<p class="muted">Belum ada panduan servis.</p>';
+}
+
+function fillServiceForm(service) {
+  const form = qs('#service-form');
+  for (const [name, value] of Object.entries({ id: service.id, phoneModelId: service.phone_model_id, issueCategory: service.issue_category || 'hardware', issueName: service.issue_name, priceMin: service.price_min, priceMax: service.price_max, durationEstimate: service.duration_estimate, symptoms: service.symptoms, cause: service.cause, repairMethod: service.repair_method, assemblySteps: service.assembly_steps, tools: service.tools, spareParts: service.spare_parts })) {
+    if (form.elements[name]) form.elements[name].value = value ?? '';
+  }
+  qs('#service-cancel').classList.remove('hidden');
+  form.querySelector('button[type="submit"]').textContent = 'Update Masalah';
+  requestAnimationFrame(() => window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
+}
+
+function resetServiceForm() {
+  const form = qs('#service-form');
+  form.reset();
+  form.elements.id.value = '';
+  qs('#service-cancel').classList.add('hidden');
+  form.querySelector('button[type="submit"]').textContent = 'Simpan Masalah';
 }
 
 function renderOrders() {
@@ -94,7 +114,15 @@ qs('#login-form').addEventListener('submit', async (event) => {
 
 qs('#refresh').addEventListener('click', () => loadDashboard().then(() => toast('Data diperbarui')).catch((e) => toast(e.message, 'error')));
 qs('#model-form').addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/admin/models', { method: 'POST', body: formJson(event.target) }); event.target.reset(); await loadDashboard(); toast('Database HP tersimpan'); } catch (e) { toast(e.message, 'error'); } });
-qs('#service-form').addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/admin/services', { method: 'POST', body: formJson(event.target) }); event.target.reset(); await loadDashboard(); toast('Panduan servis tersimpan'); } catch (e) { toast(e.message, 'error'); } });
+qs('#service-form').addEventListener('submit', async (event) => { event.preventDefault(); const body = Object.fromEntries(new FormData(event.target).entries()); const editing = Boolean(body.id); try { await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) }); resetServiceForm(); await loadDashboard(); toast(editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan'); } catch (e) { toast(e.message, 'error'); } });
+qs('#service-cancel').addEventListener('click', resetServiceForm);
+qs('#service-list').addEventListener('click', async (event) => {
+  const edit = event.target.closest('[data-service-edit]');
+  if (edit) return fillServiceForm(state.services.find((service) => service.id === edit.dataset.serviceEdit));
+  const archive = event.target.closest('[data-service-archive]');
+  if (!archive || !confirm('Nonaktifkan masalah ini dari halaman estimasi? Data tetap tersimpan.')) return;
+  try { await api('/api/admin/services', { method: 'DELETE', body: JSON.stringify({ id: archive.dataset.serviceArchive }) }); await loadDashboard(); toast('Masalah dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
+});
 qs('#order-list').addEventListener('submit', async (event) => { const form = event.target.closest('.order-edit'); if (!form) return; event.preventDefault(); const body = Object.fromEntries(new FormData(form).entries()); body.id = form.dataset.id; try { await api('/api/admin/orders', { method: 'PATCH', body: JSON.stringify(body) }); await loadDashboard(); toast('Order diperbarui'); } catch (e) { toast(e.message, 'error'); } });
 
 if (token) { showApp(); loadDashboard().catch(() => localStorage.removeItem(tokenKey)); }
