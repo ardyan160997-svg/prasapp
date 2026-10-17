@@ -1,0 +1,5 @@
+const CACHE = 'prascell-public-v3';
+const ASSETS = ['/', '/index.html', '/estimasi.html', '/tracking.html', '/chat.html', '/member.html', '/styles.css?v=12', '/images/prascelllogo.avif?v=1', '/images/prascelltag.avif?v=1'];
+self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS))));
+self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))));
+self.addEventListener('fetch', (event) => { if (event.request.method === 'GET') event.respondWith(fetch(event.request).catch(() => caches.match(event.request))); });

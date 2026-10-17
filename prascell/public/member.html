@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1869ff">
+  <meta name="description" content="Member PrasCell untuk pendataan pelanggan, riwayat perangkat, dan tracking servis HP.">
+  <title>Member PrasCell</title>
+  <link rel="icon" type="image/avif" href="images/icon.avif?v=1">
+  <link rel="apple-touch-icon" href="images/icon.avif?v=1">
+  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="member.css?v=1">
+</head>
+<body class="member-page">
+  <header class="topbar">
+    <a class="brand brand-logo" href="index.html" aria-label="PrasCell">
+      <img class="brand-mark" src="images/prascelllogo.avif?v=1" alt=""><img class="brand-wordmark" src="images/prascelltag.avif?v=1" alt="PrasCell">
+    </a>
+    <nav><a href="estimasi.html">Estimasi</a><a href="tracking.html">Tracking</a><a href="member.html" aria-current="page">Member</a></nav>
+    <a class="top-cta" href="#member-form">Daftar Member</a>
+  </header>
+
+  <main id="top">
+    <section class="section member-grid member-page-hero">
+      <div><p class="eyebrow">Data pelanggan</p><h1>Member PrasCell</h1><p>Member bukan untuk promo. Data member memudahkan riwayat perangkat, identitas servis, tracking, dan komunikasi.</p></div>
+      <form id="order-form" class="form-card">
+        <h3 id="member-form">Buat Permintaan Pengecekan</h3>
+        <label>Nama<input name="customerName" required></label>
+        <label>WhatsApp<input name="whatsappNumber" inputmode="tel" required></label>
+        <div class="two"><label>Merek HP<input name="phoneBrand"></label><label>Model HP<input name="phoneModel"></label></div>
+        <label>Keluhan<textarea name="issueDescription" rows="3" required></textarea></label>
+        <label class="check"><input type="checkbox" name="createMember" checked> Simpan sebagai member</label>
+        <button class="btn primary">Kirim Permintaan</button>
+        <p id="order-feedback" class="feedback"></p>
+      </form>
+    </section>
+  </main>
+
+
+  <nav class="bottom-nav" aria-label="Navigasi cepat">
+    <a class="bottom-nav-item" href="index.html" aria-label="Beranda">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3Z"></path></svg><span>Home</span>
+    </a>
+    <a class="bottom-nav-item" href="tracking.html" aria-label="Lacak servis">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg><span>Lacak</span>
+    </a>
+    <a class="bottom-nav-item bottom-nav-primary" href="estimasi.html" aria-label="Cek estimasi servis">
+      <span class="bottom-nav-main"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v4H8zM6 7h12v14H6zM9 12h6M9 16h4"></path></svg></span><span>Estimasi</span>
+    </a>
+    <a class="bottom-nav-item" href="chat.html" aria-label="Chat">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Chat</span>
+    </a>
+    <a class="bottom-nav-item active" href="member.html" aria-current="page" aria-label="Member">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Member</span>
+    </a>
+  </nav>
+  <script>window.PRASCELL_API = window.PRASCELL_API || 'https://adminprascell.prasapp.com';</script>
+  <script src="member.js?v=2"></script>
+</body>
+</html>

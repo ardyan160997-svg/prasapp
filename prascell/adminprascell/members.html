@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1869ff">
+  <title>Admin PrasCell</title>
+  <link rel="icon" type="image/avif" href="images/icon.avif?v=1">
+  <link rel="apple-touch-icon" href="images/icon.avif?v=1">
+  <link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body class="admin-page-members">
+  <aside class="sidebar">
+    <div class="brand brand-logo"><img src="images/prascellheader.avif?v=1" alt="PrasCell"><span class="admin-label">Admin</span></div>
+    <nav class="admin-menu-slider" aria-label="Menu admin"><a href="index.html">Dashboard</a><a href="models.html">Database HP</a><a href="services.html">Biaya & Panduan</a><a href="orders.html">Order</a><a href="members.html">Member</a><a href="chat.html">Chat</a></nav>
+  </aside>
+  <main class="main">
+    <section id="login" class="login-card">
+      <h1>Admin PrasCell</h1>
+      <p>Masuk untuk mengelola estimasi, order, member, dan panduan teknisi.</p>
+      <form id="login-form"><input id="password" type="password" placeholder="Password admin" required><button>Masuk</button></form>
+      <p id="login-feedback"></p>
+    </section>
+    <section id="app" class="hidden">
+      <header class="page-head"><div><p>Dashboard</p><h1>Operasional PrasCell</h1></div><button id="refresh">Refresh</button></header>
+      <div id="stats" class="stats"></div>
+
+      <section id="models" class="card"><h2>Database HP</h2><form id="model-form" class="grid-form"><input name="brand" placeholder="Merek" required><input name="model" placeholder="Model" required><input name="notes" placeholder="Catatan"><button>Simpan HP</button></form><div id="model-list" class="table-lite"></div></section>
+
+      <section id="services" class="card"><h2>Biaya, Penyebab, dan Panduan Perbaikan</h2><form id="service-form" class="grid-form wide"><select name="phoneModelId"><option value="">Model umum</option></select><input name="issueName" placeholder="Masalah / kerusakan" required><input name="priceMin" type="number" placeholder="Harga min"><input name="priceMax" type="number" placeholder="Harga max"><input name="durationEstimate" placeholder="Estimasi waktu"><textarea name="symptoms" placeholder="Gejala"></textarea><textarea name="cause" placeholder="Penyebab"></textarea><textarea name="repairMethod" placeholder="Cara perbaikan"></textarea><textarea name="assemblySteps" placeholder="Cara assembly / bongkar pasang"></textarea><textarea name="tools" placeholder="Alat"></textarea><textarea name="spareParts" placeholder="Spare part"></textarea><button>Simpan Panduan</button></form><div id="service-list" class="table-lite"></div></section>
+
+      <section id="orders" class="card"><h2>Order Servis</h2><div id="order-list" class="table-lite"></div></section>
+      <section id="members" class="card"><h2>Member</h2><div id="member-list" class="table-lite"></div></section>
+      <section id="chat" class="card"><h2>Chat</h2><div id="chat-list" class="table-lite"></div></section>
+    </section>
+  </main>
+  <nav class="admin-bottom-nav" aria-label="Navigasi admin">
+    <a class="admin-bottom-nav-item" href="index.html" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3Z"></path></svg><span>Home</span></a>
+    <a class="admin-bottom-nav-item" href="models.html" aria-label="Database HP"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg><span>HP</span></a>
+    <a class="admin-bottom-nav-item admin-bottom-nav-primary" href="services.html" aria-label="Biaya dan panduan"><span class="admin-bottom-nav-main"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v4H8zM6 7h12v14H6zM9 12h6M9 16h4"></path></svg></span><span>Panduan</span></a>
+    <a class="admin-bottom-nav-item" href="orders.html" aria-label="Order servis"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg><span>Order</span></a>
+    <a class="admin-bottom-nav-item" href="chat.html" aria-label="Chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Chat</span></a>
+  </nav>
+  <script src="app.js?v=1"></script>
+</body>
+</html>
