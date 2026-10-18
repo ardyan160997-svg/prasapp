@@ -85,7 +85,14 @@ function imageData(file) {
 
 function renderServices() {
   const guides = document.body.classList.contains('admin-page-guides');
-  qs('#service-list').innerHTML = state.services.map((s) => { const image = state.models.find((model) => model.id === s.phone_model_id)?.image_url; return `<article class="row guide ${s.is_active ? '' : 'row-inactive'}">${image ? `<img class="service-model-image" src="${escapeHtml(image)}" alt="">` : ''}<div><div class="row-title"><b>${escapeHtml(s.brand || 'Umum')} ${escapeHtml(s.model || '')} — ${escapeHtml(s.issue_name)}</b><span class="pill">${escapeHtml(s.issue_category || 'hardware')}</span></div>${guides ? `<small>${escapeHtml(s.repair_method || 'Panduan tindakan belum diisi')}</small><details><summary>Lihat panduan teknisi</summary><div class="guide-grid"><div><b>Gejala</b><br>${escapeHtml(s.symptoms)}</div><div><b>Penyebab</b><br>${escapeHtml(s.cause)}</div><div><b>Perbaikan</b><br>${escapeHtml(s.repair_method)}</div><div><b>Assembly</b><br>${escapeHtml(s.assembly_steps)}</div><div><b>Alat</b><br>${escapeHtml(s.tools)}</div><div><b>Spare part</b><br>${escapeHtml(s.spare_parts)}</div></div></details>` : `<small>${rupiah(s.price_min)} - ${rupiah(s.price_max)} · ${escapeHtml(s.duration_estimate || 'Waktu fleksibel')}</small>`}</div><div class="row-actions"><button type="button" data-service-edit="${s.id}">${guides ? 'Edit Panduan' : 'Edit Biaya'}</button>${!guides && s.is_active ? `<button class="button-danger" type="button" data-service-archive="${s.id}">Nonaktifkan</button>` : ''}</div></article>`; }).join('') || '<p class="muted">Belum ada data servis.</p>';
+  const list = qs('#service-list');
+  list.className = 'service-grid';
+  list.innerHTML = state.services.map((service) => {
+    const model = state.models.find((item) => item.id === service.phone_model_id);
+    const image = model?.image_url;
+    const guideReady = Boolean(service.repair_method || service.symptoms || service.cause);
+    return `<button class="service-card ${service.is_active ? '' : 'row-inactive'}" type="button" data-service-edit="${service.id}"><span class="service-card-image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(`${service.brand || ''} ${service.model || ''}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="service-card-copy"><small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><strong>${escapeHtml(service.issue_name)}</strong></span><span class="service-card-category">${escapeHtml(service.issue_category || 'hardware')}</span><span class="service-card-footer"><span class="service-card-state">${guides ? (guideReady ? 'Panduan tersedia' : 'Belum diisi') : rupiah(service.price_min)}</span><span class="service-card-open">Buka ›</span></span></button>`;
+  }).join('') || '<p class="muted">Belum ada data servis.</p>';
 }
 
 function fillServiceForm(service) {
@@ -100,6 +107,7 @@ function fillServiceForm(service) {
     context.innerHTML = `<small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><span>${escapeHtml(service.issue_category || 'hardware')} · ${escapeHtml(service.issue_name)}</span>`;
   }
   qs('#service-cancel').classList.remove('hidden');
+  qs('#service-archive')?.classList.toggle('hidden', guides || !service.is_active);
   form.querySelector('button[type="submit"]').textContent = guides ? 'Update Panduan' : 'Update Biaya';
   requestAnimationFrame(() => window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
 }
@@ -108,8 +116,8 @@ function resetServiceForm() {
   const form = qs('#service-form');
   form.reset();
   form.elements.id.value = '';
-  if (document.body.classList.contains('admin-page-guides')) form.classList.add('hidden');
-  else qs('#service-cancel').classList.add('hidden');
+  form.classList.add('hidden');
+  qs('#service-archive')?.classList.add('hidden');
   form.querySelector('button[type="submit"]').textContent = document.body.classList.contains('admin-page-guides') ? 'Simpan Panduan' : 'Simpan Biaya';
 }
 
@@ -191,6 +199,12 @@ qs('#model-list').addEventListener('click', async (event) => {
 });
 qs('#service-form').addEventListener('submit', async (event) => { event.preventDefault(); const body = Object.fromEntries(new FormData(event.target).entries()); const editing = Boolean(body.id); const guides = document.body.classList.contains('admin-page-guides'); try { await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) }); resetServiceForm(); await loadDashboard(); toast(guides ? 'Panduan diperbarui' : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan'); } catch (e) { toast(e.message, 'error'); } });
 qs('#service-cancel').addEventListener('click', resetServiceForm);
+qs('#service-add')?.addEventListener('click', () => { resetServiceForm(); qs('#service-form').classList.remove('hidden'); });
+qs('#service-archive')?.addEventListener('click', async () => {
+  const id = qs('#service-form').elements.id.value;
+  if (!id || !confirm('Nonaktifkan masalah ini dari halaman estimasi? Data tetap tersimpan.')) return;
+  try { await api('/api/admin/services', { method: 'DELETE', body: JSON.stringify({ id }) }); resetServiceForm(); await loadDashboard(); toast('Masalah dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
+});
 qs('#service-list').addEventListener('click', async (event) => {
   const edit = event.target.closest('[data-service-edit]');
   if (edit) return fillServiceForm(state.services.find((service) => service.id === edit.dataset.serviceEdit));
