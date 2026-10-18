@@ -120,9 +120,10 @@ function fillServiceForm(service) {
   const form = qs('#service-form');
   const guides = document.body.classList.contains('admin-page-guides');
   form.classList.remove('hidden');
-  for (const [name, value] of Object.entries({ id: service.id, phoneModelId: service.phone_model_id, issueCategory: service.issue_category || 'hardware', issueName: service.issue_name, priceMin: service.price_min, priceMax: service.price_max, durationEstimate: service.duration_estimate, symptoms: service.symptoms, cause: service.cause, repairMethod: service.repair_method, assemblySteps: service.assembly_steps, tools: service.tools, spareParts: service.spare_parts })) {
+  for (const [name, value] of Object.entries({ id: service.id, phoneModelId: service.phone_model_id, issueCategory: service.issue_category || 'hardware', issueName: service.issue_name, priceMin: service.price_min, priceMax: service.price_max, durationEstimate: service.duration_estimate, symptoms: service.symptoms, cause: service.cause, repairMethod: service.repair_method, assemblySteps: service.assembly_steps, tools: service.tools, spareParts: service.spare_parts, warrantyDays: service.warranty_days, warrantyScope: service.warranty_scope, warrantyTerms: service.warranty_terms, warrantyExclusions: service.warranty_exclusions })) {
     if (form.elements[name]) form.elements[name].value = value ?? '';
   }
+  if (form.elements.warrantyEnabled) form.elements.warrantyEnabled.checked = Boolean(service.warranty_enabled);
   if (guides) {
     const context = qs('#guide-context');
     context.innerHTML = `<small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><span>${escapeHtml(service.issue_category || 'hardware')} · ${escapeHtml(service.issue_name)}</span>`;
@@ -144,7 +145,11 @@ function resetServiceForm() {
 }
 
 function renderOrders() {
-  qs('#order-list').innerHTML = state.orders.map((o) => `<article class="row order-row"><div><b>${escapeHtml(o.order_code)}</b><small>${escapeHtml(o.customer_name)} · ${escapeHtml(o.whatsapp_number)}</small><p>${escapeHtml(o.phone_brand)} ${escapeHtml(o.phone_model)} — ${escapeHtml(o.issue_description)}</p><span class="pill">${escapeHtml(o.status)}</span></div><form class="order-edit" data-id="${o.id}"><select name="status">${state.statuses.map((s) => `<option value="${s}" ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}</select><input name="finalTotal" type="number" placeholder="Total final" value="${Number(o.final_total || 0)}"><textarea name="technicianNotes" placeholder="Catatan teknisi">${escapeHtml(o.technician_notes || '')}</textarea><button>Simpan update order</button></form></article>`).join('') || '<p class="muted">Belum ada order.</p>';
+  qs('#order-list').innerHTML = state.orders.map((order) => {
+    const serviceOptions = state.services.map((service) => `<option value="${service.id}" ${service.id === order.repair_service_id ? 'selected' : ''}>${escapeHtml(`${service.brand || ''} ${service.model || ''} · ${service.issue_name}`)}</option>`).join('');
+    const warranty = order.warranty_code ? `<section class="warranty-admin"><div><span><small>Kode garansi</small><b>${escapeHtml(order.warranty_code)}</b></span><span><small>Status garansi</small><strong class="pill warranty-${escapeHtml(order.warranty_status)}">${escapeHtml(order.warranty_status)}</strong></span></div><p>${escapeHtml(order.warranty_scope || '')} · Berlaku sampai ${order.warranty_ends_at ? new Date(order.warranty_ends_at).toLocaleDateString('id-ID') : '-'}</p>${order.warranty_status === 'kedaluwarsa' ? '<p class="warranty-muted">Masa garansi telah berakhir dan status tidak dapat diubah.</p>' : `<form class="warranty-edit" data-id="${order.id}"><label><span>Ubah status menjadi</span><select name="status">${['aktif', 'klaim', 'disetujui', 'ditolak', 'selesai', 'dibatalkan'].map((status) => `<option value="${status}" ${status === order.warranty_status ? 'selected' : ''}>${status}</option>`).join('')}</select></label><label><span>Catatan keputusan</span><textarea name="notes" placeholder="Alasan keputusan / catatan klaim">${escapeHtml(order.warranty_claim_notes || '')}</textarea></label><button>Simpan status garansi</button></form>`}<details><summary>Riwayat garansi (${order.warranty_history?.length || 0})</summary>${(order.warranty_history || []).map((event) => `<p><b>${escapeHtml(event.status)}</b> · ${new Date(event.created_at).toLocaleString('id-ID')}<br>${escapeHtml(event.notes || '')}</p>`).join('')}</details></section>` : '<p class="warranty-muted">Garansi belum aktif. Pilih layanan bergaransi lalu ubah status order menjadi selesai.</p>';
+    return `<article class="row order-row"><div><b>${escapeHtml(order.order_code)}</b><small>${escapeHtml(order.customer_name)} · ${escapeHtml(order.whatsapp_number)}</small><p>${escapeHtml(order.phone_brand)} ${escapeHtml(order.phone_model)} — ${escapeHtml(order.issue_description)}</p><small>Status servis</small><span class="pill">${escapeHtml(order.status)}</span></div><form class="order-edit" data-id="${order.id}"><label>Layanan<select name="repairServiceId"><option value="">Pilih layanan</option>${serviceOptions}</select></label><select name="status">${state.statuses.map((status) => `<option value="${status}" ${status === order.status ? 'selected' : ''}>${status}</option>`).join('')}</select><input name="finalTotal" type="number" placeholder="Total final" value="${Number(order.final_total || 0)}"><textarea name="technicianNotes" placeholder="Catatan teknisi">${escapeHtml(order.technician_notes || '')}</textarea><button>Simpan update order</button></form>${warranty}</article>`;
+  }).join('') || '<p class="muted">Belum ada order.</p>';
 }
 
 function renderMembers() {
@@ -243,6 +248,7 @@ qs('#service-form').addEventListener('submit', async (event) => {
   const body = Object.fromEntries(new FormData(event.target).entries());
   const editing = Boolean(body.id);
   const guides = document.body.classList.contains('admin-page-guides');
+  if (!guides) body.warrantyEnabled = Boolean(event.target.elements.warrantyEnabled?.checked);
   try {
     await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) });
     if (guides) await saveDisassembly(body.id);
@@ -299,6 +305,18 @@ qs('#disassembly-list')?.addEventListener('click', async (event) => {
   try { await saveDisassembly(qs('#service-form').elements.id.value, images); toast(remove ? 'Langkah dihapus' : 'Urutan diperbarui'); }
   catch (error) { toast(error.message, 'error'); }
 });
-qs('#order-list').addEventListener('submit', async (event) => { const form = event.target.closest('.order-edit'); if (!form) return; event.preventDefault(); const body = Object.fromEntries(new FormData(form).entries()); body.id = form.dataset.id; try { await api('/api/admin/orders', { method: 'PATCH', body: JSON.stringify(body) }); await loadDashboard(); toast('Order diperbarui'); } catch (e) { toast(e.message, 'error'); } });
+qs('#order-list').addEventListener('submit', async (event) => {
+  const form = event.target.closest('.order-edit, .warranty-edit');
+  if (!form) return;
+  event.preventDefault();
+  const body = Object.fromEntries(new FormData(form).entries());
+  body.id = form.dataset.id;
+  const warranty = form.classList.contains('warranty-edit');
+  try {
+    await api(warranty ? '/api/admin/warranties' : '/api/admin/orders', { method: 'PATCH', body: JSON.stringify(body) });
+    await loadDashboard();
+    toast(warranty ? 'Status garansi diperbarui' : 'Order diperbarui');
+  } catch (error) { toast(error.message, 'error'); }
+});
 
 if (token) { showApp(); loadDashboard().catch(() => localStorage.removeItem(tokenKey)); }

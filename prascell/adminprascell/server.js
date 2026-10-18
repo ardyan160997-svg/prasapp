@@ -132,6 +132,11 @@ async function ensureSchema() {
   await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS repair_image_url text NOT NULL DEFAULT ''`);
   await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS spare_part_image_url text NOT NULL DEFAULT ''`);
   await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS disassembly_images jsonb NOT NULL DEFAULT '[]'::jsonb`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS warranty_enabled boolean NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS warranty_days integer NOT NULL DEFAULT 0`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS warranty_scope text NOT NULL DEFAULT 'jasa'`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS warranty_terms text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS warranty_exclusions text NOT NULL DEFAULT ''`);
   fs.mkdirSync(GUIDE_UPLOAD_DIR, { recursive: true });
   await db.query(`UPDATE repair_services SET issue_category = 'hardware' WHERE issue_category NOT IN ('software','hardware')`);
   await db.query(`
@@ -161,6 +166,24 @@ async function ensureSchema() {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       CONSTRAINT service_orders_status_check CHECK (status IN ('baru','dicek','menunggu_sparepart','dikerjakan','selesai','diambil','batal'))
+    )
+  `);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS repair_service_id uuid REFERENCES repair_services(id) ON DELETE SET NULL`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_code text UNIQUE`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_status text NOT NULL DEFAULT 'tidak_aktif'`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_started_at timestamptz`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_ends_at timestamptz`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_scope text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_terms text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_exclusions text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS warranty_claim_notes text NOT NULL DEFAULT ''`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS warranty_events (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id uuid NOT NULL REFERENCES service_orders(id) ON DELETE CASCADE,
+      status text NOT NULL,
+      notes text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
     )
   `);
   await db.query(`
@@ -247,6 +270,9 @@ function publicServiceShape(row) {
     priceMin: Number(row.price_min || 0),
     priceMax: Number(row.price_max || 0),
     durationEstimate: row.duration_estimate,
+    warrantyEnabled: Boolean(row.warranty_enabled),
+    warrantyDays: Number(row.warranty_days || 0),
+    warrantyScope: row.warranty_scope,
   };
 }
 
@@ -271,10 +297,10 @@ async function dashboardData() {
     db.query(`SELECT * FROM members ORDER BY created_at DESC LIMIT 200`),
     db.query(`SELECT * FROM phone_models ORDER BY brand, model`),
     db.query(`SELECT rs.*, pm.brand, pm.model FROM repair_services rs LEFT JOIN phone_models pm ON pm.id = rs.phone_model_id ORDER BY rs.created_at DESC`),
-    db.query(`SELECT * FROM service_orders ORDER BY created_at DESC LIMIT 200`),
+    db.query(`SELECT so.*, COALESCE((SELECT jsonb_agg(we ORDER BY we.created_at) FROM warranty_events we WHERE we.order_id=so.id),'[]'::jsonb) AS warranty_history FROM service_orders so ORDER BY so.created_at DESC LIMIT 200`),
     db.query(`SELECT * FROM chat_threads ORDER BY last_message_at DESC LIMIT 100`),
   ]);
-  return { members: members.rows, models: models.rows, services: services.rows, orders: orders.rows, chats: chats.rows, statuses: ORDER_STATUSES };
+  return { members: members.rows, models: models.rows, services: services.rows, orders: orders.rows.map((order) => ({ ...order, warranty_status: effectiveWarrantyStatus(order) })), chats: chats.rows, statuses: ORDER_STATUSES };
 }
 
 async function createMember(data) {
@@ -293,12 +319,17 @@ async function createMember(data) {
 async function createOrder(data) {
   requireFields(data, ['customerName', 'whatsappNumber', 'issueDescription']);
   const phone = normalizePhone(data.whatsappNumber);
+  const db = requireDb();
+  if (data.repairServiceId) {
+    const service = await db.query(`SELECT 1 FROM repair_services WHERE id=$1 AND is_active=true`, [data.repairServiceId]);
+    if (!service.rowCount) throw new Error('Layanan tidak ditemukan.');
+  }
   const member = data.createMember ? await createMember({ fullName: data.customerName, whatsappNumber: phone, email: data.email || '', deviceNotes: `${data.phoneBrand || ''} ${data.phoneModel || ''}`.trim() }) : null;
-  const result = await requireDb().query(
-    `INSERT INTO service_orders (order_code, member_id, customer_name, whatsapp_number, phone_brand, phone_model, issue_description, estimate_total)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+  const result = await db.query(
+    `INSERT INTO service_orders (order_code, member_id, customer_name, whatsapp_number, phone_brand, phone_model, issue_description, estimate_total, repair_service_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
-    [makeOrderCode(), member?.id || null, data.customerName.trim(), phone, data.phoneBrand || '', data.phoneModel || '', data.issueDescription.trim(), Number(data.estimateTotal || 0)]
+    [makeOrderCode(), member?.id || null, data.customerName.trim(), phone, data.phoneBrand || '', data.phoneModel || '', data.issueDescription.trim(), Number(data.estimateTotal || 0), data.repairServiceId || null]
   );
   return result.rows[0];
 }
@@ -404,6 +435,17 @@ async function updateGuideImages(data) {
   return result.rows[0];
 }
 
+function warrantyEnd(startedAt, days) {
+  const date = new Date(startedAt);
+  date.setUTCDate(date.getUTCDate() + Math.max(0, Number(days || 0)));
+  return date;
+}
+
+function effectiveWarrantyStatus(row, now = new Date()) {
+  if (row.warranty_status === 'aktif' && row.warranty_ends_at && new Date(row.warranty_ends_at) < now) return 'kedaluwarsa';
+  return row.warranty_status || 'tidak_aktif';
+}
+
 function serviceCategory(value) {
   const category = String(value || '').toLowerCase();
   if (!['software', 'hardware'].includes(category)) throw new Error('Kategori masalah harus Software atau Hardware.');
@@ -437,14 +479,19 @@ function serviceValues(data) {
   requireFields(data, ['phoneModelId', 'issueCategory', 'issueName']);
   const priceMin = Number(data.priceMin || 0);
   const priceMax = Number(data.priceMax || 0);
+  const warrantyDays = Math.max(0, Number(data.warrantyDays || 0));
+  const warrantyScope = String(data.warrantyScope || 'jasa');
   if (!Number.isFinite(priceMin) || !Number.isFinite(priceMax) || priceMin < 0 || priceMax < priceMin) throw new Error('Rentang harga tidak valid.');
-  return [data.phoneModelId, serviceCategory(data.issueCategory), data.issueName.trim(), data.symptoms || '', data.cause || '', data.repairMethod || '', data.assemblySteps || '', data.tools || '', data.spareParts || '', priceMin, priceMax, data.durationEstimate || ''];
+  if (!Number.isInteger(warrantyDays) || warrantyDays > 365) throw new Error('Durasi garansi harus 0–365 hari.');
+  if (!['jasa', 'sparepart', 'jasa_sparepart'].includes(warrantyScope)) throw new Error('Cakupan garansi tidak valid.');
+  const warrantyEnabled = data.warrantyEnabled === true || data.warrantyEnabled === 'true' || data.warrantyEnabled === 1 || data.warrantyEnabled === '1';
+  return [data.phoneModelId, serviceCategory(data.issueCategory), data.issueName.trim(), data.symptoms || '', data.cause || '', data.repairMethod || '', data.assemblySteps || '', data.tools || '', data.spareParts || '', priceMin, priceMax, data.durationEstimate || '', warrantyEnabled, warrantyDays, warrantyScope, data.warrantyTerms || '', data.warrantyExclusions || ''];
 }
 
 async function createService(data) {
   const result = await requireDb().query(
-    `INSERT INTO repair_services (phone_model_id, issue_category, issue_name, symptoms, cause, repair_method, assembly_steps, tools, spare_parts, price_min, price_max, duration_estimate)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    `INSERT INTO repair_services (phone_model_id, issue_category, issue_name, symptoms, cause, repair_method, assembly_steps, tools, spare_parts, price_min, price_max, duration_estimate, warranty_enabled, warranty_days, warranty_scope, warranty_terms, warranty_exclusions)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING *`,
     serviceValues(data)
   );
@@ -469,10 +516,15 @@ async function updateService(data) {
     spareParts: data.spareParts ?? row.spare_parts,
     priceMin: data.priceMin ?? row.price_min,
     priceMax: data.priceMax ?? row.price_max,
-    durationEstimate: data.durationEstimate ?? row.duration_estimate
+    durationEstimate: data.durationEstimate ?? row.duration_estimate,
+    warrantyEnabled: data.warrantyEnabled ?? row.warranty_enabled,
+    warrantyDays: data.warrantyDays ?? row.warranty_days,
+    warrantyScope: data.warrantyScope ?? row.warranty_scope,
+    warrantyTerms: data.warrantyTerms ?? row.warranty_terms,
+    warrantyExclusions: data.warrantyExclusions ?? row.warranty_exclusions
   };
   const result = await db.query(
-    `UPDATE repair_services SET phone_model_id=$2, issue_category=$3, issue_name=$4, symptoms=$5, cause=$6, repair_method=$7, assembly_steps=$8, tools=$9, spare_parts=$10, price_min=$11, price_max=$12, duration_estimate=$13, is_active=true, updated_at=now()
+    `UPDATE repair_services SET phone_model_id=$2, issue_category=$3, issue_name=$4, symptoms=$5, cause=$6, repair_method=$7, assembly_steps=$8, tools=$9, spare_parts=$10, price_min=$11, price_max=$12, duration_estimate=$13, warranty_enabled=$14, warranty_days=$15, warranty_scope=$16, warranty_terms=$17, warranty_exclusions=$18, is_active=true, updated_at=now()
      WHERE id=$1 RETURNING *`,
     [data.id, ...serviceValues(merged)]
   );
@@ -489,14 +541,37 @@ async function archiveService(data) {
 async function updateOrder(data) {
   requireFields(data, ['id']);
   if (data.status && !ORDER_STATUSES.includes(data.status)) throw new Error('Status tidak valid.');
-  const result = await requireDb().query(
-    `UPDATE service_orders
-     SET status = COALESCE($2, status), final_total = COALESCE($3, final_total), technician_notes = COALESCE($4, technician_notes), updated_at = now()
-     WHERE id = $1 RETURNING *`,
-    [data.id, data.status || null, data.finalTotal == null ? null : Number(data.finalTotal), data.technicianNotes == null ? null : data.technicianNotes]
-  );
-  if (!result.rowCount) throw new Error('Order tidak ditemukan.');
-  return result.rows[0];
+  const db = requireDb();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `UPDATE service_orders
+       SET status=COALESCE($2,status), final_total=COALESCE($3,final_total), technician_notes=COALESCE($4,technician_notes), repair_service_id=COALESCE($5,repair_service_id), updated_at=now()
+       WHERE id=$1 RETURNING *`,
+      [data.id, data.status || null, data.finalTotal == null ? null : Number(data.finalTotal), data.technicianNotes == null ? null : data.technicianNotes, data.repairServiceId || null]
+    );
+    if (!result.rowCount) throw new Error('Order tidak ditemukan.');
+    let order = result.rows[0];
+    if (order.status === 'selesai' && order.warranty_status === 'tidak_aktif' && order.repair_service_id) {
+      const service = await client.query(`SELECT * FROM repair_services WHERE id=$1`, [order.repair_service_id]);
+      const warranty = service.rows[0];
+      if (warranty?.warranty_enabled && Number(warranty.warranty_days) > 0) {
+        const startedAt = new Date();
+        const activated = await client.query(
+          `UPDATE service_orders SET warranty_code=$2, warranty_status='aktif', warranty_started_at=$3, warranty_ends_at=$4, warranty_scope=$5, warranty_terms=$6, warranty_exclusions=$7, updated_at=now() WHERE id=$1 RETURNING *`,
+          [order.id, `GAR-${order.order_code}`, startedAt, warrantyEnd(startedAt, warranty.warranty_days), warranty.warranty_scope, warranty.warranty_terms, warranty.warranty_exclusions]
+        );
+        order = activated.rows[0];
+        await client.query(`INSERT INTO warranty_events (order_id,status,notes) VALUES ($1,'aktif',$2)`, [order.id, `Garansi otomatis aktif ${warranty.warranty_days} hari.`]);
+      }
+    }
+    await client.query('COMMIT');
+    return order;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
 }
 
 async function tracking(value) {
@@ -509,7 +584,26 @@ async function tracking(value) {
      ORDER BY created_at DESC LIMIT 20`,
     [q.toUpperCase(), phone]
   );
-  return result.rows;
+  return result.rows.map((order) => ({ ...order, warranty_status: effectiveWarrantyStatus(order) }));
+}
+
+async function updateWarranty(data) {
+  requireFields(data, ['id', 'status']);
+  const statuses = ['aktif', 'klaim', 'disetujui', 'ditolak', 'selesai', 'dibatalkan'];
+  if (!statuses.includes(data.status)) throw new Error('Status garansi tidak valid.');
+  const db = requireDb();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(`UPDATE service_orders SET warranty_status=$2, warranty_claim_notes=$3, updated_at=now() WHERE id=$1 AND warranty_code IS NOT NULL AND NOT (warranty_status='aktif' AND warranty_ends_at < now()) RETURNING *`, [data.id, data.status, data.notes || '']);
+    if (!result.rowCount) throw new Error('Garansi tidak ditemukan atau sudah kedaluwarsa.');
+    await client.query(`INSERT INTO warranty_events (order_id,status,notes) VALUES ($1,$2,$3)`, [data.id, data.status, data.notes || '']);
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
 }
 
 async function publicChat(data) {
@@ -553,6 +647,7 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/services/image' && req.method === 'POST') return sendJson(res, { ok: true, service: await uploadGuideImage(await readJson(req)) });
       if (url.pathname === '/api/admin/services/images' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateGuideImages(await readJson(req)) });
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
+      if (url.pathname === '/api/admin/warranties' && req.method === 'PATCH') return sendJson(res, { ok: true, warranty: await updateWarranty(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
     }
     if (req.method === 'GET' && url.pathname.startsWith('/uploads/models/')) {
@@ -595,4 +690,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly };
+module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus };

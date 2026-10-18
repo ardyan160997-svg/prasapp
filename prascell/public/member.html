@@ -28,6 +28,8 @@
         <label>Nama<input name="customerName" required></label>
         <label>WhatsApp<input name="whatsappNumber" inputmode="tel" required></label>
         <div class="two"><label>Merek HP<input name="phoneBrand"></label><label>Model HP<input name="phoneModel"></label></div>
+        <label>Jenis layanan<select id="repair-service" name="repairServiceId"><option value="">Belum tahu / perlu pengecekan</option></select></label>
+        <p id="warranty-hint" class="warranty-hint">Garansi mengikuti layanan yang dipilih dan aktif setelah servis selesai.</p>
         <label>Keluhan<textarea name="issueDescription" rows="3" required></textarea></label>
         <label class="check"><input type="checkbox" name="createMember" checked> Simpan sebagai member</label>
         <button class="btn primary">Kirim Permintaan</button>
@@ -55,6 +57,6 @@
     </a>
   </nav>
   <script>window.PRASCELL_API = window.PRASCELL_API || 'https://adminprascell.prasapp.com';</script>
-  <script src="member.js?v=2"></script>
+  <script src="member.js?v=3"></script>
 </body>
 </html>

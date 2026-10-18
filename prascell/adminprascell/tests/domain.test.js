@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields } = require('../domain');
-const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly } = require('../server');
+const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus } = require('../server');
 
 assert.equal(normalizePhone('0812-3456-7890'), '6281234567890');
 assert.equal(normalizePhone('81234567890'), '6281234567890');
@@ -12,6 +12,7 @@ assert.equal(serviceCategory('hardware'), 'hardware');
 assert.throws(() => serviceCategory('jaringan'), /Software atau Hardware/);
 assert.deepEqual(serviceValues({ phoneModelId: 'model-1', issueCategory: 'software', issueName: 'Bootloop', priceMin: '100000', priceMax: '250000' }).slice(0, 3), ['model-1', 'software', 'Bootloop']);
 assert.throws(() => serviceValues({ phoneModelId: 'model-1', issueCategory: 'hardware', issueName: 'LCD', priceMin: '300000', priceMax: '100000' }), /Rentang harga/);
+assert.equal(serviceValues({ phoneModelId: 'm1', issueCategory: 'hardware', issueName: 'LCD', priceMin: 100000, priceMax: 200000, warrantyEnabled: 'false' })[12], false);
 assert.equal(guideMediaField('cause'), 'cause_image_url');
 assert.equal(guideMediaField('repair'), 'repair_image_url');
 assert.equal(guideMediaField('sparePart'), 'spare_part_image_url');
@@ -19,4 +20,8 @@ assert.throws(() => guideMediaField('tools'), /Tipe media panduan/);
 assert.deepEqual(normalizeDisassembly('[{"url":"/uploads/guides/a.png","caption":"Buka baut"}]'), [{ url: '/uploads/guides/a.png', caption: 'Buka baut' }]);
 assert.deepEqual(normalizeDisassembly([{ url: '/uploads/guides/a.png', caption: '  Buka baut  ' }, { url: '', caption: 'skip' }]), [{ url: '/uploads/guides/a.png', caption: 'Buka baut' }]);
 assert.throws(() => normalizeDisassembly(Array.from({ length: 13 }, (_, i) => ({ url: `/x/${i}.png` }))), /maksimal 12/);
+assert.equal(warrantyEnd('2026-10-18T10:00:00.000Z', 30).toISOString(), '2026-11-17T10:00:00.000Z');
+assert.equal(effectiveWarrantyStatus({ warranty_status: 'aktif', warranty_ends_at: '2026-11-17T10:00:00.000Z' }, new Date('2026-11-01T00:00:00.000Z')), 'aktif');
+assert.equal(effectiveWarrantyStatus({ warranty_status: 'aktif', warranty_ends_at: '2026-11-17T10:00:00.000Z' }, new Date('2026-11-18T00:00:00.000Z')), 'kedaluwarsa');
+assert.equal(effectiveWarrantyStatus({ warranty_status: 'klaim', warranty_ends_at: '2026-10-01T00:00:00.000Z' }, new Date('2026-11-18T00:00:00.000Z')), 'klaim');
 console.log('PrasCell domain tests passed');
