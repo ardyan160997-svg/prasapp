@@ -1969,3 +1969,40 @@ Mengganti ikon dan tulisan header public Prashine dengan aset logo AVIF yang dib
 ### Result
 
 Selesai. Public Prashine memakai logo header dan favicon AVIF yang diberikan, background Beranda responsive desktop/mobile, carousel proses empat tahap dengan gambar dan auto-slide lima detik, serta pemilih tiga layanan berbentuk toggle yang meneruskan pilihan ke Pickup. Canonical check/build dan focused asset/behavior verification berhasil; perubahan di-commit dan dideploy ke production.
+
+---
+
+## TASK-026 — Tambahkan footer desktop publik PrasCell
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: low
+- Risk: low
+- Dependencies: none
+
+### Objective
+
+Menambahkan footer bersama pada seluruh halaman publik PrasCell untuk tampilan desktop tanpa menduplikasi navigasi mobile.
+
+### Scope
+
+- `prascell/public/index.html`
+- `prascell/public/estimasi.html`
+- `prascell/public/tracking.html`
+- `prascell/public/chat.html`
+- `prascell/public/member.html`
+- `prascell/public/styles.css`
+- `prascell/public/sw.js`
+- `TODO.md`
+
+### Validation
+
+- Footer tampil pada desktop dan tersembunyi pada mobile.
+- Bottom navigation tetap hanya tampil pada mobile.
+- Tidak ada horizontal overflow.
+- Canonical PrasCell check/build, `git diff --check`, dan focused ad-hoc footer verification berhasil.
+
+### Result
+
+Selesai. Lima halaman publik memakai footer biru–navy dengan logo, tagline, navigasi, CTA Estimasi, dan copyright. Footer halaman pendek tetap berada di bawah viewport, sedangkan mobile mempertahankan bottom navigation tanpa footer duplikat.
