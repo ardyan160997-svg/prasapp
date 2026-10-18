@@ -296,10 +296,27 @@ async function upsertModel(data) {
   requireFields(data, ['brand', 'model']);
   const result = await requireDb().query(
     `INSERT INTO phone_models (brand, model, notes) VALUES ($1,$2,$3)
-     ON CONFLICT (brand, model) DO UPDATE SET notes = EXCLUDED.notes, updated_at = now()
+     ON CONFLICT (brand, model) DO UPDATE SET notes = EXCLUDED.notes, is_active = true, updated_at = now()
      RETURNING *`,
     [data.brand.trim(), data.model.trim(), data.notes || '']
   );
+  return result.rows[0];
+}
+
+async function updateModel(data) {
+  requireFields(data, ['id', 'brand', 'model']);
+  const result = await requireDb().query(
+    `UPDATE phone_models SET brand=$2, model=$3, notes=$4, is_active=true, updated_at=now() WHERE id=$1 RETURNING *`,
+    [data.id, data.brand.trim(), data.model.trim(), data.notes || '']
+  );
+  if (!result.rowCount) throw new Error('Model HP tidak ditemukan.');
+  return result.rows[0];
+}
+
+async function archiveModel(data) {
+  requireFields(data, ['id']);
+  const result = await requireDb().query(`UPDATE phone_models SET is_active=false, updated_at=now() WHERE id=$1 RETURNING *`, [data.id]);
+  if (!result.rowCount) throw new Error('Model HP tidak ditemukan.');
   return result.rows[0];
 }
 
@@ -404,6 +421,8 @@ async function route(req, res) {
       if (!isAuthed(req)) return sendError(res, new Error('Unauthorized'), 401);
       if (url.pathname === '/api/admin/dashboard' && req.method === 'GET') return sendJson(res, { ok: true, data: await dashboardData() });
       if (url.pathname === '/api/admin/models' && req.method === 'POST') return sendJson(res, { ok: true, model: await upsertModel(await readJson(req)) });
+      if (url.pathname === '/api/admin/models' && req.method === 'PATCH') return sendJson(res, { ok: true, model: await updateModel(await readJson(req)) });
+      if (url.pathname === '/api/admin/models' && req.method === 'DELETE') return sendJson(res, { ok: true, model: await archiveModel(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'POST') return sendJson(res, { ok: true, service: await createService(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateService(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'DELETE') return sendJson(res, { ok: true, service: await archiveService(await readJson(req)) });

@@ -47,7 +47,23 @@ function renderModels() {
   const selected = select.value;
   select.innerHTML = '<option value="">Pilih model HP</option>' + state.models.filter((m) => m.is_active).map((m) => `<option value="${m.id}">${escapeHtml(m.brand)} ${escapeHtml(m.model)}</option>`).join('');
   if ([...select.options].some((option) => option.value === selected)) select.value = selected;
-  qs('#model-list').innerHTML = state.models.map((m) => `<div class="row"><div><b>${escapeHtml(m.brand)} ${escapeHtml(m.model)}</b><small>${escapeHtml(m.notes || '')}</small></div><span class="pill">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></div>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+  qs('#model-list').innerHTML = state.models.map((m) => `<div class="row ${m.is_active ? '' : 'row-inactive'}"><div><b>${escapeHtml(m.brand)} ${escapeHtml(m.model)}</b><small>${escapeHtml(m.notes || '')}</small></div><span class="pill">${m.is_active ? 'Aktif' : 'Nonaktif'}</span><div class="row-actions"><button type="button" data-model-edit="${m.id}">Edit</button>${m.is_active ? `<button class="button-danger" type="button" data-model-archive="${m.id}">Nonaktifkan</button>` : '<span class="pill">Simpan ulang untuk aktifkan</span>'}</div></div>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+}
+
+function fillModelForm(model) {
+  const form = qs('#model-form');
+  for (const [name, value] of Object.entries({ id: model.id, brand: model.brand, model: model.model, notes: model.notes })) form.elements[name].value = value ?? '';
+  qs('#model-cancel').classList.remove('hidden');
+  form.querySelector('button[type="submit"]').textContent = 'Update Model';
+  requestAnimationFrame(() => window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
+}
+
+function resetModelForm() {
+  const form = qs('#model-form');
+  form.reset();
+  form.elements.id.value = '';
+  qs('#model-cancel').classList.add('hidden');
+  form.querySelector('button[type="submit"]').textContent = 'Simpan Model';
 }
 
 function renderServices() {
@@ -113,7 +129,15 @@ qs('#login-form').addEventListener('submit', async (event) => {
 });
 
 qs('#refresh').addEventListener('click', () => loadDashboard().then(() => toast('Data diperbarui')).catch((e) => toast(e.message, 'error')));
-qs('#model-form').addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/admin/models', { method: 'POST', body: formJson(event.target) }); event.target.reset(); await loadDashboard(); toast('Database HP tersimpan'); } catch (e) { toast(e.message, 'error'); } });
+qs('#model-form').addEventListener('submit', async (event) => { event.preventDefault(); const body = Object.fromEntries(new FormData(event.target).entries()); const editing = Boolean(body.id); try { await api('/api/admin/models', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) }); resetModelForm(); await loadDashboard(); toast(editing ? 'Model HP diperbarui' : 'Model HP ditambahkan'); } catch (e) { toast(e.message, 'error'); } });
+qs('#model-cancel').addEventListener('click', resetModelForm);
+qs('#model-list').addEventListener('click', async (event) => {
+  const edit = event.target.closest('[data-model-edit]');
+  if (edit) return fillModelForm(state.models.find((model) => model.id === edit.dataset.modelEdit));
+  const archive = event.target.closest('[data-model-archive]');
+  if (!archive || !confirm('Nonaktifkan model ini dari halaman estimasi? Data layanan dan histori tetap tersimpan.')) return;
+  try { await api('/api/admin/models', { method: 'DELETE', body: JSON.stringify({ id: archive.dataset.modelArchive }) }); await loadDashboard(); toast('Model HP dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
+});
 qs('#service-form').addEventListener('submit', async (event) => { event.preventDefault(); const body = Object.fromEntries(new FormData(event.target).entries()); const editing = Boolean(body.id); try { await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) }); resetServiceForm(); await loadDashboard(); toast(editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan'); } catch (e) { toast(e.message, 'error'); } });
 qs('#service-cancel').addEventListener('click', resetServiceForm);
 qs('#service-list').addEventListener('click', async (event) => {
