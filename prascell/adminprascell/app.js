@@ -49,13 +49,15 @@ function renderModels() {
     select.innerHTML = '<option value="">Pilih model HP</option>' + state.models.filter((m) => m.is_active).map((m) => `<option value="${m.id}">${escapeHtml(m.brand)} ${escapeHtml(m.model)}</option>`).join('');
     if ([...select.options].some((option) => option.value === selected)) select.value = selected;
   }
-  qs('#model-list').innerHTML = state.models.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-edit="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+  qs('#model-list').innerHTML = state.models.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-edit="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
 }
 
 function fillModelForm(model) {
   const form = qs('#model-form');
   form.classList.remove('hidden');
-  for (const [name, value] of Object.entries({ id: model.id, brand: model.brand, model: model.model, notes: model.notes })) form.elements[name].value = value ?? '';
+  for (const [name, value] of Object.entries({ id: model.id, brand: model.brand, model: model.model, notes: model.notes, softwareLinksText: (model.software_links || []).map((item) => `${item.label} | ${item.url}`).join('\n') })) form.elements[name].value = value ?? '';
+  renderSpecificationRows(model.specification_rows || []);
+  qs('#model-software-preview').innerHTML = (model.software_links || []).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)} ↗</a>`).join('');
   qs('#model-image-preview').innerHTML = model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="Preview ${escapeHtml(model.model)}">` : '<span>Belum ada gambar</span>';
   qs('#model-cancel').classList.remove('hidden');
   qs('#model-archive').classList.toggle('hidden', !model.is_active);
@@ -67,11 +69,52 @@ function resetModelForm() {
   const form = qs('#model-form');
   form.reset();
   form.elements.id.value = '';
+  renderSpecificationRows();
+  qs('#model-software-preview').innerHTML = '';
   qs('#model-image-preview').innerHTML = '<span>Belum ada gambar</span>';
   qs('#model-cancel').classList.add('hidden');
   qs('#model-archive').classList.add('hidden');
   form.querySelector('button[type="submit"]').textContent = 'Simpan Model';
   form.classList.add('hidden');
+}
+
+function specificationRows() {
+  return [...document.querySelectorAll('#spec-rows .spec-edit-row')].map((row) => ({
+    category: row.querySelector('[data-spec-category]').value.trim(),
+    label: row.querySelector('[data-spec-label]').value.trim(),
+    value: row.querySelector('[data-spec-value]').value.trim(),
+  })).filter((row) => row.label || row.value);
+}
+
+function syncSpecificationRows() {
+  qs('#model-form').elements.specificationRows.value = JSON.stringify(specificationRows());
+}
+
+function addSpecificationRow(item = {}) {
+  const row = document.createElement('div');
+  row.className = 'spec-edit-row';
+  row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM" value="${escapeHtml(item.category || '')}"><input data-spec-label aria-label="Label" placeholder="Chipset" value="${escapeHtml(item.label || '')}"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)">${escapeHtml(item.value || '')}</textarea><button type="button" data-spec-remove aria-label="Hapus baris">×</button>`;
+  qs('#spec-rows').append(row);
+  syncSpecificationRows();
+}
+
+function renderSpecificationRows(rows = []) {
+  qs('#spec-rows').innerHTML = '';
+  rows.forEach(addSpecificationRow);
+  if (!rows.length) addSpecificationRow();
+}
+
+function parseSpecificationText(value) {
+  let category = 'LAINNYA';
+  const rows = [];
+  for (const raw of String(value || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const divider = line.indexOf(':');
+    if (divider < 0 && line.length <= 40) { category = line.toUpperCase(); continue; }
+    rows.push({ category, label: divider < 0 ? '' : line.slice(0, divider).trim(), value: divider < 0 ? line : line.slice(divider + 1).trim() });
+  }
+  return rows;
 }
 
 function imageData(file) {
@@ -81,6 +124,16 @@ function imageData(file) {
     reader.onerror = () => reject(new Error('Gambar gagal dibaca.'));
     reader.readAsDataURL(file);
   });
+}
+
+function renderSoftwarePreview(value) {
+  const links = String(value || '').split(/\r?\n/).map((line) => {
+    const divider = line.indexOf('|');
+    const label = divider < 0 ? 'Download' : line.slice(0, divider).trim();
+    const url = (divider < 0 ? line : line.slice(divider + 1)).trim();
+    return /^https:\/\//i.test(url) ? { label: label || 'Download', url } : null;
+  }).filter(Boolean);
+  qs('#model-software-preview').innerHTML = links.map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)} ↗</a>`).join('');
 }
 
 function renderServices() {
@@ -225,6 +278,7 @@ qs('#model-add').addEventListener('click', () => { resetModelForm(); qs('#model-
 qs('#model-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
+  syncSpecificationRows();
   const body = Object.fromEntries(new FormData(form).entries());
   const file = form.elements.image.files[0];
   delete body.image;
@@ -237,6 +291,22 @@ qs('#model-form').addEventListener('submit', async (event) => {
     toast(editing ? 'Model HP diperbarui' : 'Model HP ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
+qs('#spec-add').addEventListener('click', () => addSpecificationRow());
+qs('#spec-parse').addEventListener('click', () => {
+  const rows = parseSpecificationText(qs('#spec-import').value);
+  if (!rows.length) return toast('Belum ada spesifikasi yang dapat dibuat menjadi tabel.', 'error');
+  renderSpecificationRows(rows);
+  toast(`${rows.length} baris spesifikasi dibuat`);
+});
+qs('#spec-rows').addEventListener('input', syncSpecificationRows);
+qs('#spec-rows').addEventListener('click', (event) => {
+  const remove = event.target.closest('[data-spec-remove]');
+  if (!remove) return;
+  remove.closest('.spec-edit-row').remove();
+  if (!qs('#spec-rows').children.length) addSpecificationRow();
+  syncSpecificationRows();
+});
+qs('#model-form [name="softwareLinksText"]').addEventListener('input', (event) => renderSoftwarePreview(event.target.value));
 qs('#model-form [name="image"]').addEventListener('change', (event) => {
   const file = event.target.files[0];
   if (!file) return;

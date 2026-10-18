@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields } = require('../domain');
-const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues, paymentTransitionAllowed, cashflowValues, inventoryUseValues } = require('../server');
+const { normalizeSoftwareLinks, normalizeSpecificationRows, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues, paymentTransitionAllowed, cashflowValues, inventoryUseValues } = require('../server');
 
 assert.equal(normalizePhone('0812-3456-7890'), '6281234567890');
 assert.equal(normalizePhone('81234567890'), '6281234567890');
@@ -41,4 +41,13 @@ assert.throws(() => cashflowValues({ type: 'income', amount: 0, description: 'X'
 assert.deepEqual(inventoryUseValues({ itemId: 'item-1', orderId: 'order-1', quantity: '2', usageType: 'warranty', notes: ' LCD baru ', operationId: 'use-1' }), { itemId: 'item-1', orderId: 'order-1', quantity: 2, usageType: 'warranty', notes: 'LCD baru', operationId: 'use-1' });
 assert.throws(() => inventoryUseValues({ itemId: 'x', orderId: 'y', quantity: 0, usageType: 'service', operationId: 'use-2' }), /Jumlah/);
 assert.throws(() => inventoryUseValues({ itemId: 'x', orderId: 'y', quantity: 1, usageType: 'service' }), /ID operasi/);
+assert.deepEqual(normalizeSoftwareLinks('Firmware Global | https://drive.google.com/file/d/123\nUSB Driver | https://example.com/driver.zip'), [
+  { label: 'Firmware Global', url: 'https://drive.google.com/file/d/123' },
+  { label: 'USB Driver', url: 'https://example.com/driver.zip' },
+]);
+assert.throws(() => normalizeSoftwareLinks('Firmware | http://example.com/file.zip'), /https/);
+assert.throws(() => normalizeSoftwareLinks('bukan link'), /tidak valid/);
+assert.deepEqual(normalizeSpecificationRows('[{"category":"platform","label":"Chipset","value":"XRing O3"}]'), [{ category: 'PLATFORM', label: 'Chipset', value: 'XRing O3' }]);
+assert.deepEqual(normalizeSpecificationRows([{ category: '', label: 'RAM', value: '12 GB' }, { category: 'DISPLAY', label: '', value: '' }]), [{ category: 'LAINNYA', label: 'RAM', value: '12 GB' }]);
+assert.throws(() => normalizeSpecificationRows('{bad json}'), /tidak valid/);
 console.log('PrasCell domain tests passed');

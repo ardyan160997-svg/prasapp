@@ -76,6 +76,38 @@ function requireDb() {
   return pool;
 }
 
+function normalizeSoftwareLinks(value) {
+  const rows = Array.isArray(value)
+    ? value
+    : String(value || '').split(/\r?\n/).filter((line) => line.trim()).map((line) => {
+      const divider = line.indexOf('|');
+      return divider < 0 ? { label: 'Download', url: line.trim() } : { label: line.slice(0, divider).trim(), url: line.slice(divider + 1).trim() };
+    });
+  if (rows.length > 20) throw new Error('Link software maksimal 20 per model.');
+  return rows.map((item) => {
+    const label = String(item?.label || 'Download').trim().slice(0, 80) || 'Download';
+    const url = String(item?.url || '').trim();
+    let parsed;
+    try { parsed = new URL(url); } catch { throw new Error(`Link software tidak valid: ${label}`); }
+    if (parsed.protocol !== 'https:') throw new Error(`Link software harus memakai https: ${label}`);
+    return { label, url };
+  });
+}
+
+function normalizeSpecificationRows(value) {
+  let rows = value;
+  if (typeof rows === 'string') {
+    try { rows = JSON.parse(rows || '[]'); } catch { throw new Error('Format tabel spesifikasi tidak valid.'); }
+  }
+  if (!Array.isArray(rows)) throw new Error('Tabel spesifikasi harus berupa daftar baris.');
+  if (rows.length > 120) throw new Error('Spesifikasi maksimal 120 baris per model.');
+  return rows.map((item) => ({
+    category: String(item?.category || 'LAINNYA').trim().slice(0, 40).toUpperCase() || 'LAINNYA',
+    label: String(item?.label || '').trim().slice(0, 80),
+    value: String(item?.value || '').trim().slice(0, 2000),
+  })).filter((item) => item.label || item.value);
+}
+
 async function ensureSchema() {
   const db = requireDb();
   await db.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
@@ -98,6 +130,8 @@ async function ensureSchema() {
       brand text NOT NULL,
       model text NOT NULL,
       notes text NOT NULL DEFAULT '',
+      specification_rows jsonb NOT NULL DEFAULT '[]'::jsonb,
+      software_links jsonb NOT NULL DEFAULT '[]'::jsonb,
       image_url text NOT NULL DEFAULT '',
       is_active boolean NOT NULL DEFAULT true,
       created_at timestamptz NOT NULL DEFAULT now(),
@@ -106,6 +140,8 @@ async function ensureSchema() {
     )
   `);
   await db.query(`ALTER TABLE phone_models ADD COLUMN IF NOT EXISTS image_url text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE phone_models ADD COLUMN IF NOT EXISTS specification_rows jsonb NOT NULL DEFAULT '[]'::jsonb`);
+  await db.query(`ALTER TABLE phone_models ADD COLUMN IF NOT EXISTS software_links jsonb NOT NULL DEFAULT '[]'::jsonb`);
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   await db.query(`
     CREATE TABLE IF NOT EXISTS repair_services (
@@ -422,10 +458,10 @@ async function createOrder(data) {
 async function upsertModel(data) {
   requireFields(data, ['brand', 'model']);
   const result = await requireDb().query(
-    `INSERT INTO phone_models (brand, model, notes) VALUES ($1,$2,$3)
-     ON CONFLICT (brand, model) DO UPDATE SET notes = EXCLUDED.notes, is_active = true, updated_at = now()
+    `INSERT INTO phone_models (brand, model, notes, specification_rows, software_links) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb)
+     ON CONFLICT (brand, model) DO UPDATE SET notes = EXCLUDED.notes, specification_rows = EXCLUDED.specification_rows, software_links = EXCLUDED.software_links, is_active = true, updated_at = now()
      RETURNING *`,
-    [data.brand.trim(), data.model.trim(), data.notes || '']
+    [data.brand.trim(), data.model.trim(), data.notes || '', JSON.stringify(normalizeSpecificationRows(data.specificationRows)), JSON.stringify(normalizeSoftwareLinks(data.softwareLinksText ?? data.softwareLinks))]
   );
   return result.rows[0];
 }
@@ -433,8 +469,8 @@ async function upsertModel(data) {
 async function updateModel(data) {
   requireFields(data, ['id', 'brand', 'model']);
   const result = await requireDb().query(
-    `UPDATE phone_models SET brand=$2, model=$3, notes=$4, is_active=true, updated_at=now() WHERE id=$1 RETURNING *`,
-    [data.id, data.brand.trim(), data.model.trim(), data.notes || '']
+    `UPDATE phone_models SET brand=$2, model=$3, notes=$4, specification_rows=$5::jsonb, software_links=$6::jsonb, is_active=true, updated_at=now() WHERE id=$1 RETURNING *`,
+    [data.id, data.brand.trim(), data.model.trim(), data.notes || '', JSON.stringify(normalizeSpecificationRows(data.specificationRows)), JSON.stringify(normalizeSoftwareLinks(data.softwareLinksText ?? data.softwareLinks))]
   );
   if (!result.rowCount) throw new Error('Model HP tidak ditemukan.');
   return result.rows[0];
@@ -951,4 +987,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues, paymentTransitionAllowed, cashflowValues, inventoryUseValues };
+module.exports = { ensureSchema, route, normalizeSoftwareLinks, normalizeSpecificationRows, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues, paymentTransitionAllowed, cashflowValues, inventoryUseValues };
