@@ -446,6 +446,18 @@ function effectiveWarrantyStatus(row, now = new Date()) {
   return row.warranty_status || 'tidak_aktif';
 }
 
+function warrantyTransitionAllowed(from, to) {
+  const transitions = {
+    aktif: ['klaim', 'dibatalkan'],
+    klaim: ['disetujui', 'ditolak', 'dibatalkan'],
+    disetujui: ['selesai', 'dibatalkan'],
+    ditolak: [],
+    selesai: [],
+    dibatalkan: [],
+  };
+  return from === to || Boolean(transitions[from]?.includes(to));
+}
+
 function serviceCategory(value) {
   const category = String(value || '').toLowerCase();
   if (!['software', 'hardware'].includes(category)) throw new Error('Kategori masalah harus Software atau Hardware.');
@@ -545,6 +557,12 @@ async function updateOrder(data) {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const locked = await client.query(`SELECT id FROM service_orders WHERE id=$1 FOR UPDATE`, [data.id]);
+    if (!locked.rowCount) throw new Error('Order tidak ditemukan.');
+    if (data.repairServiceId) {
+      const service = await client.query(`SELECT 1 FROM repair_services WHERE id=$1 AND is_active=true`, [data.repairServiceId]);
+      if (!service.rowCount) throw new Error('Layanan tidak ditemukan atau sudah tidak aktif.');
+    }
     const result = await client.query(
       `UPDATE service_orders
        SET status=COALESCE($2,status), final_total=COALESCE($3,final_total), technician_notes=COALESCE($4,technician_notes), repair_service_id=COALESCE($5,repair_service_id), updated_at=now()
@@ -575,14 +593,11 @@ async function updateOrder(data) {
 }
 
 async function tracking(value) {
-  const q = String(value || '').trim();
-  if (!q) throw new Error('Masukkan kode order, WhatsApp, atau kode member.');
-  const phone = normalizePhone(q);
+  const orderCode = String(value || '').trim().toUpperCase();
+  if (!orderCode) throw new Error('Masukkan kode order.');
   const result = await requireDb().query(
-    `SELECT * FROM service_orders
-     WHERE order_code = $1 OR whatsapp_number = $2
-     ORDER BY created_at DESC LIMIT 20`,
-    [q.toUpperCase(), phone]
+    `SELECT * FROM service_orders WHERE order_code = $1 LIMIT 1`,
+    [orderCode]
   );
   return result.rows.map((order) => ({ ...order, warranty_status: effectiveWarrantyStatus(order) }));
 }
@@ -595,8 +610,12 @@ async function updateWarranty(data) {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const result = await client.query(`UPDATE service_orders SET warranty_status=$2, warranty_claim_notes=$3, updated_at=now() WHERE id=$1 AND warranty_code IS NOT NULL AND NOT (warranty_status='aktif' AND warranty_ends_at < now()) RETURNING *`, [data.id, data.status, data.notes || '']);
-    if (!result.rowCount) throw new Error('Garansi tidak ditemukan atau sudah kedaluwarsa.');
+    const current = await client.query(`SELECT * FROM service_orders WHERE id=$1 AND warranty_code IS NOT NULL FOR UPDATE`, [data.id]);
+    if (!current.rowCount) throw new Error('Garansi tidak ditemukan.');
+    const warranty = current.rows[0];
+    if (effectiveWarrantyStatus(warranty) === 'kedaluwarsa') throw new Error('Garansi sudah kedaluwarsa.');
+    if (!warrantyTransitionAllowed(warranty.warranty_status, data.status)) throw new Error('Transisi status garansi tidak valid.');
+    const result = await client.query(`UPDATE service_orders SET warranty_status=$2, warranty_claim_notes=$3, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, data.status, data.notes || '']);
     await client.query(`INSERT INTO warranty_events (order_id,status,notes) VALUES ($1,$2,$3)`, [data.id, data.status, data.notes || '']);
     await client.query('COMMIT');
     return result.rows[0];
@@ -690,4 +709,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus };
+module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed };

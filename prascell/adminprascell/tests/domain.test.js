@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields } = require('../domain');
-const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus } = require('../server');
+const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed } = require('../server');
 
 assert.equal(normalizePhone('0812-3456-7890'), '6281234567890');
 assert.equal(normalizePhone('81234567890'), '6281234567890');
@@ -24,4 +24,9 @@ assert.equal(warrantyEnd('2026-10-18T10:00:00.000Z', 30).toISOString(), '2026-11
 assert.equal(effectiveWarrantyStatus({ warranty_status: 'aktif', warranty_ends_at: '2026-11-17T10:00:00.000Z' }, new Date('2026-11-01T00:00:00.000Z')), 'aktif');
 assert.equal(effectiveWarrantyStatus({ warranty_status: 'aktif', warranty_ends_at: '2026-11-17T10:00:00.000Z' }, new Date('2026-11-18T00:00:00.000Z')), 'kedaluwarsa');
 assert.equal(effectiveWarrantyStatus({ warranty_status: 'klaim', warranty_ends_at: '2026-10-01T00:00:00.000Z' }, new Date('2026-11-18T00:00:00.000Z')), 'klaim');
+assert.equal(warrantyTransitionAllowed('aktif', 'klaim'), true);
+assert.equal(warrantyTransitionAllowed('klaim', 'disetujui'), true);
+assert.equal(warrantyTransitionAllowed('disetujui', 'selesai'), true);
+assert.equal(warrantyTransitionAllowed('aktif', 'selesai'), false);
+assert.equal(warrantyTransitionAllowed('ditolak', 'aktif'), false);
 console.log('PrasCell domain tests passed');
