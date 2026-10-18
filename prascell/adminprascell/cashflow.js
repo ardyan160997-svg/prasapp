@@ -1,0 +1,14 @@
+const API='';
+const tokenKey='prascell_admin_token';
+let token=localStorage.getItem(tokenKey)||'';
+const qs=(selector)=>document.querySelector(selector);
+const escapeHtml=(value)=>String(value??'').replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rupiah=(value)=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value||0));
+async function api(path,options={}){const response=await fetch(`${API}${path}`,{headers:{'content-type':'application/json',...(token?{authorization:`Bearer ${token}`}:{})},...options});const data=await response.json().catch(()=>({}));if(!response.ok||data.ok===false)throw new Error(data.error||'Request gagal.');return data;}
+function showApp(){qs('#login').classList.add('hidden');qs('#app').classList.remove('hidden');}
+function render(data){const summary=data.cashflowSummary||{income:0,outcome:0,balance:0};qs('#cashflow-summary').innerHTML=`<div class="cashflow-stat income"><small>Total income</small><strong>${rupiah(summary.income)}</strong></div><div class="cashflow-stat outcome"><small>Total outcome</small><strong>${rupiah(summary.outcome)}</strong></div><div class="cashflow-stat balance"><small>Saldo cashflow</small><strong>${rupiah(summary.balance)}</strong></div>`;qs('#cashflow-list').innerHTML=(data.cashflow||[]).map((entry)=>`<article class="cashflow-row ${entry.entry_type}"><div><small>${new Date(entry.occurred_at).toLocaleString('id-ID')} · ${escapeHtml(entry.category)}</small><b>${escapeHtml(entry.description)}</b><span>${escapeHtml(entry.order_code||entry.inventory_name||entry.source_type)}</span></div><strong>${entry.entry_type==='income'?'+':'-'}${rupiah(entry.amount)}</strong></article>`).join('')||'<p class="muted">Belum ada transaksi.</p>';window.updateAdminNavBadges?.(data.notifications);}
+async function load(){const response=await api('/api/admin/dashboard');render(response.data);}
+qs('#login-form').addEventListener('submit',async(event)=>{event.preventDefault();try{const response=await api('/api/admin/login',{method:'POST',body:JSON.stringify({password:qs('#password').value})});token=response.token;localStorage.setItem(tokenKey,token);showApp();await load();}catch(error){qs('#login-feedback').textContent=error.message;}});
+qs('#cashflow-form').addEventListener('submit',async(event)=>{event.preventDefault();const payload=Object.fromEntries(new FormData(event.currentTarget));try{await api('/api/admin/cashflow',{method:'POST',body:JSON.stringify(payload)});event.currentTarget.reset();qs('#cashflow-feedback').textContent='Transaksi tercatat.';await load();}catch(error){qs('#cashflow-feedback').textContent=error.message;}});
+qs('#refresh').addEventListener('click',load);
+if(token){showApp();load().catch(()=>{token='';localStorage.removeItem(tokenKey);location.reload();});}

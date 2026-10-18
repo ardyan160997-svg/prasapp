@@ -160,7 +160,7 @@ function renderOrders() {
   qs('#order-list').innerHTML = state.orders.map((order) => {
     const serviceOptions = state.services.map((service) => `<option value="${service.id}" ${service.id === order.repair_service_id ? 'selected' : ''}>${escapeHtml(`${service.brand || ''} ${service.model || ''} · ${service.issue_name}`)}</option>`).join('');
     const warranty = order.warranty_code ? `<section class="warranty-admin"><div><span><small>Kode garansi</small><b>${escapeHtml(order.warranty_code)}</b></span><span><small>Status garansi</small><strong class="pill warranty-${escapeHtml(order.warranty_status)}">${escapeHtml(order.warranty_status)}</strong></span></div><p>${escapeHtml(order.warranty_scope || '')} · Berlaku sampai ${order.warranty_ends_at ? new Date(order.warranty_ends_at).toLocaleDateString('id-ID') : '-'}</p>${order.warranty_status === 'kedaluwarsa' ? '<p class="warranty-muted">Masa garansi telah berakhir dan status tidak dapat diubah.</p>' : `<form class="warranty-edit" data-id="${order.id}"><label><span>Ubah status menjadi</span><select name="status">${warrantyStatusOptions(order.warranty_status).map((status) => `<option value="${status}" ${status === order.warranty_status ? 'selected' : ''}>${status}</option>`).join('')}</select></label><label><span>Catatan keputusan</span><textarea name="notes" placeholder="Alasan keputusan / catatan klaim">${escapeHtml(order.warranty_claim_notes || '')}</textarea></label><button>Simpan status garansi</button></form>`}<details><summary>Riwayat garansi (${order.warranty_history?.length || 0})</summary>${(order.warranty_history || []).map((event) => `<p><b>${escapeHtml(event.status)}</b> · ${new Date(event.created_at).toLocaleString('id-ID')}<br>${escapeHtml(event.notes || '')}</p>`).join('')}</details></section>` : '<p class="warranty-muted">Garansi belum aktif. Pilih layanan bergaransi lalu ubah status order menjadi selesai.</p>';
-    return `<article class="row order-row"><div><b>${escapeHtml(order.order_code)}</b><small>${escapeHtml(order.customer_name)} · ${escapeHtml(order.whatsapp_number)}</small><p>${escapeHtml(order.phone_brand)} ${escapeHtml(order.phone_model)} — ${escapeHtml(order.issue_description)}</p><small>Status servis</small><span class="pill">${escapeHtml(order.status)}</span></div><form class="order-edit" data-id="${order.id}"><label>Layanan<select name="repairServiceId"><option value="">Pilih layanan</option>${serviceOptions}</select></label><select name="status">${state.statuses.map((status) => `<option value="${status}" ${status === order.status ? 'selected' : ''}>${status}</option>`).join('')}</select><input name="finalTotal" type="number" placeholder="Total final" value="${Number(order.final_total || 0)}"><textarea name="technicianNotes" placeholder="Catatan teknisi">${escapeHtml(order.technician_notes || '')}</textarea><button>Simpan update order</button></form>${warranty}</article>`;
+    return `<article class="row order-row"><div><b>${escapeHtml(order.order_code)}</b><small>${escapeHtml(order.customer_name)} · ${escapeHtml(order.whatsapp_number)}</small><p>${escapeHtml(order.phone_brand)} ${escapeHtml(order.phone_model)} — ${escapeHtml(order.issue_description)}</p><small>Status servis</small><span class="pill">${escapeHtml(order.status)}</span></div><form class="order-edit" data-id="${order.id}"><label>Layanan<select name="repairServiceId"><option value="">Pilih layanan</option>${serviceOptions}</select></label><select name="status">${state.statuses.map((status) => `<option value="${status}" ${status === order.status ? 'selected' : ''}>${status}</option>`).join('')}</select><input name="finalTotal" type="number" placeholder="Total final" value="${Number(order.final_total || 0)}"><label>Status pembayaran<select name="paymentStatus"><option value="belum_lunas" ${order.payment_status !== 'lunas' ? 'selected' : ''}>Belum lunas</option><option value="lunas" ${order.payment_status === 'lunas' ? 'selected' : ''}>Lunas</option></select></label><textarea name="technicianNotes" placeholder="Catatan teknisi">${escapeHtml(order.technician_notes || '')}</textarea><button>Simpan update order</button></form><form class="inventory-use order-inventory-use" data-id="${order.id}"><label>Sparepart dipakai<select name="itemId" required><option value="">Pilih stok</option>${(state.inventory||[]).filter((item)=>item.is_active&&Number(item.quantity)>0).map((item)=>`<option value="${item.id}">${escapeHtml(item.name)} · stok ${Number(item.quantity)}</option>`).join('')}</select></label><label>Jumlah<input name="quantity" type="number" min="1" value="1" required></label><input name="usageType" type="hidden" value="service"><label>Catatan<input name="notes" placeholder="Sparepart untuk servis"></label><button>Gunakan stok</button></form>${warranty}</article>`;
   }).join('') || '<p class="muted">Belum ada order.</p>';
 }
 
@@ -319,16 +319,19 @@ qs('#disassembly-list')?.addEventListener('click', async (event) => {
   catch (error) { toast(error.message, 'error'); }
 });
 qs('#order-list').addEventListener('submit', async (event) => {
-  const form = event.target.closest('.order-edit, .warranty-edit');
+  const form = event.target.closest('.order-edit, .warranty-edit, .inventory-use');
   if (!form) return;
   event.preventDefault();
   const body = Object.fromEntries(new FormData(form).entries());
   body.id = form.dataset.id;
   const warranty = form.classList.contains('warranty-edit');
+  const inventory = form.classList.contains('inventory-use');
+  if (inventory) { body.orderId = form.dataset.id; body.operationId = form.dataset.operationId ||= crypto.randomUUID(); }
   try {
-    await api(warranty ? '/api/admin/warranties' : '/api/admin/orders', { method: 'PATCH', body: JSON.stringify(body) });
+    await api(inventory ? '/api/admin/inventory/use' : warranty ? '/api/admin/warranties' : '/api/admin/orders', { method: inventory ? 'POST' : 'PATCH', body: JSON.stringify(body) });
+    if (inventory) delete form.dataset.operationId;
     await loadDashboard();
-    toast(warranty ? 'Status garansi diperbarui' : 'Order diperbarui');
+    toast(inventory ? 'Pemakaian stok dicatat' : warranty ? 'Status garansi diperbarui' : 'Order diperbarui');
   } catch (error) { toast(error.message, 'error'); }
 });
 

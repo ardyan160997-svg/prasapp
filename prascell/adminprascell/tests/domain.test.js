@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields } = require('../domain');
-const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues } = require('../server');
+const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues, paymentTransitionAllowed, cashflowValues, inventoryUseValues } = require('../server');
 
 assert.equal(normalizePhone('0812-3456-7890'), '6281234567890');
 assert.equal(normalizePhone('81234567890'), '6281234567890');
@@ -34,4 +34,11 @@ assert.deepEqual(stockValues({ name: '  LCD A55 ', sku: ' lcd-a55 ', quantity: '
 });
 assert.throws(() => stockValues({ name: '', quantity: 1 }), /Nama barang wajib/);
 assert.throws(() => stockValues({ name: 'LCD', quantity: -1 }), /Stok tidak valid/);
+assert.equal(paymentTransitionAllowed('belum_lunas', 'lunas'), true);
+assert.equal(paymentTransitionAllowed('lunas', 'belum_lunas'), false);
+assert.deepEqual(cashflowValues({ type: 'income', amount: '150000', category: 'Servis', description: '  Ganti LCD ' }), { type: 'income', amount: 150000, category: 'Servis', description: 'Ganti LCD', occurredAt: null });
+assert.throws(() => cashflowValues({ type: 'income', amount: 0, description: 'X' }), /Nominal/);
+assert.deepEqual(inventoryUseValues({ itemId: 'item-1', orderId: 'order-1', quantity: '2', usageType: 'warranty', notes: ' LCD baru ', operationId: 'use-1' }), { itemId: 'item-1', orderId: 'order-1', quantity: 2, usageType: 'warranty', notes: 'LCD baru', operationId: 'use-1' });
+assert.throws(() => inventoryUseValues({ itemId: 'x', orderId: 'y', quantity: 0, usageType: 'service', operationId: 'use-2' }), /Jumlah/);
+assert.throws(() => inventoryUseValues({ itemId: 'x', orderId: 'y', quantity: 1, usageType: 'service' }), /ID operasi/);
 console.log('PrasCell domain tests passed');

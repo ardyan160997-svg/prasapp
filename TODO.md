@@ -2079,3 +2079,41 @@ Menambahkan inventori barang/sparepart, memisahkan pengelolaan garansi, menyerag
 ### Result
 
 Selesai. Admin memiliki inventori stok dengan batas minimum dan history perubahan, halaman garansi khusus, secondary navbar untuk menu operasional lain, empat bottom-nav mobile seragam, serta badge perhatian berbasis data dashboard.
+
+---
+
+## TASK-029 — Hubungkan purchasing, servis, garansi, dan cashflow
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: high
+- Dependencies: TASK-028
+
+### Objective
+
+Menambahkan ledger income/outcome yang terhubung dengan pembayaran order, purchasing stok, pemakaian sparepart servis, dan penggantian sparepart garansi tanpa double-posting.
+
+### Scope
+
+- Schema additive `cashflow_entries`, status pembayaran order, dan metadata pergerakan stok.
+- Income otomatis saat order pertama kali berubah menjadi Lunas.
+- Outcome otomatis saat perubahan stok bertipe Purchasing.
+- Pemakaian sparepart servis dan garansi dengan row lock, snapshot biaya, serta idempotency key.
+- Halaman Revenue & Cashflow dan transaksi manual.
+- Bottom navigation lima item dengan Cashflow tepat di tengah dan badge order belum lunas.
+- Build/cache manifests serta domain tests PrasCell.
+
+### Validation
+
+- Canonical admin/root check dan build berhasil.
+- `git diff --check` berhasil.
+- Focused ad-hoc cashflow verification berhasil 35 checks.
+- Preview desktop/mobile tanpa horizontal overflow.
+- Bottom navigation memiliki tepat lima item dan Cashflow di tengah.
+- Mobile secondary navigation memiliki touch target 44px dan form dapat discroll di atas fixed navigation.
+
+### Result
+
+Selesai. Purchasing membuat outcome, status Lunas membuat income idempotent, pemakaian sparepart servis/garansi mengurangi stok dengan snapshot biaya tanpa menghitung outcome dua kali, dan ledger cashflow dapat mencatat transaksi manual.

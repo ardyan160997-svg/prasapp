@@ -5,6 +5,7 @@ const adminSecondaryLinks = [
 const adminBottomLinks = [
   ['index.html', 'Home', 'home', '<path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3Z"></path>'],
   ['warranties.html', 'Garansi', 'warranties', '<path d="M12 3 5 6v5c0 4.8 3 8.1 7 10 4-1.9 7-5.2 7-10V6Z"></path><path d="m9 12 2 2 4-5"></path>'],
+  ['cashflow.html', 'Cashflow', 'cashflow', '<path d="M4 7h16v11H4z"></path><path d="M7 11h5M16 10v5M14 12h4"></path>'],
   ['chat.html', 'Chat', 'chats', '<path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path>'],
   ['orders.html', 'Order', 'orders', '<circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path>'],
 ];

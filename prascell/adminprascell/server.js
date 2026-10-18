@@ -237,6 +237,31 @@ async function ensureSchema() {
   `);
   await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_items_sku_unique ON inventory_items (upper(sku)) WHERE sku <> ''`);
   await db.query(`
+    CREATE TABLE IF NOT EXISTS cashflow_entries (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      entry_type text NOT NULL CHECK (entry_type IN ('income','outcome')),
+      amount integer NOT NULL CHECK (amount > 0),
+      category text NOT NULL DEFAULT 'Lainnya',
+      description text NOT NULL,
+      source_type text NOT NULL DEFAULT 'manual',
+      source_key text,
+      order_id uuid REFERENCES service_orders(id) ON DELETE RESTRICT,
+      inventory_item_id uuid REFERENCES inventory_items(id) ON DELETE RESTRICT,
+      occurred_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS cashflow_entries_source_key_unique ON cashflow_entries (source_key) WHERE source_key IS NOT NULL`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'belum_lunas'`);
+  await db.query(`ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS paid_at timestamptz`);
+  await db.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_orders_payment_status_check') THEN
+        ALTER TABLE service_orders ADD CONSTRAINT service_orders_payment_status_check CHECK (payment_status IN ('belum_lunas','lunas'));
+      END IF;
+    END $$
+  `);
+  await db.query(`
     CREATE TABLE IF NOT EXISTS inventory_movements (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       item_id uuid NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
@@ -246,6 +271,19 @@ async function ensureSchema() {
       notes text NOT NULL DEFAULT '',
       created_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await db.query(`ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS movement_type text NOT NULL DEFAULT 'adjustment'`);
+  await db.query(`ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS order_id uuid REFERENCES service_orders(id) ON DELETE RESTRICT`);
+  await db.query(`ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS unit_cost integer NOT NULL DEFAULT 0`);
+  await db.query(`ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS cashflow_entry_id uuid REFERENCES cashflow_entries(id) ON DELETE RESTRICT`);
+  await db.query(`ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS source_key text`);
+  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_movements_source_key_unique ON inventory_movements (source_key) WHERE source_key IS NOT NULL`);
+  await db.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inventory_movements_type_check') THEN
+        ALTER TABLE inventory_movements ADD CONSTRAINT inventory_movements_type_check CHECK (movement_type IN ('initial','purchase','adjustment','service','warranty'));
+      END IF;
+    END $$
   `);
 
   const defaults = await db.query('SELECT count(*) FROM repair_services');
@@ -322,13 +360,14 @@ async function listPublicServices() {
 
 async function dashboardData() {
   const db = requireDb();
-  const [members, models, services, orders, chats, inventory] = await Promise.all([
+  const [members, models, services, orders, chats, inventory, cashflow] = await Promise.all([
     db.query(`SELECT * FROM members ORDER BY created_at DESC LIMIT 200`),
     db.query(`SELECT * FROM phone_models ORDER BY brand, model`),
     db.query(`SELECT rs.*, pm.brand, pm.model FROM repair_services rs LEFT JOIN phone_models pm ON pm.id = rs.phone_model_id ORDER BY rs.created_at DESC`),
     db.query(`SELECT so.*, COALESCE((SELECT jsonb_agg(we ORDER BY we.created_at) FROM warranty_events we WHERE we.order_id=so.id),'[]'::jsonb) AS warranty_history FROM service_orders so ORDER BY so.created_at DESC LIMIT 200`),
     db.query(`SELECT ct.*, (SELECT cm.sender_type FROM chat_messages cm WHERE cm.thread_id=ct.id ORDER BY cm.created_at DESC LIMIT 1) AS latest_sender FROM chat_threads ct ORDER BY ct.last_message_at DESC LIMIT 100`),
     db.query(`SELECT ii.*, COALESCE((SELECT jsonb_agg(im ORDER BY im.created_at DESC) FROM (SELECT * FROM inventory_movements WHERE item_id=ii.id ORDER BY created_at DESC LIMIT 20) im),'[]'::jsonb) AS movements FROM inventory_items ii ORDER BY ii.is_active DESC, ii.name`),
+    db.query(`SELECT cf.*, so.order_code, ii.name AS inventory_name FROM cashflow_entries cf LEFT JOIN service_orders so ON so.id=cf.order_id LEFT JOIN inventory_items ii ON ii.id=cf.inventory_item_id ORDER BY cf.occurred_at DESC, cf.created_at DESC LIMIT 500`),
   ]);
   const normalizedOrders = orders.rows.map((order) => ({ ...order, warranty_status: effectiveWarrantyStatus(order) }));
   const notifications = {
@@ -336,9 +375,17 @@ async function dashboardData() {
     chats: chats.rows.filter((chat) => chat.latest_sender === 'public').length,
     orders: normalizedOrders.filter((order) => !['diambil', 'batal'].includes(order.status)).length,
     stock: inventory.rows.filter((item) => item.is_active && Number(item.quantity) <= Number(item.minimum_stock)).length,
+    cashflow: normalizedOrders.filter((order) => order.payment_status !== 'lunas' && Number(order.final_total || order.estimate_total || 0) > 0).length,
   };
   notifications.home = notifications.warranties + notifications.chats + notifications.orders + notifications.stock;
-  return { members: members.rows, models: models.rows, services: services.rows, orders: normalizedOrders, chats: chats.rows, inventory: inventory.rows, notifications, statuses: ORDER_STATUSES };
+  const cashflowSummary = cashflow.rows.reduce((summary, entry) => {
+    const amount = Number(entry.amount || 0);
+    if (entry.entry_type === 'income') summary.income += amount;
+    else summary.outcome += amount;
+    summary.balance = summary.income - summary.outcome;
+    return summary;
+  }, { income: 0, outcome: 0, balance: 0 });
+  return { members: members.rows, models: models.rows, services: services.rows, orders: normalizedOrders, chats: chats.rows, inventory: inventory.rows, cashflow: cashflow.rows, cashflowSummary, notifications, statuses: ORDER_STATUSES };
 }
 
 async function createMember(data) {
@@ -496,6 +543,31 @@ function warrantyTransitionAllowed(from, to) {
   return from === to || Boolean(transitions[from]?.includes(to));
 }
 
+function paymentTransitionAllowed(from, to) {
+  return from === to || (from === 'belum_lunas' && to === 'lunas');
+}
+
+function cashflowValues(data) {
+  const type = String(data.type || '');
+  if (!['income', 'outcome'].includes(type)) throw new Error('Tipe cashflow tidak valid.');
+  const amount = Math.floor(Number(data.amount || 0));
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Nominal harus lebih dari 0.');
+  const description = String(data.description || '').trim();
+  if (!description) throw new Error('Keterangan wajib diisi.');
+  return { type, amount, category: String(data.category || 'Lainnya').trim() || 'Lainnya', description, occurredAt: data.occurredAt || null };
+}
+
+function inventoryUseValues(data) {
+  const quantity = Math.floor(Number(data.quantity || 0));
+  if (!data.itemId || !data.orderId) throw new Error('Barang dan order wajib dipilih.');
+  if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('Jumlah pemakaian harus lebih dari 0.');
+  const usageType = String(data.usageType || 'service');
+  if (!['service', 'warranty'].includes(usageType)) throw new Error('Jenis pemakaian tidak valid.');
+  const operationId = String(data.operationId || '').trim();
+  if (!operationId) throw new Error('ID operasi pemakaian wajib diisi.');
+  return { itemId: data.itemId, orderId: data.orderId, quantity, usageType, notes: String(data.notes || '').trim(), operationId };
+}
+
 function stockValues(data) {
   const name = String(data.name || '').trim();
   if (!name) throw new Error('Nama barang wajib diisi.');
@@ -617,18 +689,29 @@ async function updateOrder(data) {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const locked = await client.query(`SELECT id FROM service_orders WHERE id=$1 FOR UPDATE`, [data.id]);
+    const locked = await client.query(`SELECT * FROM service_orders WHERE id=$1 FOR UPDATE`, [data.id]);
     if (!locked.rowCount) throw new Error('Order tidak ditemukan.');
+    const previousOrder = locked.rows[0];
+    const nextPaymentStatus = data.paymentStatus || previousOrder.payment_status || 'belum_lunas';
+    if (!['belum_lunas', 'lunas'].includes(nextPaymentStatus) || !paymentTransitionAllowed(previousOrder.payment_status || 'belum_lunas', nextPaymentStatus)) throw new Error('Transisi status pembayaran tidak valid.');
     if (data.repairServiceId) {
       const service = await client.query(`SELECT 1 FROM repair_services WHERE id=$1 AND is_active=true`, [data.repairServiceId]);
       if (!service.rowCount) throw new Error('Layanan tidak ditemukan atau sudah tidak aktif.');
     }
     const result = await client.query(
       `UPDATE service_orders
-       SET status=COALESCE($2,status), final_total=COALESCE($3,final_total), technician_notes=COALESCE($4,technician_notes), repair_service_id=COALESCE($5,repair_service_id), updated_at=now()
+       SET status=COALESCE($2,status), final_total=COALESCE($3,final_total), technician_notes=COALESCE($4,technician_notes), repair_service_id=COALESCE($5,repair_service_id), payment_status=$6, paid_at=CASE WHEN $6='lunas' THEN COALESCE(paid_at,now()) ELSE paid_at END, updated_at=now()
        WHERE id=$1 RETURNING *`,
-      [data.id, data.status || null, data.finalTotal == null ? null : Number(data.finalTotal), data.technicianNotes == null ? null : data.technicianNotes, data.repairServiceId || null]
+      [data.id, data.status || null, data.finalTotal == null ? null : Number(data.finalTotal), data.technicianNotes == null ? null : data.technicianNotes, data.repairServiceId || null, nextPaymentStatus]
     );
+    if ((previousOrder.payment_status || 'belum_lunas') !== 'lunas' && nextPaymentStatus === 'lunas') {
+      const paidAmount = Number(result.rows[0].final_total || result.rows[0].estimate_total || 0);
+      if (paidAmount <= 0) throw new Error('Total pembayaran harus lebih dari 0 sebelum ditandai Lunas.');
+      await client.query(
+        `INSERT INTO cashflow_entries (entry_type,amount,category,description,source_type,source_key,order_id,occurred_at) VALUES ('income',$1,'Servis',$2,'order_payment',$3,$4,now()) ON CONFLICT (source_key) WHERE source_key IS NOT NULL DO NOTHING`,
+        [paidAmount, `Pembayaran order ${result.rows[0].order_code}`, `order-payment:${data.id}`, data.id]
+      );
+    }
     if (!result.rowCount) throw new Error('Order tidak ditemukan.');
     let order = result.rows[0];
     if (order.status === 'selesai' && order.warranty_status === 'tidak_aktif' && order.repair_service_id) {
@@ -722,10 +805,25 @@ async function upsertStock(data) {
       );
     }
     const item = result.rows[0];
-    if (values.quantity !== before) await client.query(
-      `INSERT INTO inventory_movements (item_id,quantity_before,quantity_change,quantity_after,notes) VALUES ($1,$2,$3,$4,$5)`,
-      [item.id, before, values.quantity - before, values.quantity, String(data.movementNotes || (data.id ? 'Penyesuaian stok' : 'Stok awal')).trim()]
-    );
+    if (values.quantity !== before) {
+      const quantityChange = values.quantity - before;
+      const movementType = data.movementType || (data.id ? 'adjustment' : 'initial');
+      if (!['initial', 'purchase', 'adjustment'].includes(movementType)) throw new Error('Jenis perubahan stok tidak valid.');
+      if (movementType === 'purchase' && quantityChange <= 0) throw new Error('Purchasing harus menambah stok.');
+      const movement = await client.query(
+        `INSERT INTO inventory_movements (item_id,quantity_before,quantity_change,quantity_after,movement_type,unit_cost,notes) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [item.id, before, quantityChange, values.quantity, movementType, values.buyPrice, String(data.movementNotes || (data.id ? 'Penyesuaian stok' : 'Stok awal')).trim()]
+      );
+      if (movementType === 'purchase') {
+        const amount = quantityChange * values.buyPrice;
+        if (amount <= 0) throw new Error('Harga beli wajib diisi untuk purchasing.');
+        const ledger = await client.query(
+          `INSERT INTO cashflow_entries (entry_type,amount,category,description,source_type,source_key,inventory_item_id) VALUES ('outcome',$1,'Purchasing',$2,'inventory_purchase',$3,$4) RETURNING id`,
+          [amount, `Pembelian ${quantityChange} × ${item.name}`, `inventory-purchase:${movement.rows[0].id}`, item.id]
+        );
+        await client.query(`UPDATE inventory_movements SET cashflow_entry_id=$2 WHERE id=$1`, [movement.rows[0].id, ledger.rows[0].id]);
+      }
+    }
     await client.query('COMMIT');
     return item;
   } catch (error) {
@@ -735,6 +833,49 @@ async function upsertStock(data) {
   } finally {
     client.release();
   }
+}
+
+async function createCashflow(data) {
+  const values = cashflowValues(data);
+  const result = await requireDb().query(
+    `INSERT INTO cashflow_entries (entry_type,amount,category,description,source_type,occurred_at) VALUES ($1,$2,$3,$4,'manual',COALESCE($5::timestamptz,now())) RETURNING *`,
+    [values.type, values.amount, values.category, values.description, values.occurredAt]
+  );
+  return result.rows[0];
+}
+
+async function useInventory(data) {
+  const values = inventoryUseValues(data);
+  const db = requireDb();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const sourceKey = `inventory-use:${values.operationId}`;
+    const existing = await client.query(`SELECT * FROM inventory_movements WHERE source_key=$1`, [sourceKey]);
+    if (existing.rowCount) {
+      await client.query('COMMIT');
+      return existing.rows[0];
+    }
+    const itemResult = await client.query(`SELECT * FROM inventory_items WHERE id=$1 AND is_active=true FOR UPDATE`, [values.itemId]);
+    if (!itemResult.rowCount) throw new Error('Barang tidak ditemukan atau tidak aktif.');
+    const orderResult = await client.query(`SELECT * FROM service_orders WHERE id=$1 FOR UPDATE`, [values.orderId]);
+    if (!orderResult.rowCount) throw new Error('Order tidak ditemukan.');
+    const item = itemResult.rows[0];
+    const before = Number(item.quantity);
+    if (before < values.quantity) throw new Error('Stok tidak mencukupi.');
+    if (values.usageType === 'warranty' && !orderResult.rows[0].warranty_code) throw new Error('Order tidak memiliki garansi.');
+    const after = before - values.quantity;
+    await client.query(`UPDATE inventory_items SET quantity=$2,updated_at=now() WHERE id=$1`, [item.id, after]);
+    const movement = await client.query(
+      `INSERT INTO inventory_movements (item_id,quantity_before,quantity_change,quantity_after,movement_type,order_id,unit_cost,notes,source_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [item.id, before, -values.quantity, after, values.usageType, values.orderId, Number(item.buy_price || 0), values.notes, sourceKey]
+    );
+    await client.query('COMMIT');
+    return movement.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
 }
 
 async function route(req, res) {
@@ -766,6 +907,8 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
       if (url.pathname === '/api/admin/warranties' && req.method === 'PATCH') return sendJson(res, { ok: true, warranty: await updateWarranty(await readJson(req)) });
       if (url.pathname === '/api/admin/inventory' && ['POST', 'PATCH'].includes(req.method)) return sendJson(res, { ok: true, item: await upsertStock(await readJson(req)) });
+      if (url.pathname === '/api/admin/inventory/use' && req.method === 'POST') return sendJson(res, { ok: true, movement: await useInventory(await readJson(req)) });
+      if (url.pathname === '/api/admin/cashflow' && req.method === 'POST') return sendJson(res, { ok: true, entry: await createCashflow(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
     }
     if (req.method === 'GET' && url.pathname.startsWith('/uploads/models/')) {
@@ -808,4 +951,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues };
+module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues, paymentTransitionAllowed, cashflowValues, inventoryUseValues };
