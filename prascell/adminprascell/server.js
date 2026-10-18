@@ -8,6 +8,7 @@ const { normalizePhone, makeOrderCode, estimateTotal, requireFields, ORDER_STATU
 const PORT = Number(process.env.PORT || 3010);
 const STATIC_DIR = path.join(__dirname, 'dist');
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads', 'models');
+const GUIDE_UPLOAD_DIR = process.env.GUIDE_UPLOAD_DIR || path.join(__dirname, 'uploads', 'guides');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
@@ -127,6 +128,11 @@ async function ensureSchema() {
     )
   `);
   await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS issue_category text NOT NULL DEFAULT 'hardware'`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS cause_image_url text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS repair_image_url text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS spare_part_image_url text NOT NULL DEFAULT ''`);
+  await db.query(`ALTER TABLE repair_services ADD COLUMN IF NOT EXISTS disassembly_images jsonb NOT NULL DEFAULT '[]'::jsonb`);
+  fs.mkdirSync(GUIDE_UPLOAD_DIR, { recursive: true });
   await db.query(`UPDATE repair_services SET issue_category = 'hardware' WHERE issue_category NOT IN ('software','hardware')`);
   await db.query(`
     DO $$ BEGIN
@@ -325,8 +331,8 @@ async function archiveModel(data) {
   return result.rows[0];
 }
 
-async function uploadModelImage(data) {
-  requireFields(data, ['id', 'mimeType', 'data']);
+function decodeImage(data) {
+  requireFields(data, ['mimeType', 'data']);
   const extensions = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
   const extension = extensions[data.mimeType];
   if (!extension) throw new Error('Gambar harus JPG, PNG, atau WebP.');
@@ -338,6 +344,12 @@ async function uploadModelImage(data) {
       ? buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
       : buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP';
   if (!valid) throw new Error('Isi file gambar tidak valid.');
+  return { buffer, extension };
+}
+
+async function uploadModelImage(data) {
+  requireFields(data, ['id', 'mimeType', 'data']);
+  const { buffer, extension } = decodeImage(data);
   const db = requireDb();
   const current = await db.query(`SELECT image_url FROM phone_models WHERE id=$1`, [data.id]);
   if (!current.rowCount) throw new Error('Model HP tidak ditemukan.');
@@ -351,10 +363,74 @@ async function uploadModelImage(data) {
   return result.rows[0];
 }
 
+function removeGuideFile(url) {
+  if (String(url || '').startsWith('/uploads/guides/')) fs.rmSync(path.join(GUIDE_UPLOAD_DIR, path.basename(url)), { force: true });
+}
+
+async function uploadGuideImage(data) {
+  requireFields(data, ['id', 'type', 'mimeType', 'data']);
+  const type = data.type === 'disassembly' ? 'disassembly' : guideMediaField(data.type);
+  const { buffer, extension } = decodeImage(data);
+  const db = requireDb();
+  const current = await db.query(`SELECT * FROM repair_services WHERE id=$1`, [data.id]);
+  if (!current.rowCount) throw new Error('Masalah servis tidak ditemukan.');
+  fs.mkdirSync(GUIDE_UPLOAD_DIR, { recursive: true });
+  const fileName = `${data.id}-${data.type}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
+  fs.writeFileSync(path.join(GUIDE_UPLOAD_DIR, fileName), buffer, { flag: 'wx' });
+  const imageUrl = `/uploads/guides/${fileName}`;
+  if (data.type === 'disassembly') {
+    const images = normalizeDisassembly(current.rows[0].disassembly_images);
+    if (images.length >= 12) { removeGuideFile(imageUrl); throw new Error('Foto disassembly maksimal 12 langkah.'); }
+    images.push({ url: imageUrl, caption: String(data.caption || '').trim() });
+    const result = await db.query(`UPDATE repair_services SET disassembly_images=$2::jsonb, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, JSON.stringify(images)]);
+    return result.rows[0];
+  }
+  const field = type;
+  const oldUrl = current.rows[0][field] || '';
+  const result = await db.query(`UPDATE repair_services SET ${field}=$2, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, imageUrl]);
+  removeGuideFile(oldUrl);
+  return result.rows[0];
+}
+
+async function updateGuideImages(data) {
+  requireFields(data, ['id']);
+  const images = normalizeDisassembly(data.disassemblyImages);
+  const db = requireDb();
+  const current = await db.query(`SELECT disassembly_images FROM repair_services WHERE id=$1`, [data.id]);
+  if (!current.rowCount) throw new Error('Masalah servis tidak ditemukan.');
+  const kept = new Set(images.map((item) => item.url));
+  normalizeDisassembly(current.rows[0].disassembly_images).filter((item) => !kept.has(item.url)).forEach((item) => removeGuideFile(item.url));
+  const result = await db.query(`UPDATE repair_services SET disassembly_images=$2::jsonb, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, JSON.stringify(images)]);
+  return result.rows[0];
+}
+
 function serviceCategory(value) {
   const category = String(value || '').toLowerCase();
   if (!['software', 'hardware'].includes(category)) throw new Error('Kategori masalah harus Software atau Hardware.');
   return category;
+}
+
+function guideMediaField(value) {
+  const fields = {
+    cause: 'cause_image_url',
+    repair: 'repair_image_url',
+    sparePart: 'spare_part_image_url',
+  };
+  if (!fields[value]) throw new Error('Tipe media panduan tidak valid.');
+  return fields[value];
+}
+
+function normalizeDisassembly(value) {
+  let items = value || [];
+  if (typeof items === 'string') {
+    try { items = JSON.parse(items || '[]'); }
+    catch { throw new Error('Urutan disassembly tidak valid.'); }
+  }
+  if (!Array.isArray(items)) throw new Error('Urutan disassembly tidak valid.');
+  if (items.length > 12) throw new Error('Foto disassembly maksimal 12 langkah.');
+  return items
+    .filter((item) => item && String(item.url || '').trim())
+    .map((item) => ({ url: String(item.url).trim(), caption: String(item.caption || '').trim() }));
 }
 
 function serviceValues(data) {
@@ -474,12 +550,22 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/services' && req.method === 'POST') return sendJson(res, { ok: true, service: await createService(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateService(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'DELETE') return sendJson(res, { ok: true, service: await archiveService(await readJson(req)) });
+      if (url.pathname === '/api/admin/services/image' && req.method === 'POST') return sendJson(res, { ok: true, service: await uploadGuideImage(await readJson(req)) });
+      if (url.pathname === '/api/admin/services/images' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateGuideImages(await readJson(req)) });
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
     }
     if (req.method === 'GET' && url.pathname.startsWith('/uploads/models/')) {
       const fileName = path.basename(url.pathname);
       const filePath = path.join(UPLOAD_DIR, fileName);
+      if (fileName && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.writeHead(200, { 'content-type': mime[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+        return fs.createReadStream(filePath).pipe(res);
+      }
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/uploads/guides/')) {
+      const fileName = path.basename(url.pathname);
+      const filePath = path.join(GUIDE_UPLOAD_DIR, fileName);
       if (fileName && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         res.writeHead(200, { 'content-type': mime[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
         return fs.createReadStream(filePath).pipe(res);
@@ -509,4 +595,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route, serviceCategory, serviceValues };
+module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly };

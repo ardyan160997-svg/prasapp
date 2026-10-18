@@ -87,12 +87,33 @@ function renderServices() {
   const guides = document.body.classList.contains('admin-page-guides');
   const list = qs('#service-list');
   list.className = 'service-grid';
-  list.innerHTML = state.services.map((service) => {
+  const query = guides ? String(qs('#guide-search')?.value || '').trim().toLowerCase() : '';
+  const services = query ? state.services.filter((service) => [service.brand, service.model, service.issue_category, service.issue_name].some((value) => String(value || '').toLowerCase().includes(query))) : state.services;
+  list.innerHTML = services.map((service) => {
     const model = state.models.find((item) => item.id === service.phone_model_id);
     const image = model?.image_url;
     const guideReady = Boolean(service.repair_method || service.symptoms || service.cause);
     return `<button class="service-card ${service.is_active ? '' : 'row-inactive'}" type="button" data-service-edit="${service.id}"><span class="service-card-image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(`${service.brand || ''} ${service.model || ''}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="service-card-copy"><small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><strong>${escapeHtml(service.issue_name)}</strong></span><span class="service-card-category">${escapeHtml(service.issue_category || 'hardware')}</span><span class="service-card-footer"><span class="service-card-state">${guides ? (guideReady ? 'Panduan tersedia' : 'Belum diisi') : rupiah(service.price_min)}</span><span class="service-card-open">Buka ›</span></span></button>`;
   }).join('') || '<p class="muted">Belum ada data servis.</p>';
+}
+
+function guideImagePreview(id, url, label) {
+  qs(`#${id}`).innerHTML = url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)}">` : '<span>Belum ada foto</span>';
+}
+
+function renderDisassembly(service) {
+  const list = qs('#disassembly-list');
+  if (!list) return;
+  const images = Array.isArray(service.disassembly_images) ? service.disassembly_images : [];
+  list.innerHTML = images.map((item, index) => `<article class="disassembly-step"><span class="step-number">${index + 1}</span><img src="${escapeHtml(item.url)}" alt="Langkah ${index + 1}"><textarea data-step-caption="${index}" placeholder="Caption langkah">${escapeHtml(item.caption || '')}</textarea><div><button type="button" data-step-move="${index}" data-direction="-1" ${index ? '' : 'disabled'}>Naik</button><button type="button" data-step-move="${index}" data-direction="1" ${index < images.length - 1 ? '' : 'disabled'}>Turun</button><button type="button" data-step-remove="${index}">Hapus</button></div></article>${index < images.length - 1 ? '<span class="step-arrow" aria-hidden="true">→</span>' : ''}`).join('') || '<p class="disassembly-empty">Belum ada foto langkah bongkar pasang.</p>';
+}
+
+function renderGuideMedia(service) {
+  if (!document.body.classList.contains('admin-page-guides')) return;
+  guideImagePreview('cause-media', service.cause_image_url, 'Foto penyebab');
+  guideImagePreview('repair-media', service.repair_image_url, 'Foto tindakan perbaikan');
+  guideImagePreview('sparePart-media', service.spare_part_image_url, 'Foto spare part');
+  renderDisassembly(service);
 }
 
 function fillServiceForm(service) {
@@ -105,6 +126,7 @@ function fillServiceForm(service) {
   if (guides) {
     const context = qs('#guide-context');
     context.innerHTML = `<small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><span>${escapeHtml(service.issue_category || 'hardware')} · ${escapeHtml(service.issue_name)}</span>`;
+    renderGuideMedia(service);
   }
   qs('#service-cancel').classList.remove('hidden');
   qs('#service-archive')?.classList.toggle('hidden', guides || !service.is_active);
@@ -145,6 +167,25 @@ async function loadDashboard() {
 
 function formJson(form) {
   return JSON.stringify(Object.fromEntries(new FormData(form).entries()));
+}
+
+function currentGuide() {
+  const id = qs('#service-form').elements.id.value;
+  return state.services.find((service) => service.id === id);
+}
+
+function disassemblyFromForm() {
+  const service = currentGuide();
+  const images = Array.isArray(service?.disassembly_images) ? service.disassembly_images : [];
+  return images.map((item, index) => ({ ...item, caption: qs(`[data-step-caption="${index}"]`)?.value.trim() || '' }));
+}
+
+async function saveDisassembly(id, images = disassemblyFromForm()) {
+  if (!id) return;
+  const result = await api('/api/admin/services/images', { method: 'PATCH', body: JSON.stringify({ id, disassemblyImages: images }) });
+  const index = state.services.findIndex((service) => service.id === id);
+  if (index >= 0) state.services[index] = result.service;
+  renderDisassembly(result.service);
 }
 
 qs('#login-form').addEventListener('submit', async (event) => {
@@ -197,7 +238,19 @@ qs('#model-list').addEventListener('click', async (event) => {
   if (!archive || !confirm('Nonaktifkan model ini dari halaman estimasi? Data layanan dan histori tetap tersimpan.')) return;
   try { await api('/api/admin/models', { method: 'DELETE', body: JSON.stringify({ id: archive.dataset.modelArchive }) }); await loadDashboard(); toast('Model HP dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
 });
-qs('#service-form').addEventListener('submit', async (event) => { event.preventDefault(); const body = Object.fromEntries(new FormData(event.target).entries()); const editing = Boolean(body.id); const guides = document.body.classList.contains('admin-page-guides'); try { await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) }); resetServiceForm(); await loadDashboard(); toast(guides ? 'Panduan diperbarui' : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan'); } catch (e) { toast(e.message, 'error'); } });
+qs('#service-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const body = Object.fromEntries(new FormData(event.target).entries());
+  const editing = Boolean(body.id);
+  const guides = document.body.classList.contains('admin-page-guides');
+  try {
+    await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+    if (guides) await saveDisassembly(body.id);
+    resetServiceForm();
+    await loadDashboard();
+    toast(guides ? 'Panduan diperbarui' : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan');
+  } catch (e) { toast(e.message, 'error'); }
+});
 qs('#service-cancel').addEventListener('click', resetServiceForm);
 qs('#service-add')?.addEventListener('click', () => { resetServiceForm(); qs('#service-form').classList.remove('hidden'); });
 qs('#service-archive')?.addEventListener('click', async () => {
@@ -211,6 +264,40 @@ qs('#service-list').addEventListener('click', async (event) => {
   const archive = event.target.closest('[data-service-archive]');
   if (!archive || !confirm('Nonaktifkan masalah ini dari halaman estimasi? Data tetap tersimpan.')) return;
   try { await api('/api/admin/services', { method: 'DELETE', body: JSON.stringify({ id: archive.dataset.serviceArchive }) }); await loadDashboard(); toast('Masalah dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
+});
+qs('#guide-search')?.addEventListener('input', renderServices);
+qs('#service-form').addEventListener('change', async (event) => {
+  const input = event.target.closest('[data-guide-image]');
+  if (!input?.files[0]) return;
+  const id = qs('#service-form').elements.id.value;
+  if (!id) { input.value = ''; return toast('Pilih panduan terlebih dahulu.', 'error'); }
+  const file = input.files[0];
+  if (file.size > 2 * 1024 * 1024) { input.value = ''; return toast('Ukuran gambar maksimal 2 MB.', 'error'); }
+  try {
+    const type = input.dataset.guideImage;
+    const caption = type === 'disassembly' ? qs('#disassembly-caption').value.trim() : '';
+    const result = await api('/api/admin/services/image', { method: 'POST', body: JSON.stringify({ id, type, caption, mimeType: file.type, data: await imageData(file) }) });
+    const index = state.services.findIndex((service) => service.id === id);
+    if (index >= 0) state.services[index] = result.service;
+    renderGuideMedia(result.service);
+    if (type === 'disassembly') qs('#disassembly-caption').value = '';
+    input.value = '';
+    toast(type === 'disassembly' ? 'Langkah foto ditambahkan' : 'Foto panduan diperbarui');
+  } catch (error) { input.value = ''; toast(error.message, 'error'); }
+});
+qs('#disassembly-list')?.addEventListener('click', async (event) => {
+  const remove = event.target.closest('[data-step-remove]');
+  const move = event.target.closest('[data-step-move]');
+  if (!remove && !move) return;
+  const images = disassemblyFromForm();
+  if (remove) images.splice(Number(remove.dataset.stepRemove), 1);
+  if (move) {
+    const from = Number(move.dataset.stepMove);
+    const to = from + Number(move.dataset.direction);
+    if (to >= 0 && to < images.length) [images[from], images[to]] = [images[to], images[from]];
+  }
+  try { await saveDisassembly(qs('#service-form').elements.id.value, images); toast(remove ? 'Langkah dihapus' : 'Urutan diperbarui'); }
+  catch (error) { toast(error.message, 'error'); }
 });
 qs('#order-list').addEventListener('submit', async (event) => { const form = event.target.closest('.order-edit'); if (!form) return; event.preventDefault(); const body = Object.fromEntries(new FormData(form).entries()); body.id = form.dataset.id; try { await api('/api/admin/orders', { method: 'PATCH', body: JSON.stringify(body) }); await loadDashboard(); toast('Order diperbarui'); } catch (e) { toast(e.message, 'error'); } });
 

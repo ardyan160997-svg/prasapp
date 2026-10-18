@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields } = require('../domain');
-const { serviceCategory, serviceValues } = require('../server');
+const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly } = require('../server');
 
 assert.equal(normalizePhone('0812-3456-7890'), '6281234567890');
 assert.equal(normalizePhone('81234567890'), '6281234567890');
@@ -12,4 +12,11 @@ assert.equal(serviceCategory('hardware'), 'hardware');
 assert.throws(() => serviceCategory('jaringan'), /Software atau Hardware/);
 assert.deepEqual(serviceValues({ phoneModelId: 'model-1', issueCategory: 'software', issueName: 'Bootloop', priceMin: '100000', priceMax: '250000' }).slice(0, 3), ['model-1', 'software', 'Bootloop']);
 assert.throws(() => serviceValues({ phoneModelId: 'model-1', issueCategory: 'hardware', issueName: 'LCD', priceMin: '300000', priceMax: '100000' }), /Rentang harga/);
+assert.equal(guideMediaField('cause'), 'cause_image_url');
+assert.equal(guideMediaField('repair'), 'repair_image_url');
+assert.equal(guideMediaField('sparePart'), 'spare_part_image_url');
+assert.throws(() => guideMediaField('tools'), /Tipe media panduan/);
+assert.deepEqual(normalizeDisassembly('[{"url":"/uploads/guides/a.png","caption":"Buka baut"}]'), [{ url: '/uploads/guides/a.png', caption: 'Buka baut' }]);
+assert.deepEqual(normalizeDisassembly([{ url: '/uploads/guides/a.png', caption: '  Buka baut  ' }, { url: '', caption: 'skip' }]), [{ url: '/uploads/guides/a.png', caption: 'Buka baut' }]);
+assert.throws(() => normalizeDisassembly(Array.from({ length: 13 }, (_, i) => ({ url: `/x/${i}.png` }))), /maksimal 12/);
 console.log('PrasCell domain tests passed');
