@@ -7,6 +7,7 @@ const { normalizePhone, makeOrderCode, estimateTotal, requireFields, ORDER_STATU
 
 const PORT = Number(process.env.PORT || 3010);
 const STATIC_DIR = path.join(__dirname, 'dist');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads', 'models');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
@@ -20,6 +21,7 @@ const mime = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
 };
 
@@ -45,7 +47,7 @@ async function readJson(req) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 1024 * 1024) throw new Error('Payload terlalu besar.');
+    if (size > 4 * 1024 * 1024) throw new Error('Payload terlalu besar.');
     chunks.push(chunk);
   }
   if (!chunks.length) return {};
@@ -95,12 +97,15 @@ async function ensureSchema() {
       brand text NOT NULL,
       model text NOT NULL,
       notes text NOT NULL DEFAULT '',
+      image_url text NOT NULL DEFAULT '',
       is_active boolean NOT NULL DEFAULT true,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (brand, model)
     )
   `);
+  await db.query(`ALTER TABLE phone_models ADD COLUMN IF NOT EXISTS image_url text NOT NULL DEFAULT ''`);
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
   await db.query(`
     CREATE TABLE IF NOT EXISTS repair_services (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -249,7 +254,7 @@ async function listPublicServices() {
       WHERE rs.is_active = true AND (pm.is_active = true OR rs.phone_model_id IS NULL)
       ORDER BY pm.brand NULLS LAST, pm.model NULLS LAST, rs.issue_category, rs.issue_name
     `),
-    db.query(`SELECT id, brand, model FROM phone_models WHERE is_active = true ORDER BY brand, model`),
+    db.query(`SELECT id, brand, model, image_url FROM phone_models WHERE is_active = true ORDER BY brand, model`),
   ]);
   return { services: services.rows.map(publicServiceShape), models: models.rows };
 }
@@ -320,6 +325,32 @@ async function archiveModel(data) {
   return result.rows[0];
 }
 
+async function uploadModelImage(data) {
+  requireFields(data, ['id', 'mimeType', 'data']);
+  const extensions = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+  const extension = extensions[data.mimeType];
+  if (!extension) throw new Error('Gambar harus JPG, PNG, atau WebP.');
+  const buffer = Buffer.from(data.data, 'base64');
+  if (!buffer.length || buffer.length > 2 * 1024 * 1024) throw new Error('Ukuran gambar maksimal 2 MB.');
+  const valid = extension === '.jpg'
+    ? buffer[0] === 0xff && buffer[1] === 0xd8
+    : extension === '.png'
+      ? buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+      : buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP';
+  if (!valid) throw new Error('Isi file gambar tidak valid.');
+  const db = requireDb();
+  const current = await db.query(`SELECT image_url FROM phone_models WHERE id=$1`, [data.id]);
+  if (!current.rowCount) throw new Error('Model HP tidak ditemukan.');
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  const fileName = `${data.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, fileName), buffer, { flag: 'wx' });
+  const imageUrl = `/uploads/models/${fileName}`;
+  const result = await db.query(`UPDATE phone_models SET image_url=$2, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, imageUrl]);
+  const oldUrl = current.rows[0].image_url || '';
+  if (oldUrl.startsWith('/uploads/models/')) fs.rmSync(path.join(UPLOAD_DIR, path.basename(oldUrl)), { force: true });
+  return result.rows[0];
+}
+
 function serviceCategory(value) {
   const category = String(value || '').toLowerCase();
   if (!['software', 'hardware'].includes(category)) throw new Error('Kategori masalah harus Software atau Hardware.');
@@ -346,13 +377,29 @@ async function createService(data) {
 
 async function updateService(data) {
   requireFields(data, ['id']);
-  const values = serviceValues(data);
-  const result = await requireDb().query(
+  const db = requireDb();
+  const current = await db.query(`SELECT * FROM repair_services WHERE id=$1`, [data.id]);
+  if (!current.rowCount) throw new Error('Masalah servis tidak ditemukan.');
+  const row = current.rows[0];
+  const merged = {
+    phoneModelId: data.phoneModelId ?? row.phone_model_id,
+    issueCategory: data.issueCategory ?? row.issue_category,
+    issueName: data.issueName ?? row.issue_name,
+    symptoms: data.symptoms ?? row.symptoms,
+    cause: data.cause ?? row.cause,
+    repairMethod: data.repairMethod ?? row.repair_method,
+    assemblySteps: data.assemblySteps ?? row.assembly_steps,
+    tools: data.tools ?? row.tools,
+    spareParts: data.spareParts ?? row.spare_parts,
+    priceMin: data.priceMin ?? row.price_min,
+    priceMax: data.priceMax ?? row.price_max,
+    durationEstimate: data.durationEstimate ?? row.duration_estimate
+  };
+  const result = await db.query(
     `UPDATE repair_services SET phone_model_id=$2, issue_category=$3, issue_name=$4, symptoms=$5, cause=$6, repair_method=$7, assembly_steps=$8, tools=$9, spare_parts=$10, price_min=$11, price_max=$12, duration_estimate=$13, is_active=true, updated_at=now()
      WHERE id=$1 RETURNING *`,
-    [data.id, ...values]
+    [data.id, ...serviceValues(merged)]
   );
-  if (!result.rowCount) throw new Error('Masalah servis tidak ditemukan.');
   return result.rows[0];
 }
 
@@ -423,11 +470,20 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/models' && req.method === 'POST') return sendJson(res, { ok: true, model: await upsertModel(await readJson(req)) });
       if (url.pathname === '/api/admin/models' && req.method === 'PATCH') return sendJson(res, { ok: true, model: await updateModel(await readJson(req)) });
       if (url.pathname === '/api/admin/models' && req.method === 'DELETE') return sendJson(res, { ok: true, model: await archiveModel(await readJson(req)) });
+      if (url.pathname === '/api/admin/models/image' && req.method === 'POST') return sendJson(res, { ok: true, model: await uploadModelImage(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'POST') return sendJson(res, { ok: true, service: await createService(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateService(await readJson(req)) });
       if (url.pathname === '/api/admin/services' && req.method === 'DELETE') return sendJson(res, { ok: true, service: await archiveService(await readJson(req)) });
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/uploads/models/')) {
+      const fileName = path.basename(url.pathname);
+      const filePath = path.join(UPLOAD_DIR, fileName);
+      if (fileName && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.writeHead(200, { 'content-type': mime[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+        return fs.createReadStream(filePath).pipe(res);
+      }
     }
     if (req.method === 'GET') {
       const filePath = path.join(STATIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\//, ''));
