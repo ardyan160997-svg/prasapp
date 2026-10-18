@@ -2006,3 +2006,39 @@ Menambahkan footer bersama pada seluruh halaman publik PrasCell untuk tampilan d
 ### Result
 
 Selesai. Lima halaman publik memakai footer biru–navy dengan logo, tagline, navigasi, CTA Estimasi, dan copyright. Footer halaman pendek tetap berada di bawah viewport, sedangkan mobile mempertahankan bottom navigation tanpa footer duplikat.
+
+---
+
+## TASK-027 — Samakan visual navigasi admin PrasCell dengan public
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: medium
+- Risk: low
+- Dependencies: TASK-026
+
+### Objective
+
+Menyamakan warna, logo, background header, dan tampilan bottom navigation admin PrasCell dengan website publik tanpa mengubah fungsi admin.
+
+### Scope
+
+- `prascell/adminprascell/*.html`
+- `prascell/adminprascell/styles.css`
+- `prascell/adminprascell/sw.js`
+- `prascell/adminprascell/images/**`
+- build manifests PrasCell
+- `TODO.md`
+
+### Validation
+
+- Preview desktop dan mobile tanpa clipping atau horizontal overflow.
+- Header memakai background PCB serta logo icon dan wordmark public.
+- Bottom navigation memakai blue-glass, active orange, dan tombol Biaya raised.
+- Canonical admin/root check dan build berhasil.
+- Focused ad-hoc admin parity verification berhasil.
+
+### Result
+
+Selesai. Header admin memakai identitas visual public dengan lapisan kontras untuk menu desktop. Bottom navigation mempertahankan seluruh tujuan admin dengan warna dan treatment public. Preview desktop/mobile, canonical gate, dan focused verification lulus sebelum commit dan deploy.

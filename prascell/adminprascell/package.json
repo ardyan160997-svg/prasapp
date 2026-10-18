@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "rm -rf dist && mkdir -p dist/images && cp index.html models.html services.html guides.html orders.html members.html chat.html styles.css app.js sw.js manifest.webmanifest dist/ && cp images/prascellheader.avif images/icon.avif dist/images/",
+    "build": "rm -rf dist && mkdir -p dist/images && cp index.html models.html services.html guides.html orders.html members.html chat.html styles.css app.js sw.js manifest.webmanifest dist/ && cp images/prascellheader.avif images/prascelllogo.avif images/prascelltag.avif images/backgroundheaderprascell.avif images/icon.avif dist/images/",
     "check": "node --check app.js && node --check server.js && node --check domain.js && node tests/domain.test.js"
   },
   "dependencies": {
