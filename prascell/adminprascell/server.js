@@ -218,6 +218,35 @@ async function ensureSchema() {
       CONSTRAINT chat_messages_sender_type_check CHECK (sender_type IN ('public','admin'))
     )
   `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inventory_items (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      name text NOT NULL,
+      sku text NOT NULL DEFAULT '',
+      category text NOT NULL DEFAULT 'Sparepart',
+      quantity integer NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+      minimum_stock integer NOT NULL DEFAULT 0 CHECK (minimum_stock >= 0),
+      buy_price integer NOT NULL DEFAULT 0 CHECK (buy_price >= 0),
+      sell_price integer NOT NULL DEFAULT 0 CHECK (sell_price >= 0),
+      location text NOT NULL DEFAULT '',
+      notes text NOT NULL DEFAULT '',
+      is_active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_items_sku_unique ON inventory_items (upper(sku)) WHERE sku <> ''`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      item_id uuid NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+      quantity_before integer NOT NULL,
+      quantity_change integer NOT NULL,
+      quantity_after integer NOT NULL,
+      notes text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
 
   const defaults = await db.query('SELECT count(*) FROM repair_services');
   if (Number(defaults.rows[0]?.count || 0) === 0) {
@@ -293,14 +322,23 @@ async function listPublicServices() {
 
 async function dashboardData() {
   const db = requireDb();
-  const [members, models, services, orders, chats] = await Promise.all([
+  const [members, models, services, orders, chats, inventory] = await Promise.all([
     db.query(`SELECT * FROM members ORDER BY created_at DESC LIMIT 200`),
     db.query(`SELECT * FROM phone_models ORDER BY brand, model`),
     db.query(`SELECT rs.*, pm.brand, pm.model FROM repair_services rs LEFT JOIN phone_models pm ON pm.id = rs.phone_model_id ORDER BY rs.created_at DESC`),
     db.query(`SELECT so.*, COALESCE((SELECT jsonb_agg(we ORDER BY we.created_at) FROM warranty_events we WHERE we.order_id=so.id),'[]'::jsonb) AS warranty_history FROM service_orders so ORDER BY so.created_at DESC LIMIT 200`),
-    db.query(`SELECT * FROM chat_threads ORDER BY last_message_at DESC LIMIT 100`),
+    db.query(`SELECT ct.*, (SELECT cm.sender_type FROM chat_messages cm WHERE cm.thread_id=ct.id ORDER BY cm.created_at DESC LIMIT 1) AS latest_sender FROM chat_threads ct ORDER BY ct.last_message_at DESC LIMIT 100`),
+    db.query(`SELECT ii.*, COALESCE((SELECT jsonb_agg(im ORDER BY im.created_at DESC) FROM (SELECT * FROM inventory_movements WHERE item_id=ii.id ORDER BY created_at DESC LIMIT 20) im),'[]'::jsonb) AS movements FROM inventory_items ii ORDER BY ii.is_active DESC, ii.name`),
   ]);
-  return { members: members.rows, models: models.rows, services: services.rows, orders: orders.rows.map((order) => ({ ...order, warranty_status: effectiveWarrantyStatus(order) })), chats: chats.rows, statuses: ORDER_STATUSES };
+  const normalizedOrders = orders.rows.map((order) => ({ ...order, warranty_status: effectiveWarrantyStatus(order) }));
+  const notifications = {
+    warranties: normalizedOrders.filter((order) => ['klaim', 'disetujui'].includes(order.warranty_status)).length,
+    chats: chats.rows.filter((chat) => chat.latest_sender === 'public').length,
+    orders: normalizedOrders.filter((order) => !['diambil', 'batal'].includes(order.status)).length,
+    stock: inventory.rows.filter((item) => item.is_active && Number(item.quantity) <= Number(item.minimum_stock)).length,
+  };
+  notifications.home = notifications.warranties + notifications.chats + notifications.orders + notifications.stock;
+  return { members: members.rows, models: models.rows, services: services.rows, orders: normalizedOrders, chats: chats.rows, inventory: inventory.rows, notifications, statuses: ORDER_STATUSES };
 }
 
 async function createMember(data) {
@@ -456,6 +494,28 @@ function warrantyTransitionAllowed(from, to) {
     dibatalkan: [],
   };
   return from === to || Boolean(transitions[from]?.includes(to));
+}
+
+function stockValues(data) {
+  const name = String(data.name || '').trim();
+  if (!name) throw new Error('Nama barang wajib diisi.');
+  const quantity = Number(data.quantity ?? 0);
+  const minimumStock = Number(data.minimumStock ?? 0);
+  const buyPrice = Number(data.buyPrice ?? 0);
+  const sellPrice = Number(data.sellPrice ?? 0);
+  if (![quantity, minimumStock, buyPrice, sellPrice].every(Number.isFinite) || [quantity, minimumStock, buyPrice, sellPrice].some((value) => value < 0)) throw new Error('Stok tidak valid.');
+  return {
+    name,
+    sku: String(data.sku || '').trim().toUpperCase(),
+    category: String(data.category || 'Sparepart').trim() || 'Sparepart',
+    quantity: Math.floor(quantity),
+    minimumStock: Math.floor(minimumStock),
+    buyPrice: Math.floor(buyPrice),
+    sellPrice: Math.floor(sellPrice),
+    location: String(data.location || '').trim(),
+    notes: String(data.notes || '').trim(),
+    isActive: data.isActive !== false && data.isActive !== 'false',
+  };
 }
 
 function serviceCategory(value) {
@@ -639,6 +699,44 @@ async function publicChat(data) {
   return thread.rows[0];
 }
 
+async function upsertStock(data) {
+  const values = stockValues(data);
+  const db = requireDb();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    let before = 0;
+    let result;
+    if (data.id) {
+      const current = await client.query(`SELECT * FROM inventory_items WHERE id=$1 FOR UPDATE`, [data.id]);
+      if (!current.rowCount) throw new Error('Barang tidak ditemukan.');
+      before = Number(current.rows[0].quantity);
+      result = await client.query(
+        `UPDATE inventory_items SET name=$2,sku=$3,category=$4,quantity=$5,minimum_stock=$6,buy_price=$7,sell_price=$8,location=$9,notes=$10,is_active=$11,updated_at=now() WHERE id=$1 RETURNING *`,
+        [data.id, values.name, values.sku, values.category, values.quantity, values.minimumStock, values.buyPrice, values.sellPrice, values.location, values.notes, values.isActive]
+      );
+    } else {
+      result = await client.query(
+        `INSERT INTO inventory_items (name,sku,category,quantity,minimum_stock,buy_price,sell_price,location,notes,is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [values.name, values.sku, values.category, values.quantity, values.minimumStock, values.buyPrice, values.sellPrice, values.location, values.notes, values.isActive]
+      );
+    }
+    const item = result.rows[0];
+    if (values.quantity !== before) await client.query(
+      `INSERT INTO inventory_movements (item_id,quantity_before,quantity_change,quantity_after,notes) VALUES ($1,$2,$3,$4,$5)`,
+      [item.id, before, values.quantity - before, values.quantity, String(data.movementNotes || (data.id ? 'Penyesuaian stok' : 'Stok awal')).trim()]
+    );
+    await client.query('COMMIT');
+    return item;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === '23505') throw new Error('SKU sudah digunakan.');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (req.method === 'OPTIONS') return sendJson(res, { ok: true });
@@ -667,6 +765,7 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/services/images' && req.method === 'PATCH') return sendJson(res, { ok: true, service: await updateGuideImages(await readJson(req)) });
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
       if (url.pathname === '/api/admin/warranties' && req.method === 'PATCH') return sendJson(res, { ok: true, warranty: await updateWarranty(await readJson(req)) });
+      if (url.pathname === '/api/admin/inventory' && ['POST', 'PATCH'].includes(req.method)) return sendJson(res, { ok: true, item: await upsertStock(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
     }
     if (req.method === 'GET' && url.pathname.startsWith('/uploads/models/')) {
@@ -709,4 +808,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed };
+module.exports = { ensureSchema, route, serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues };

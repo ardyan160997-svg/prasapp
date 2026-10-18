@@ -179,6 +179,7 @@ function render() {
 async function loadDashboard() {
   const data = await api('/api/admin/dashboard');
   state = data.data;
+  window.updateAdminNavBadges?.(state.notifications);
   render();
 }
 

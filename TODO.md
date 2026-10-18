@@ -2042,3 +2042,40 @@ Menyamakan warna, logo, background header, dan tampilan bottom navigation admin 
 ### Result
 
 Selesai. Header admin memakai identitas visual public dengan lapisan kontras untuk menu desktop. Bottom navigation mempertahankan seluruh tujuan admin dengan warna dan treatment public. Preview desktop/mobile, canonical gate, dan focused verification lulus sebelum commit dan deploy.
+
+---
+
+## TASK-028 — Tambahkan stok, halaman garansi, dan navigasi admin ringkas
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-027
+
+### Objective
+
+Menambahkan inventori barang/sparepart, memisahkan pengelolaan garansi, menyeragamkan bottom navigation mobile, dan menampilkan badge perhatian operasional.
+
+### Scope
+
+- Schema additive `inventory_items` dan `inventory_movements`.
+- API transaksi stok dengan row lock dan riwayat append-only.
+- Halaman Stok Barang dan Garansi.
+- Shared admin shell untuk secondary navbar dan empat bottom-nav mobile.
+- Badge Home, Garansi, Chat, dan Order.
+- Build/cache manifests serta tests PrasCell.
+
+### Validation
+
+- Domain test dan canonical admin/root check/build berhasil.
+- Focused ad-hoc verification berhasil 56 checks.
+- Preview desktop/mobile tanpa horizontal overflow.
+- Secondary navbar memiliki touch target 44px.
+- Bottom navigation berisi tepat Home, Garansi, Chat, dan Order tanpa tombol raised.
+- Riwayat perubahan stok bersifat append-only dan item historis memakai `ON DELETE RESTRICT`.
+
+### Result
+
+Selesai. Admin memiliki inventori stok dengan batas minimum dan history perubahan, halaman garansi khusus, secondary navbar untuk menu operasional lain, empat bottom-nav mobile seragam, serta badge perhatian berbasis data dashboard.

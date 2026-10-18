@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields } = require('../domain');
-const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed } = require('../server');
+const { serviceCategory, serviceValues, guideMediaField, normalizeDisassembly, warrantyEnd, effectiveWarrantyStatus, warrantyTransitionAllowed, stockValues } = require('../server');
 
 assert.equal(normalizePhone('0812-3456-7890'), '6281234567890');
 assert.equal(normalizePhone('81234567890'), '6281234567890');
@@ -29,4 +29,9 @@ assert.equal(warrantyTransitionAllowed('klaim', 'disetujui'), true);
 assert.equal(warrantyTransitionAllowed('disetujui', 'selesai'), true);
 assert.equal(warrantyTransitionAllowed('aktif', 'selesai'), false);
 assert.equal(warrantyTransitionAllowed('ditolak', 'aktif'), false);
+assert.deepEqual(stockValues({ name: '  LCD A55 ', sku: ' lcd-a55 ', quantity: '4', minimumStock: '2', buyPrice: '100000', sellPrice: '150000' }), {
+  name: 'LCD A55', sku: 'LCD-A55', category: 'Sparepart', quantity: 4, minimumStock: 2, buyPrice: 100000, sellPrice: 150000, location: '', notes: '', isActive: true,
+});
+assert.throws(() => stockValues({ name: '', quantity: 1 }), /Nama barang wajib/);
+assert.throws(() => stockValues({ name: 'LCD', quantity: -1 }), /Stok tidak valid/);
 console.log('PrasCell domain tests passed');
