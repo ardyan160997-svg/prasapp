@@ -365,8 +365,12 @@ qs('#model-form').addEventListener('submit', async (event) => {
     toast(editing ? 'Model HP diperbarui' : 'Model HP ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
-qs('#spec-add-label')?.addEventListener('click', () => addSpecificationField('label'));
-qs('#spec-add-value')?.addEventListener('click', () => addSpecificationField('value'));
+document.querySelectorAll('[data-spec-add="label"], #spec-add-label, #spec-add-label-bottom').forEach((btn) => {
+  btn.addEventListener('click', () => addSpecificationField('label'));
+});
+document.querySelectorAll('[data-spec-add="value"], #spec-add-value, #spec-add-value-bottom').forEach((btn) => {
+  btn.addEventListener('click', () => addSpecificationField('value'));
+});
 qs('#spec-parse')?.addEventListener('click', () => {
   const rows = parseSpecificationText(qs('#spec-import').value);
   if (!rows.length) return toast('Belum ada spesifikasi yang dapat dibuat menjadi tabel.', 'error');

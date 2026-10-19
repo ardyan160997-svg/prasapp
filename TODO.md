@@ -2149,3 +2149,37 @@ Menyesuaikan tampilan gambar model HP di admin PrasCell agar foto yang di-upload
 ### Result
 
 Selesai. Foto model HP yang di-upload kini mengisi wadah kartu secara fit penuh (cover) dengan latar belakang putih rapi, sementara kartu tanpa foto tetap mempertahankan ikon placeholder wireframe dan gradasi biru aslinya.
+
+---
+
+## TASK-031 — Tombol tambah spesifikasi di bawah tabel pada edit Database HP
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: medium
+- Risk: low
+- Dependencies: TASK-030
+
+### Objective
+
+Menambahkan tombol tambah baris spesifikasi (`+ Tambah Baris (Label)` dan `+ Tambah Baris (Nilai)`) di bagian bawah tabel spesifikasi pada form edit Database HP PrasCell agar teknisi/admin tidak perlu scroll ke atas saat menambah baris data spesifikasi baru.
+
+### Scope
+
+- `prascell/adminprascell/models.html`: tambahkan container `.spec-bottom-actions` berisi dua tombol tambah di bawah `#spec-rows`.
+- `prascell/adminprascell/app.js`: dukung event listener klik untuk tombol tambah atas dan bawah.
+- `prascell/adminprascell/styles.css`: styling `.spec-bottom-actions` responsif desktop & mobile.
+- `prascell/adminprascell/sw.js`: bump cache ke `adminprascell-v20`, `styles.css?v=23`, `app.js?v=14`.
+- `prascell/adminprascell/*.html`: update query asset.
+- `prascell/dist/adminprascell/`: sinkronisasi build artifact.
+
+### Validation
+
+- `git diff --check` bersih tanpa error.
+- Script build artifact `dist` berhasil tanpa error.
+- Tombol di bawah terhubung ke fungsi `addSpecificationField` yang otomatis menambahkan baris dan memfokuskan kursor ke input yang sesuai.
+
+### Result
+
+Selesai. Form edit Database HP kini menyediakan tombol tambah di bawah tabel spesifikasi sehingga pengisian spesifikasi panjang dapat dilanjutkan langsung dari baris terakhir tanpa scroll ke atas.
