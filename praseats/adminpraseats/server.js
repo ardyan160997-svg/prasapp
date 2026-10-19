@@ -150,10 +150,12 @@ function validFreeDeliveryQuote(token, memberId, subtotal, address) {
   } catch { return false; }
 }
 
-function validateProfilePhoto(value) {
+async function validateProfilePhoto(value) {
   if (!value) return '';
-  if (!/^data:image\/(?:jpeg|png|webp);base64,/.test(value) || value.length > 450000) throw new Error('Foto profil tidak valid atau terlalu besar');
-  return value;
+  const match = String(value).match(/^data:(image\/(?:jpeg|png|webp|avif));base64,(.+)$/);
+  if (!match || value.length > 450000) throw new Error('Foto profil tidak valid atau terlalu besar');
+  const converted = await toAvif(Buffer.from(match[2], 'base64'), { mimeType: match[1], maxWidth: 320, maxHeight: 320 });
+  return `data:image/avif;base64,${converted.toString('base64')}`;
 }
 
 async function query(sql, params = []) {
@@ -277,7 +279,7 @@ async function handle(req, res) {
       requireFields(body, ['name', 'whatsapp', 'password', 'homeAddress']);
       if (String(body.password).length < 6) throw new Error('Password minimal 6 karakter');
       const phone = normalizePhone(body.whatsapp);
-      const profilePhoto = validateProfilePhoto(body.profilePhoto);
+      const profilePhoto = await validateProfilePhoto(body.profilePhoto);
       const homeAddress = String(body.homeAddress || '').trim();
       const homeDetail = String(body.homeDetail || '').trim();
       if (pool) {
@@ -307,7 +309,7 @@ async function handle(req, res) {
       const wantsPhoto = Object.prototype.hasOwnProperty.call(body, 'profilePhoto');
       const wantsAddress = Object.prototype.hasOwnProperty.call(body, 'homeAddress');
       const wantsDetail = Object.prototype.hasOwnProperty.call(body, 'homeDetail');
-      const profilePhoto = wantsPhoto ? validateProfilePhoto(body.profilePhoto) : undefined;
+      const profilePhoto = wantsPhoto ? await validateProfilePhoto(body.profilePhoto) : undefined;
       const homeAddress = wantsAddress ? String(body.homeAddress || '').trim() : undefined;
       const homeDetail = wantsDetail ? String(body.homeDetail || '').trim() : undefined;
       if (pool) {
