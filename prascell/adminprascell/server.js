@@ -9,6 +9,7 @@ const PORT = Number(process.env.PORT || 3010);
 const STATIC_DIR = path.join(__dirname, 'dist');
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads', 'models');
 const GUIDE_UPLOAD_DIR = process.env.GUIDE_UPLOAD_DIR || path.join(__dirname, 'uploads', 'guides');
+const INVENTORY_UPLOAD_DIR = process.env.INVENTORY_UPLOAD_DIR || path.join(__dirname, 'uploads', 'inventory');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
@@ -266,11 +267,14 @@ async function ensureSchema() {
       sell_price integer NOT NULL DEFAULT 0 CHECK (sell_price >= 0),
       location text NOT NULL DEFAULT '',
       notes text NOT NULL DEFAULT '',
+      image_url text NOT NULL DEFAULT '',
       is_active boolean NOT NULL DEFAULT true,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
+  await db.query(`ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS image_url text NOT NULL DEFAULT ''`);
+  fs.mkdirSync(INVENTORY_UPLOAD_DIR, { recursive: true });
   await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_items_sku_unique ON inventory_items (upper(sku)) WHERE sku <> ''`);
   await db.query(`
     CREATE TABLE IF NOT EXISTS cashflow_entries (
@@ -512,6 +516,22 @@ async function uploadModelImage(data) {
   const result = await db.query(`UPDATE phone_models SET image_url=$2, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, imageUrl]);
   const oldUrl = current.rows[0].image_url || '';
   if (oldUrl.startsWith('/uploads/models/')) fs.rmSync(path.join(UPLOAD_DIR, path.basename(oldUrl)), { force: true });
+  return result.rows[0];
+}
+
+async function uploadInventoryImage(data) {
+  requireFields(data, ['id', 'mimeType', 'data']);
+  const { buffer, extension } = decodeImage(data);
+  const db = requireDb();
+  const current = await db.query(`SELECT image_url FROM inventory_items WHERE id=$1`, [data.id]);
+  if (!current.rowCount) throw new Error('Barang tidak ditemukan.');
+  fs.mkdirSync(INVENTORY_UPLOAD_DIR, { recursive: true });
+  const fileName = `${data.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
+  fs.writeFileSync(path.join(INVENTORY_UPLOAD_DIR, fileName), buffer, { flag: 'wx' });
+  const imageUrl = `/uploads/inventory/${fileName}`;
+  const result = await db.query(`UPDATE inventory_items SET image_url=$2, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, imageUrl]);
+  const oldUrl = current.rows[0].image_url || '';
+  if (oldUrl.startsWith('/uploads/inventory/')) fs.rmSync(path.join(INVENTORY_UPLOAD_DIR, path.basename(oldUrl)), { force: true });
   return result.rows[0];
 }
 
@@ -943,6 +963,7 @@ async function route(req, res) {
       if (url.pathname === '/api/admin/orders' && req.method === 'PATCH') return sendJson(res, { ok: true, order: await updateOrder(await readJson(req)) });
       if (url.pathname === '/api/admin/warranties' && req.method === 'PATCH') return sendJson(res, { ok: true, warranty: await updateWarranty(await readJson(req)) });
       if (url.pathname === '/api/admin/inventory' && ['POST', 'PATCH'].includes(req.method)) return sendJson(res, { ok: true, item: await upsertStock(await readJson(req)) });
+      if (url.pathname === '/api/admin/inventory/image' && req.method === 'POST') return sendJson(res, { ok: true, item: await uploadInventoryImage(await readJson(req)) });
       if (url.pathname === '/api/admin/inventory/use' && req.method === 'POST') return sendJson(res, { ok: true, movement: await useInventory(await readJson(req)) });
       if (url.pathname === '/api/admin/cashflow' && req.method === 'POST') return sendJson(res, { ok: true, entry: await createCashflow(await readJson(req)) });
       if (url.pathname === '/api/admin/members' && req.method === 'POST') return sendJson(res, { ok: true, member: await createMember(await readJson(req)) });
@@ -958,6 +979,14 @@ async function route(req, res) {
     if (req.method === 'GET' && url.pathname.startsWith('/uploads/guides/')) {
       const fileName = path.basename(url.pathname);
       const filePath = path.join(GUIDE_UPLOAD_DIR, fileName);
+      if (fileName && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.writeHead(200, { 'content-type': mime[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+        return fs.createReadStream(filePath).pipe(res);
+      }
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/uploads/inventory/')) {
+      const fileName = path.basename(url.pathname);
+      const filePath = path.join(INVENTORY_UPLOAD_DIR, fileName);
       if (fileName && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         res.writeHead(200, { 'content-type': mime[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
         return fs.createReadStream(filePath).pipe(res);
