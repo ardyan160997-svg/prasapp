@@ -2117,3 +2117,35 @@ Menambahkan ledger income/outcome yang terhubung dengan pembayaran order, purcha
 ### Result
 
 Selesai. Purchasing membuat outcome, status Lunas membuat income idempotent, pemakaian sparepart servis/garansi mengurangi stok dengan snapshot biaya tanpa menghitung outcome dua kali, dan ledger cashflow dapat mencatat transaksi manual.
+
+---
+
+## TASK-030 — Fit foto model HP yang diupload di admin PrasCell
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: medium
+- Risk: low
+- Dependencies: none
+
+### Objective
+
+Menyesuaikan tampilan gambar model HP di admin PrasCell agar foto yang di-upload tampil fit/cover penuh tanpa sisa ruang latar biru, sambil tetap mempertahankan ikon wireframe dan latar bawaan untuk model yang belum memiliki foto.
+
+### Scope
+
+- `prascell/adminprascell/styles.css`: ubah `.model-image img`, `.model-image-preview img`, dan `.model-detail-image img` menjadi `object-fit: cover` serta latar putih saat terdapat elemen `img`.
+- `prascell/adminprascell/sw.js`: bump cache ke `adminprascell-v19` dan `styles.css?v=22`.
+- `prascell/adminprascell/*.html`: perbarui query string stylesheet ke `styles.css?v=22`.
+- `prascell/dist/adminprascell/`: sinkronisasi build artifact.
+
+### Validation
+
+- `git diff --check` bersih tanpa error.
+- Script build artifact `dist` berhasil tanpa error.
+- Rule `.model-image:has(img)` dan `.model-detail-image:has(img)` hanya aktif saat elemen `img` hadir, sehingga ikon outline wireframe pada model tanpa gambar tetap memakai latar gradasi bawaan.
+
+### Result
+
+Selesai. Foto model HP yang di-upload kini mengisi wadah kartu secara fit penuh (cover) dengan latar belakang putih rapi, sementara kartu tanpa foto tetap mempertahankan ikon placeholder wireframe dan gradasi biru aslinya.
