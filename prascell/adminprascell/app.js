@@ -126,9 +126,17 @@ function syncSpecificationRows() {
 function addSpecificationRow(item = {}) {
   const row = document.createElement('div');
   row.className = 'spec-edit-row';
-  row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM" value="${escapeHtml(item.category || '')}"><input data-spec-label aria-label="Label" placeholder="Chipset" value="${escapeHtml(item.label || '')}"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)">${escapeHtml(item.value || '')}</textarea><span class="spec-row-actions"><button type="button" data-spec-add-after aria-label="Tambah baris setelah ini">+</button><button type="button" data-spec-remove aria-label="Hapus baris">×</button></span>`;
+  row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM" value="${escapeHtml(item.category || '')}"><input data-spec-label aria-label="Label" placeholder="Chipset" value="${escapeHtml(item.label || '')}"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)">${escapeHtml(item.value || '')}</textarea><span class="spec-row-actions"><button type="button" data-spec-remove aria-label="Hapus baris">×</button></span>`;
   qs('#spec-rows').append(row);
   syncSpecificationRows();
+  return row;
+}
+
+function addSpecificationField(type) {
+  const rows = specificationRows();
+  const category = [...rows].reverse().find((row) => row.category)?.category || '';
+  const row = addSpecificationRow({ category });
+  row.querySelector(type === 'label' ? '[data-spec-label]' : '[data-spec-value]').focus();
 }
 
 function renderSpecificationRows(rows = []) {
@@ -357,7 +365,8 @@ qs('#model-form').addEventListener('submit', async (event) => {
     toast(editing ? 'Model HP diperbarui' : 'Model HP ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
-qs('#spec-add')?.addEventListener('click', () => addSpecificationRow());
+qs('#spec-add-label')?.addEventListener('click', () => addSpecificationField('label'));
+qs('#spec-add-value')?.addEventListener('click', () => addSpecificationField('value'));
 qs('#spec-parse')?.addEventListener('click', () => {
   const rows = parseSpecificationText(qs('#spec-import').value);
   if (!rows.length) return toast('Belum ada spesifikasi yang dapat dibuat menjadi tabel.', 'error');
@@ -366,16 +375,6 @@ qs('#spec-parse')?.addEventListener('click', () => {
 });
 qs('#spec-rows')?.addEventListener('input', syncSpecificationRows);
 qs('#spec-rows')?.addEventListener('click', (event) => {
-  const add = event.target.closest('[data-spec-add-after]');
-  if (add) {
-    const row = document.createElement('div');
-    row.className = 'spec-edit-row';
-    row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM"><input data-spec-label aria-label="Label" placeholder="Chipset"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)"></textarea><span class="spec-row-actions"><button type="button" data-spec-add-after aria-label="Tambah baris setelah ini">+</button><button type="button" data-spec-remove aria-label="Hapus baris">×</button></span>`;
-    add.closest('.spec-edit-row').after(row);
-    syncSpecificationRows();
-    row.querySelector('[data-spec-label]').focus();
-    return;
-  }
   const remove = event.target.closest('[data-spec-remove]');
   if (!remove) return;
   remove.closest('.spec-edit-row').remove();
