@@ -25,7 +25,27 @@
       <header class="page-head"><div><p>Dashboard</p><h1>Operasional PrasCell</h1></div><button id="refresh">Refresh</button></header>
       <div id="stats" class="stats"></div>
 
-      <section id="models" class="card"><div class="card-heading"><div><h2>Database HP</h2><p class="section-note">Katalog spesifikasi perangkat dan referensi software servis.</p></div><a href="models.html" class="button-muted" style="text-decoration:none;display:inline-flex;align-items:center;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:900;">Kelola Database HP ›</a></div><div class="model-search"><input id="model-search" type="search" placeholder="Cari merek atau model HP (contoh: iPhone 11, Galaxy A55)..." autocomplete="off"></div><div id="model-list" class="model-grid"></div><div class="model-expand-wrap"><button id="model-toggle-all" type="button" class="model-toggle-btn">Buka Semua Database HP ▾</button></div></section>
+      <section id="models" class="card">
+        <div class="card-heading">
+          <div>
+            <h2>Database HP</h2>
+            <p class="section-note">Katalog spesifikasi perangkat dan referensi software servis.</p>
+          </div>
+          <a href="models.html" class="btn-outline-sm" style="text-decoration:none;">Kelola Database HP ›</a>
+        </div>
+        <div class="model-search-bar">
+          <span class="model-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5 17 17"/></svg>
+          </span>
+          <input id="model-search" type="search" placeholder="Cari merek atau model HP…" autocomplete="off">
+        </div>
+        <div id="model-list" class="model-grid"></div>
+        <div class="model-expand-wrap">
+          <button id="model-back-dashboard" type="button" class="model-dash-btn model-dash-btn-back hidden">← Kembali</button>
+          <button id="model-toggle-all" type="button" class="model-dash-btn">Lihat Semua Database HP ▾</button>
+        </div>
+        <div id="model-detail-dashboard" class="model-detail hidden"></div>
+      </section>
 
       <section id="orders" class="card"><div class="card-heading"><div><h2>Riwayat Servis / Order</h2><p class="section-note">Pantau order masuk, proses pengerjaan, pemakaian sparepart, dan status garansi.</p></div><a href="orders.html" class="button-muted" style="text-decoration:none;display:inline-flex;align-items:center;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:900;">Buka Halaman Order ›</a></div><div id="order-list" class="table-lite"></div></section>
     </section>

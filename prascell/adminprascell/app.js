@@ -5,6 +5,8 @@ let state = { members: [], models: [], services: [], orders: [], chats: [], stat
 let selectedModelId = '';
 let selectedServiceId = '';
 let modelExpanded = false;
+let dashboardDetailModel = null;
+
 
 const rupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
 const qs = (sel) => document.querySelector(sel);
@@ -52,6 +54,56 @@ function renderModels() {
   }
   qs('#model-list').innerHTML = state.models.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
 }
+
+function renderModelsDashboard() {
+  const searchEl = qs('#model-search');
+  const toggleBtn = qs('#model-toggle-all');
+  const backBtn = qs('#model-back-dashboard');
+  const detailEl = qs('#model-detail-dashboard');
+  if (!searchEl || !toggleBtn) return;
+
+  const query = String(searchEl.value || '').trim().toLowerCase();
+  const filtered = query
+    ? state.models.filter((m) => [m.brand, m.model].some((v) => String(v || '').toLowerCase().includes(query)))
+    : state.models;
+  const LIMIT = 6;
+  const shown = modelExpanded || query ? filtered : filtered.slice(0, LIMIT);
+
+  qs('#model-list').innerHTML = shown.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view-dash="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Tidak ada model yang cocok.</p>';
+
+  const hiddenCount = filtered.length - LIMIT;
+  if (modelExpanded || query) {
+    toggleBtn.textContent = 'Tutup ▴';
+  } else {
+    toggleBtn.textContent = hiddenCount > 0 ? `Lihat Semua (${filtered.length}) ▾` : 'Lihat Semua Database HP ▾';
+  }
+  toggleBtn.classList.toggle('hidden', filtered.length <= LIMIT && !modelExpanded);
+  if (backBtn) backBtn.classList.add('hidden');
+  if (detailEl) detailEl.classList.add('hidden');
+  dashboardDetailModel = null;
+}
+
+function showDashboardModelDetail(model) {
+  if (!model) return;
+  dashboardDetailModel = model;
+  const detailEl = qs('#model-detail-dashboard');
+  const backBtn = qs('#model-back-dashboard');
+  if (!detailEl) return;
+
+  let category = '';
+  const specifications = (model.specification_rows || []).map((row) => {
+    const showCategory = row.category !== category;
+    category = row.category;
+    return `<div class="spec-view-row ${showCategory ? 'spec-view-group' : ''}"><b>${showCategory ? escapeHtml(row.category) : ''}</b><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.value)}</span></div>`;
+  }).join('') || '<p class="muted">Belum ada spesifikasi.</p>';
+  const links = (model.software_links || []).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)} ↗</a>`).join('') || '<p class="muted">Belum ada link software.</p>';
+
+  detailEl.innerHTML = `<header class="model-detail-head"><span class="model-detail-image">${model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="${escapeHtml(`${model.brand} ${model.model}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(model.brand)}</small><h3>${escapeHtml(model.model)}</h3><p>${escapeHtml(model.notes || 'Tanpa catatan')}</p></div></header><section><h3>Spesifikasi HP</h3><div class="spec-view">${specifications}</div></section><section><h3>Download Software</h3><div class="model-software-links">${links}</div></section>`;
+  detailEl.classList.remove('hidden');
+  if (backBtn) backBtn.classList.remove('hidden');
+  requestAnimationFrame(() => window.scrollTo({ top: qs('#models').getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
+}
+
 
 function setModelPage(mode, model) {
   const browsing = mode === 'browse';
@@ -297,8 +349,15 @@ function renderChats() {
 }
 
 function render() {
-  stats(); renderModels(); renderServices(); renderOrders(); renderMembers(); renderChats();
+  stats();
+  if (document.body.classList.contains('admin-page-dashboard')) {
+    renderModelsDashboard();
+  } else {
+    renderModels();
+  }
+  renderServices(); renderOrders(); renderMembers(); renderChats();
 }
+
 
 async function loadDashboard() {
   const data = await api('/api/admin/dashboard');
@@ -401,6 +460,8 @@ qs('#model-archive').addEventListener('click', async () => {
   try { await api('/api/admin/models', { method: 'DELETE', body: JSON.stringify({ id }) }); resetModelForm(); await loadDashboard(); toast('Model HP dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
 });
 qs('#model-list').addEventListener('click', (event) => {
+  const viewDash = event.target.closest('[data-model-view-dash]');
+  if (viewDash) { showDashboardModelDetail(state.models.find((model) => model.id === viewDash.dataset.modelViewDash)); return; }
   const view = event.target.closest('[data-model-view]');
   if (view) showModelDetail(state.models.find((model) => model.id === view.dataset.modelView));
 });
@@ -408,6 +469,24 @@ qs('#model-detail')?.addEventListener('click', (event) => {
   const edit = event.target.closest('[data-model-edit]');
   if (edit) fillModelForm(state.models.find((model) => model.id === edit.dataset.modelEdit));
 });
+qs('#model-toggle-all')?.addEventListener('click', () => {
+  modelExpanded = !modelExpanded;
+  renderModelsDashboard();
+});
+qs('#model-back-dashboard')?.addEventListener('click', () => {
+  dashboardDetailModel = null;
+  const detailEl = qs('#model-detail-dashboard');
+  const backBtn = qs('#model-back-dashboard');
+  if (detailEl) detailEl.classList.add('hidden');
+  if (backBtn) backBtn.classList.add('hidden');
+});
+qs('#model-search')?.addEventListener('input', () => {
+  if (document.body.classList.contains('admin-page-dashboard')) {
+    modelExpanded = false;
+    renderModelsDashboard();
+  }
+});
+
 qs('#service-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const body = Object.fromEntries(new FormData(event.target).entries());
