@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { Pool } = require('pg');
 const webPush = require('web-push');
 const { calculateDeliveryFee, routeDistanceFromStore, STORE_LOCATION } = require('./delivery');
+const { toAvif } = require('../../shared/image-converter');
 
 const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = path.join(__dirname, 'dist');
@@ -1882,8 +1883,9 @@ async function uploadPublicImage(req, res, prefix) {
   if (!['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(ext)) return sendJson(res, { error: 'Format tidak didukung (jpg, png, webp, avif).' }, 400);
   if (!String(filePart.contentType || '').startsWith('image/')) return sendJson(res, { error: 'File harus berupa gambar.' }, 400);
 
-  const safeName = `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, safeName), filePart.data);
+  const safeName = `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.avif`;
+  const converted = await toAvif(filePart.data, { mimeType: filePart.contentType });
+  fs.writeFileSync(path.join(UPLOAD_DIR, safeName), converted);
   return sendJson(res, { ok: true, url: `/uploads/${safeName}` }, 201);
 }
 
@@ -1948,9 +1950,10 @@ async function uploadPhoto(req, res, url) {
   const ext = path.extname(filePart.filename).toLowerCase();
   if (!['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(ext)) return sendJson(res, { error: 'Format tidak didukung (jpg, png, webp, avif).' }, 400);
 
-  const safeName = `${itemId}-${stage}-${Date.now()}${ext}`;
+  const safeName = `${itemId}-${stage}-${Date.now()}.avif`;
   const filePath = path.join(UPLOAD_DIR, safeName);
-  fs.writeFileSync(filePath, filePart.data);
+  const converted = await toAvif(filePart.data, { mimeType: filePart.contentType });
+  fs.writeFileSync(filePath, converted);
 
   const photoUrl = `/uploads/${safeName}`;
 

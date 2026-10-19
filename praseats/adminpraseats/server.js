@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const webpush = require('web-push');
+const { toAvif } = require('../../shared/image-converter');
 const {
   normalizePhone,
   makeOrderCode,
@@ -48,26 +49,24 @@ const fallback = {
   dailyMenuIds: [1, 2, 3],
 };
 
-function saveMenuImage(body) {
+async function saveMenuImage(body) {
   if (!body.imageData) return body.imageUrl || '';
   const match = String(body.imageData).match(/^data:(image\/(?:png|jpe?g|webp|avif));base64,(.+)$/);
   if (!match) throw new Error('Format gambar tidak valid');
   const buffer = Buffer.from(match[2], 'base64');
   if (buffer.length > 3 * 1024 * 1024) throw new Error('Ukuran gambar maksimal 3MB');
-  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[match[1]];
-  const name = `menu-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, name), buffer);
+  const name = `menu-${Date.now()}-${Math.random().toString(36).slice(2)}.avif`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), await toAvif(buffer, { mimeType: match[1] }));
   return `/uploads/${name}`;
 }
 
-function savePaymentProof(imageData) {
+async function savePaymentProof(imageData) {
   const match = String(imageData || '').match(/^data:(image\/(?:png|jpe?g|webp|avif));base64,(.+)$/);
   if (!match) throw new Error('Bukti pembayaran wajib berupa gambar');
   const buffer = Buffer.from(match[2], 'base64');
   if (!buffer.length || buffer.length > 3 * 1024 * 1024) throw new Error('Ukuran bukti pembayaran maksimal 3MB');
-  const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[match[1]];
-  const name = `payment-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, name), buffer);
+  const name = `payment-${Date.now()}-${Math.random().toString(36).slice(2)}.avif`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), await toAvif(buffer, { mimeType: match[1] }));
   return `/uploads/${name}`;
 }
 
@@ -444,7 +443,7 @@ async function handle(req, res) {
         body.whatsapp = identity.phone;
       }
       if (!items.length) throw new Error('Keranjang kosong');
-      const paymentProofUrl = requiresProof ? savePaymentProof(body.paymentProofData) : '';
+      const paymentProofUrl = requiresProof ? await savePaymentProof(body.paymentProofData) : '';
       const subtotal = calculateCart(items, 0).subtotal;
       const freeDelivery = body.fulfillmentType === 'delivery' && identity && subtotal >= FREE_DELIVERY_MINIMUM && validFreeDeliveryQuote(body.deliveryQuoteToken, identity.id, subtotal, body.address);
       const deliveryFee = body.fulfillmentType === 'delivery' && !freeDelivery ? 5000 : 0;
@@ -515,7 +514,7 @@ async function handle(req, res) {
     }
     if (url.pathname === '/api/admin/menus' && req.method === 'POST') {
       needAuth(req); const body = await readBody(req); requireFields(body, ['brandId', 'name', 'price']);
-      const imageUrl = saveMenuImage(body);
+      const imageUrl = await saveMenuImage(body);
       if (pool) await query('INSERT INTO menus(brand_id,name,description,category,price,image_url,is_available) VALUES($1,$2,$3,$4,$5,$6,true)', [body.brandId, body.name, body.description || '', body.category || '', Number(body.price), imageUrl]);
       else fallback.menus.push({ id: Date.now(), brand_id: Number(body.brandId), brand_name: fallback.brands.find((brand) => String(brand.id) === String(body.brandId))?.name || '', name: body.name, description: body.description || '', category: body.category || '', price: Number(body.price), image_url: imageUrl, is_available: true });
       return json(res, 200, { ok: true });
@@ -524,7 +523,7 @@ async function handle(req, res) {
       needAuth(req); const body = await readBody(req);
       if (body.name || body.brandId || body.price !== undefined || body.description !== undefined || body.imageData) {
         requireFields(body, ['id', 'brandId', 'name', 'price']);
-        const imageUrl = body.imageData ? saveMenuImage(body) : (body.imageUrl || '');
+        const imageUrl = body.imageData ? await saveMenuImage(body) : (body.imageUrl || '');
         if (pool) {
           const current = (await query('SELECT image_url FROM menus WHERE id=$1', [body.id])).rows[0] || {};
           await query('UPDATE menus SET brand_id=$1,name=$2,description=$3,category=$4,price=$5,image_url=$6 WHERE id=$7', [body.brandId, body.name, body.description || '', '', Number(body.price), imageUrl || current.image_url || '', body.id]);

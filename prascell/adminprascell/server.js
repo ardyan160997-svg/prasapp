@@ -4,6 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { Pool } = require('pg');
 const { normalizePhone, makeOrderCode, estimateTotal, requireFields, ORDER_STATUSES } = require('./domain');
+const { toAvif } = require('../../shared/image-converter');
 
 const PORT = Number(process.env.PORT || 3010);
 const STATIC_DIR = path.join(__dirname, 'dist');
@@ -505,13 +506,14 @@ function decodeImage(data) {
 
 async function uploadModelImage(data) {
   requireFields(data, ['id', 'mimeType', 'data']);
-  const { buffer, extension } = decodeImage(data);
+  const { buffer } = decodeImage(data);
   const db = requireDb();
   const current = await db.query(`SELECT image_url FROM phone_models WHERE id=$1`, [data.id]);
   if (!current.rowCount) throw new Error('Model HP tidak ditemukan.');
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  const fileName = `${data.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, fileName), buffer, { flag: 'wx' });
+  const fileName = `${data.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.avif`;
+  const converted = await toAvif(buffer, { mimeType: data.mimeType });
+  fs.writeFileSync(path.join(UPLOAD_DIR, fileName), converted, { flag: 'wx' });
   const imageUrl = `/uploads/models/${fileName}`;
   const result = await db.query(`UPDATE phone_models SET image_url=$2, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, imageUrl]);
   const oldUrl = current.rows[0].image_url || '';
@@ -521,13 +523,14 @@ async function uploadModelImage(data) {
 
 async function uploadInventoryImage(data) {
   requireFields(data, ['id', 'mimeType', 'data']);
-  const { buffer, extension } = decodeImage(data);
+  const { buffer } = decodeImage(data);
   const db = requireDb();
   const current = await db.query(`SELECT image_url FROM inventory_items WHERE id=$1`, [data.id]);
   if (!current.rowCount) throw new Error('Barang tidak ditemukan.');
   fs.mkdirSync(INVENTORY_UPLOAD_DIR, { recursive: true });
-  const fileName = `${data.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
-  fs.writeFileSync(path.join(INVENTORY_UPLOAD_DIR, fileName), buffer, { flag: 'wx' });
+  const fileName = `${data.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.avif`;
+  const converted = await toAvif(buffer, { mimeType: data.mimeType });
+  fs.writeFileSync(path.join(INVENTORY_UPLOAD_DIR, fileName), converted, { flag: 'wx' });
   const imageUrl = `/uploads/inventory/${fileName}`;
   const result = await db.query(`UPDATE inventory_items SET image_url=$2, updated_at=now() WHERE id=$1 RETURNING *`, [data.id, imageUrl]);
   const oldUrl = current.rows[0].image_url || '';
@@ -542,13 +545,14 @@ function removeGuideFile(url) {
 async function uploadGuideImage(data) {
   requireFields(data, ['id', 'type', 'mimeType', 'data']);
   const type = data.type === 'disassembly' ? 'disassembly' : guideMediaField(data.type);
-  const { buffer, extension } = decodeImage(data);
+  const { buffer } = decodeImage(data);
   const db = requireDb();
   const current = await db.query(`SELECT * FROM repair_services WHERE id=$1`, [data.id]);
   if (!current.rowCount) throw new Error('Masalah servis tidak ditemukan.');
   fs.mkdirSync(GUIDE_UPLOAD_DIR, { recursive: true });
-  const fileName = `${data.id}-${data.type}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`;
-  fs.writeFileSync(path.join(GUIDE_UPLOAD_DIR, fileName), buffer, { flag: 'wx' });
+  const fileName = `${data.id}-${data.type}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.avif`;
+  const converted = await toAvif(buffer, { mimeType: data.mimeType });
+  fs.writeFileSync(path.join(GUIDE_UPLOAD_DIR, fileName), converted, { flag: 'wx' });
   const imageUrl = `/uploads/guides/${fileName}`;
   if (data.type === 'disassembly') {
     const images = normalizeDisassembly(current.rows[0].disassembly_images);
