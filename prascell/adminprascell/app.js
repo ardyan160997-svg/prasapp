@@ -4,6 +4,7 @@ let token = localStorage.getItem(tokenKey) || '';
 let state = { members: [], models: [], services: [], orders: [], chats: [], statuses: [] };
 let selectedModelId = '';
 let selectedServiceId = '';
+let modelExpanded = false;
 
 const rupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
 const qs = (sel) => document.querySelector(sel);
@@ -38,8 +39,6 @@ function stats() {
     ['Order', state.orders.length],
     ['Baru', state.orders.filter((o) => o.status === 'baru').length],
     ['Dikerjakan', state.orders.filter((o) => o.status === 'dikerjakan').length],
-    ['Member', state.members.length],
-    ['Panduan', state.services.length],
   ];
   qs('#stats').innerHTML = items.map(([label, value]) => `<div class="stat"><small>${label}</small><strong>${value}</strong></div>`).join('');
 }
@@ -78,7 +77,7 @@ function showModelDetail(model) {
     return `<div class="spec-view-row ${showCategory ? 'spec-view-group' : ''}"><b>${showCategory ? escapeHtml(row.category) : ''}</b><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.value)}</span></div>`;
   }).join('') || '<p class="muted">Belum ada spesifikasi.</p>';
   const links = (model.software_links || []).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)} ↗</a>`).join('') || '<p class="muted">Belum ada link software.</p>';
-  detail.innerHTML = `<header class="model-detail-head"><span class="model-detail-image">${model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="${escapeHtml(`${model.brand} ${model.model}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(model.brand)}</small><h3>${escapeHtml(model.model)}</h3><p>${escapeHtml(model.notes || 'Tanpa catatan')}</p></div><button type="button" data-model-edit="${model.id}">Edit</button></header><section><h3>Spesifikasi HP</h3><div class="spec-view">${specifications}</div></section><section><h3>Download Software</h3><div class="model-software-links">${links}</div></section>`;
+  detail.innerHTML = `<header class="model-detail-head"><span class="model-detail-image">${model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="${escapeHtml(`${model.brand} ${model.model}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(model.brand)}</small><h3>${escapeHtml(model.model)}</h3><p>${escapeHtml(model.notes || 'Tanpa catatan')}</p></div></header><section><h3>Spesifikasi HP</h3><div class="spec-view">${specifications}</div></section><section><h3>Download Software</h3><div class="model-software-links">${links}</div></section>`;
   detail.classList.remove('hidden');
   requestAnimationFrame(() => window.scrollTo({ top: qs('#models').getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
 }
