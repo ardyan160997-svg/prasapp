@@ -2,6 +2,8 @@ const API = '';
 const tokenKey = 'prascell_admin_token';
 let token = localStorage.getItem(tokenKey) || '';
 let state = { members: [], models: [], services: [], orders: [], chats: [], statuses: [] };
+let selectedModelId = '';
+let selectedServiceId = '';
 
 const rupiah = (value) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
 const qs = (sel) => document.querySelector(sel);
@@ -49,11 +51,41 @@ function renderModels() {
     select.innerHTML = '<option value="">Pilih model HP</option>' + state.models.filter((m) => m.is_active).map((m) => `<option value="${m.id}">${escapeHtml(m.brand)} ${escapeHtml(m.model)}</option>`).join('');
     if ([...select.options].some((option) => option.value === selected)) select.value = selected;
   }
-  qs('#model-list').innerHTML = state.models.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-edit="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+  qs('#model-list').innerHTML = state.models.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+}
+
+function setModelPage(mode, model) {
+  const browsing = mode === 'browse';
+  qs('#model-page-title').textContent = browsing ? 'Database HP' : model ? `${model.brand} ${model.model}` : 'Tambahkan Model';
+  qs('#model-page-eyebrow').textContent = browsing ? 'Database perangkat' : mode === 'detail' ? 'Detail perangkat' : model ? 'Edit perangkat' : 'Model baru';
+  qs('#model-back').classList.toggle('hidden', browsing);
+  qs('#model-add').classList.toggle('hidden', !browsing);
+  qs('#model-browser').classList.toggle('hidden', !browsing);
+  qs('#model-detail').classList.toggle('hidden', mode !== 'detail');
+  qs('#model-editor').classList.toggle('hidden', mode !== 'edit');
+}
+
+function showModelDetail(model) {
+  if (!model) return;
+  selectedModelId = model.id;
+  resetModelForm(false);
+  setModelPage('detail', model);
+  const detail = qs('#model-detail');
+  let category = '';
+  const specifications = (model.specification_rows || []).map((row) => {
+    const showCategory = row.category !== category;
+    category = row.category;
+    return `<div class="spec-view-row ${showCategory ? 'spec-view-group' : ''}"><b>${showCategory ? escapeHtml(row.category) : ''}</b><strong>${escapeHtml(row.label)}</strong><span>${escapeHtml(row.value)}</span></div>`;
+  }).join('') || '<p class="muted">Belum ada spesifikasi.</p>';
+  const links = (model.software_links || []).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)} ↗</a>`).join('') || '<p class="muted">Belum ada link software.</p>';
+  detail.innerHTML = `<header class="model-detail-head"><span class="model-detail-image">${model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="${escapeHtml(`${model.brand} ${model.model}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(model.brand)}</small><h3>${escapeHtml(model.model)}</h3><p>${escapeHtml(model.notes || 'Tanpa catatan')}</p></div><button type="button" data-model-edit="${model.id}">Edit</button></header><section><h3>Spesifikasi HP</h3><div class="spec-view">${specifications}</div></section><section><h3>Download Software</h3><div class="model-software-links">${links}</div></section>`;
+  detail.classList.remove('hidden');
+  requestAnimationFrame(() => window.scrollTo({ top: qs('#models').getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
 }
 
 function fillModelForm(model) {
   const form = qs('#model-form');
+  setModelPage('edit', model);
   form.classList.remove('hidden');
   for (const [name, value] of Object.entries({ id: model.id, brand: model.brand, model: model.model, notes: model.notes, softwareLinksText: (model.software_links || []).map((item) => `${item.label} | ${item.url}`).join('\n') })) form.elements[name].value = value ?? '';
   renderSpecificationRows(model.specification_rows || []);
@@ -65,7 +97,7 @@ function fillModelForm(model) {
   requestAnimationFrame(() => window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
 }
 
-function resetModelForm() {
+function resetModelForm(hideDetail = true) {
   const form = qs('#model-form');
   form.reset();
   form.elements.id.value = '';
@@ -76,6 +108,7 @@ function resetModelForm() {
   qs('#model-archive').classList.add('hidden');
   form.querySelector('button[type="submit"]').textContent = 'Simpan Model';
   form.classList.add('hidden');
+  if (hideDetail) qs('#model-detail').classList.add('hidden');
 }
 
 function specificationRows() {
@@ -93,7 +126,7 @@ function syncSpecificationRows() {
 function addSpecificationRow(item = {}) {
   const row = document.createElement('div');
   row.className = 'spec-edit-row';
-  row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM" value="${escapeHtml(item.category || '')}"><input data-spec-label aria-label="Label" placeholder="Chipset" value="${escapeHtml(item.label || '')}"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)">${escapeHtml(item.value || '')}</textarea><button type="button" data-spec-remove aria-label="Hapus baris">×</button>`;
+  row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM" value="${escapeHtml(item.category || '')}"><input data-spec-label aria-label="Label" placeholder="Chipset" value="${escapeHtml(item.label || '')}"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)">${escapeHtml(item.value || '')}</textarea><span class="spec-row-actions"><button type="button" data-spec-add-after aria-label="Tambah baris setelah ini">+</button><button type="button" data-spec-remove aria-label="Hapus baris">×</button></span>`;
   qs('#spec-rows').append(row);
   syncSpecificationRows();
 }
@@ -140,14 +173,14 @@ function renderServices() {
   const guides = document.body.classList.contains('admin-page-guides');
   const list = qs('#service-list');
   list.className = 'service-grid';
-  const query = guides ? String(qs('#guide-search')?.value || '').trim().toLowerCase() : '';
+  const query = String(qs('#service-search')?.value || '').trim().toLowerCase();
   const services = query ? state.services.filter((service) => [service.brand, service.model, service.issue_category, service.issue_name].some((value) => String(value || '').toLowerCase().includes(query))) : state.services;
   list.innerHTML = services.map((service) => {
     const model = state.models.find((item) => item.id === service.phone_model_id);
     const image = model?.image_url;
     const guideReady = Boolean(service.repair_method || service.symptoms || service.cause);
-    return `<button class="service-card ${service.is_active ? '' : 'row-inactive'}" type="button" data-service-edit="${service.id}"><span class="service-card-image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(`${service.brand || ''} ${service.model || ''}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="service-card-copy"><small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><strong>${escapeHtml(service.issue_name)}</strong></span><span class="service-card-category">${escapeHtml(service.issue_category || 'hardware')}</span><span class="service-card-footer"><span class="service-card-state">${guides ? (guideReady ? 'Panduan tersedia' : 'Belum diisi') : rupiah(service.price_min)}</span><span class="service-card-open">Buka ›</span></span></button>`;
-  }).join('') || '<p class="muted">Belum ada data servis.</p>';
+    return `<button class="service-card ${service.is_active ? '' : 'row-inactive'}" type="button" data-service-view="${service.id}"><span class="service-card-image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(`${service.brand || ''} ${service.model || ''}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="service-card-copy"><small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><strong>${escapeHtml(service.issue_name)}</strong></span><span class="service-card-category">${escapeHtml(service.issue_category || 'hardware')}</span><span class="service-card-footer"><span class="service-card-state">${guides ? (guideReady ? 'Panduan tersedia' : 'Belum diisi') : rupiah(service.price_min)}</span><span class="service-card-open">Buka ›</span></span></button>`;
+  }).join('') || `<p class="muted">${query ? 'Tidak ada data yang cocok.' : 'Belum ada data servis.'}</p>`;
 }
 
 function guideImagePreview(id, url, label) {
@@ -169,9 +202,40 @@ function renderGuideMedia(service) {
   renderDisassembly(service);
 }
 
+function setServicePage(mode, service) {
+  const guides = document.body.classList.contains('admin-page-guides');
+  const browsing = mode === 'browse';
+  const title = guides ? 'Panduan Teknisi' : 'Biaya Servis';
+  qs('#service-page-title').textContent = browsing ? title : service ? `${service.brand || 'Umum'} ${service.model || ''}`.trim() : 'Tambah Biaya Servis';
+  qs('#service-page-eyebrow').textContent = browsing ? (guides ? 'Referensi teknisi' : 'Estimasi layanan') : mode === 'detail' ? escapeHtml(service?.issue_name || 'Detail layanan') : guides ? 'Edit panduan' : service ? 'Edit biaya' : 'Biaya baru';
+  qs('#service-back').classList.toggle('hidden', browsing);
+  qs('#service-add')?.classList.toggle('hidden', !browsing);
+  qs('#service-browser').classList.toggle('hidden', !browsing);
+  qs('#service-detail').classList.toggle('hidden', mode !== 'detail');
+  qs('#service-editor').classList.toggle('hidden', mode !== 'edit');
+}
+
+function showServiceDetail(service) {
+  if (!service) return;
+  const guides = document.body.classList.contains('admin-page-guides');
+  selectedServiceId = service.id;
+  resetServiceForm();
+  setServicePage('detail', service);
+  const model = state.models.find((item) => item.id === service.phone_model_id);
+  const image = model?.image_url;
+  const facts = guides
+    ? [['Gejala', service.symptoms], ['Penyebab', service.cause], ['Tindakan / Perbaikan', service.repair_method], ['Catatan Bongkar Pasang', service.assembly_steps], ['Alat', service.tools], ['Spare Part', service.spare_parts]]
+    : [['Kategori', service.issue_category], ['Harga Minimum', rupiah(service.price_min)], ['Harga Maksimum', rupiah(service.price_max)], ['Estimasi Waktu', service.duration_estimate], ['Garansi', service.warranty_enabled ? `${service.warranty_days || 0} hari · ${service.warranty_scope || 'jasa'}` : 'Tidak ada'], ['Syarat Garansi', service.warranty_terms], ['Pengecualian', service.warranty_exclusions]];
+  const rows = facts.filter(([, value]) => value !== null && value !== undefined && value !== '').map(([label, value]) => `<div><small>${escapeHtml(label)}</small><p>${escapeHtml(value)}</p></div>`).join('') || '<p class="muted">Detail belum diisi.</p>';
+  qs('#service-detail').innerHTML = `<header class="service-detail-head"><span class="model-detail-image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(`${service.brand || ''} ${service.model || ''}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(service.issue_category || 'Layanan')}</small><h3>${escapeHtml(service.issue_name)}</h3><p>${escapeHtml(`${service.brand || 'Umum'} ${service.model || ''}`.trim())}</p></div><button type="button" data-service-edit="${service.id}">Edit</button></header><section class="service-detail-facts">${rows}</section>`;
+  requestAnimationFrame(() => window.scrollTo({ top: qs('#services').getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
+}
+
 function fillServiceForm(service) {
   const form = qs('#service-form');
   const guides = document.body.classList.contains('admin-page-guides');
+  selectedServiceId = service.id;
+  setServicePage('edit', service);
   form.classList.remove('hidden');
   for (const [name, value] of Object.entries({ id: service.id, phoneModelId: service.phone_model_id, issueCategory: service.issue_category || 'hardware', issueName: service.issue_name, priceMin: service.price_min, priceMax: service.price_max, durationEstimate: service.duration_estimate, symptoms: service.symptoms, cause: service.cause, repairMethod: service.repair_method, assemblySteps: service.assembly_steps, tools: service.tools, spareParts: service.spare_parts, warrantyDays: service.warranty_days, warrantyScope: service.warranty_scope, warrantyTerms: service.warranty_terms, warrantyExclusions: service.warranty_exclusions })) {
     if (form.elements[name]) form.elements[name].value = value ?? '';
@@ -274,7 +338,8 @@ qs('#login-form').addEventListener('submit', async (event) => {
 });
 
 qs('#refresh').addEventListener('click', () => loadDashboard().then(() => toast('Data diperbarui')).catch((e) => toast(e.message, 'error')));
-qs('#model-add').addEventListener('click', () => { resetModelForm(); qs('#model-form').classList.remove('hidden'); });
+qs('#model-add').addEventListener('click', () => { selectedModelId = ''; resetModelForm(); setModelPage('edit'); qs('#model-form').classList.remove('hidden'); });
+qs('#model-back')?.addEventListener('click', () => { selectedModelId = ''; resetModelForm(); setModelPage('browse'); });
 qs('#model-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
@@ -288,43 +353,58 @@ qs('#model-form').addEventListener('submit', async (event) => {
     if (file) await api('/api/admin/models/image', { method: 'POST', body: JSON.stringify({ id: saved.model.id, mimeType: file.type, data: await imageData(file) }) });
     resetModelForm();
     await loadDashboard();
+    showModelDetail(state.models.find((model) => model.id === saved.model.id));
     toast(editing ? 'Model HP diperbarui' : 'Model HP ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
-qs('#spec-add').addEventListener('click', () => addSpecificationRow());
-qs('#spec-parse').addEventListener('click', () => {
+qs('#spec-add')?.addEventListener('click', () => addSpecificationRow());
+qs('#spec-parse')?.addEventListener('click', () => {
   const rows = parseSpecificationText(qs('#spec-import').value);
   if (!rows.length) return toast('Belum ada spesifikasi yang dapat dibuat menjadi tabel.', 'error');
   renderSpecificationRows(rows);
   toast(`${rows.length} baris spesifikasi dibuat`);
 });
-qs('#spec-rows').addEventListener('input', syncSpecificationRows);
-qs('#spec-rows').addEventListener('click', (event) => {
+qs('#spec-rows')?.addEventListener('input', syncSpecificationRows);
+qs('#spec-rows')?.addEventListener('click', (event) => {
+  const add = event.target.closest('[data-spec-add-after]');
+  if (add) {
+    const row = document.createElement('div');
+    row.className = 'spec-edit-row';
+    row.innerHTML = `<input data-spec-category aria-label="Kategori" placeholder="PLATFORM"><input data-spec-label aria-label="Label" placeholder="Chipset"><textarea data-spec-value aria-label="Nilai" rows="2" placeholder="XRing O3 (3 nm)"></textarea><span class="spec-row-actions"><button type="button" data-spec-add-after aria-label="Tambah baris setelah ini">+</button><button type="button" data-spec-remove aria-label="Hapus baris">×</button></span>`;
+    add.closest('.spec-edit-row').after(row);
+    syncSpecificationRows();
+    row.querySelector('[data-spec-label]').focus();
+    return;
+  }
   const remove = event.target.closest('[data-spec-remove]');
   if (!remove) return;
   remove.closest('.spec-edit-row').remove();
   if (!qs('#spec-rows').children.length) addSpecificationRow();
   syncSpecificationRows();
 });
-qs('#model-form [name="softwareLinksText"]').addEventListener('input', (event) => renderSoftwarePreview(event.target.value));
-qs('#model-form [name="image"]').addEventListener('change', (event) => {
+qs('#model-form [name="softwareLinksText"]')?.addEventListener('input', (event) => renderSoftwarePreview(event.target.value));
+qs('#model-form [name="image"]')?.addEventListener('change', (event) => {
   const file = event.target.files[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) { event.target.value = ''; return toast('Ukuran gambar maksimal 2 MB.', 'error'); }
   qs('#model-image-preview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Preview gambar HP">`;
 });
-qs('#model-cancel').addEventListener('click', resetModelForm);
+qs('#model-cancel').addEventListener('click', () => {
+  const model = state.models.find((item) => item.id === selectedModelId);
+  model ? showModelDetail(model) : resetModelForm();
+});
 qs('#model-archive').addEventListener('click', async () => {
   const id = qs('#model-form').elements.id.value;
   if (!id || !confirm('Nonaktifkan model ini dari halaman estimasi? Data biaya, panduan, dan histori tetap tersimpan.')) return;
   try { await api('/api/admin/models', { method: 'DELETE', body: JSON.stringify({ id }) }); resetModelForm(); await loadDashboard(); toast('Model HP dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
 });
-qs('#model-list').addEventListener('click', async (event) => {
+qs('#model-list').addEventListener('click', (event) => {
+  const view = event.target.closest('[data-model-view]');
+  if (view) showModelDetail(state.models.find((model) => model.id === view.dataset.modelView));
+});
+qs('#model-detail')?.addEventListener('click', (event) => {
   const edit = event.target.closest('[data-model-edit]');
-  if (edit) return fillModelForm(state.models.find((model) => model.id === edit.dataset.modelEdit));
-  const archive = event.target.closest('[data-model-archive]');
-  if (!archive || !confirm('Nonaktifkan model ini dari halaman estimasi? Data layanan dan histori tetap tersimpan.')) return;
-  try { await api('/api/admin/models', { method: 'DELETE', body: JSON.stringify({ id: archive.dataset.modelArchive }) }); await loadDashboard(); toast('Model HP dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
+  if (edit) fillModelForm(state.models.find((model) => model.id === edit.dataset.modelEdit));
 });
 qs('#service-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -333,28 +413,43 @@ qs('#service-form').addEventListener('submit', async (event) => {
   const guides = document.body.classList.contains('admin-page-guides');
   if (!guides) body.warrantyEnabled = Boolean(event.target.elements.warrantyEnabled?.checked);
   try {
-    await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) });
-    if (guides) await saveDisassembly(body.id);
+    const saved = await api('/api/admin/services', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+    if (guides) await saveDisassembly(saved.service.id);
     resetServiceForm();
     await loadDashboard();
+    showServiceDetail(state.services.find((service) => service.id === saved.service.id));
     toast(guides ? 'Panduan diperbarui' : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
-qs('#service-cancel').addEventListener('click', resetServiceForm);
-qs('#service-add')?.addEventListener('click', () => { resetServiceForm(); qs('#service-form').classList.remove('hidden'); });
+qs('#service-cancel').addEventListener('click', () => {
+  const service = state.services.find((item) => item.id === selectedServiceId);
+  service ? showServiceDetail(service) : setServicePage('browse');
+});
+qs('#service-add')?.addEventListener('click', () => {
+  selectedServiceId = '';
+  resetServiceForm();
+  setServicePage('edit');
+  qs('#service-form').classList.remove('hidden');
+});
 qs('#service-archive')?.addEventListener('click', async () => {
   const id = qs('#service-form').elements.id.value;
   if (!id || !confirm('Nonaktifkan masalah ini dari halaman estimasi? Data tetap tersimpan.')) return;
   try { await api('/api/admin/services', { method: 'DELETE', body: JSON.stringify({ id }) }); resetServiceForm(); await loadDashboard(); toast('Masalah dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
 });
-qs('#service-list').addEventListener('click', async (event) => {
-  const edit = event.target.closest('[data-service-edit]');
-  if (edit) return fillServiceForm(state.services.find((service) => service.id === edit.dataset.serviceEdit));
-  const archive = event.target.closest('[data-service-archive]');
-  if (!archive || !confirm('Nonaktifkan masalah ini dari halaman estimasi? Data tetap tersimpan.')) return;
-  try { await api('/api/admin/services', { method: 'DELETE', body: JSON.stringify({ id: archive.dataset.serviceArchive }) }); await loadDashboard(); toast('Masalah dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
+qs('#service-list').addEventListener('click', (event) => {
+  const view = event.target.closest('[data-service-view]');
+  if (view) showServiceDetail(state.services.find((service) => service.id === view.dataset.serviceView));
 });
-qs('#guide-search')?.addEventListener('input', renderServices);
+qs('#service-detail')?.addEventListener('click', (event) => {
+  const edit = event.target.closest('[data-service-edit]');
+  if (edit) fillServiceForm(state.services.find((service) => service.id === edit.dataset.serviceEdit));
+});
+qs('#service-back')?.addEventListener('click', () => {
+  selectedServiceId = '';
+  resetServiceForm();
+  setServicePage('browse');
+});
+qs('#service-search')?.addEventListener('input', renderServices);
 qs('#service-form').addEventListener('change', async (event) => {
   const input = event.target.closest('[data-guide-image]');
   if (!input?.files[0]) return;
