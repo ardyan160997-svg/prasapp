@@ -394,7 +394,7 @@ async function listPublicServices() {
       WHERE rs.is_active = true AND (pm.is_active = true OR rs.phone_model_id IS NULL)
       ORDER BY pm.brand NULLS LAST, pm.model NULLS LAST, rs.issue_category, rs.issue_name
     `),
-    db.query(`SELECT id, brand, model, image_url FROM phone_models WHERE is_active = true ORDER BY brand, model`),
+    db.query(`SELECT id, brand, model, image_url, notes, specification_rows FROM phone_models WHERE is_active = true ORDER BY brand, model`),
   ]);
   return { services: services.rows.map(publicServiceShape), models: models.rows };
 }

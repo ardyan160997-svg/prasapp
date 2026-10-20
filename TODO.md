@@ -2217,4 +2217,39 @@ Merapikan katalog Database HP pada dashboard Admin PrasCell, mengecilkan search 
 
 ### Result
 
-Selesai lokal. Dashboard HP sekarang rapi, kartu memiliki affordance `Lihat detail`, seluruh kartu dapat diketuk, detail hanya-baca menggantikan grid saat dibuka, dan Back mengembalikan grid tanpa menghapus pencarian. Belum commit atau deploy.
+Selesai dan sudah dideploy. Dashboard HP sekarang rapi, kartu memiliki affordance `Lihat detail`, seluruh kartu dapat diketuk, detail hanya-baca menggantikan grid saat dibuka, dan Back mengembalikan grid tanpa menghapus pencarian. Commit `4311d52`; backup production `/root/prasapp/prascell/adminprascell/.release-backups/20261020-104501-dashboard-phone-catalog`.
+
+---
+
+## TASK-033 — Database HP read-only di public PrasCell
+
+- Status: completed-local
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-032
+
+### Objective
+
+Menampilkan Database HP tepat di bawah hero/background homepage public PrasCell agar pengunjung dapat mencari model dan membaca spesifikasi tanpa akses admin.
+
+### Scope
+
+- `prascell/public/index.html`: section browse/detail Database HP.
+- `prascell/public/home.js`: fetch model aktif, search, kartu clickable, detail read-only, dan Back.
+- `prascell/public/home.css`: katalog responsif 6/3/2 kolom.
+- `prascell/adminprascell/server.js`: perluas payload public model dengan catatan dan spesifikasi saja.
+- `prascell/package.json` dan `prascell/public/sw.js`: build-copy serta cache asset baru.
+
+### Validation
+
+- Preview desktop: search 440px, grid 6 kolom, overflow horizontal 0.
+- Preview mobile 390px: search 354px, grid 2 kolom, overflow horizontal 0.
+- Search menyaring 6 kartu menjadi 1; detail memiliki 0 field editable dan menampilkan baris spesifikasi; Back mempertahankan query.
+- Final-scroll clearance terhadap bottom navigation 461px.
+- Canonical check/build ditunda sampai approval visual atau permintaan commit sesuai workflow UI.
+
+### Result
+
+Selesai lokal. Katalog public memakai model aktif dari API production yang sama, hanya membuka merek, model, foto, catatan, dan spesifikasi. Tidak ada tombol Edit, software link, endpoint admin, atau data privat. Belum commit atau deploy.
