@@ -7,7 +7,7 @@
   <title>Admin PrasCell</title>
   <link rel="icon" type="image/avif" href="images/icon.avif?v=2">
   <link rel="apple-touch-icon" href="images/icon.avif?v=2">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body class="admin-page-dashboard">
   <aside class="sidebar">
@@ -25,26 +25,30 @@
       <header class="page-head"><div><p>Dashboard</p><h1>Operasional PrasCell</h1></div><button id="refresh">Refresh</button></header>
       <div id="stats" class="stats"></div>
 
-      <section id="models" class="card">
-        <div class="card-heading">
-          <div>
-            <h2>Database HP</h2>
-            <p class="section-note">Katalog spesifikasi perangkat dan referensi software servis.</p>
+      <section id="models" class="card dashboard-models">
+        <div id="model-browser-dashboard">
+          <div class="card-heading dashboard-models-heading">
+            <div>
+              <h2>Database HP</h2>
+              <p class="section-note">Klik kartu HP untuk melihat spesifikasi lengkap.</p>
+            </div>
+            <a href="models.html" class="btn-outline-sm">Kelola Database HP ›</a>
           </div>
-          <a href="models.html" class="btn-outline-sm" style="text-decoration:none;">Kelola Database HP ›</a>
+          <label class="model-search-bar" for="model-search">
+            <span class="model-search-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5 17 17"/></svg>
+            </span>
+            <input id="model-search" type="search" placeholder="Cari merek atau model HP…" autocomplete="off">
+          </label>
+          <div id="model-list" class="model-grid"></div>
+          <div class="model-expand-wrap">
+            <button id="model-toggle-all" type="button" class="model-dash-btn">Lihat Semua Database HP ▾</button>
+          </div>
         </div>
-        <div class="model-search-bar">
-          <span class="model-search-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5 17 17"/></svg>
-          </span>
-          <input id="model-search" type="search" placeholder="Cari merek atau model HP…" autocomplete="off">
+        <div id="model-detail-dashboard" class="model-detail dashboard-model-detail hidden">
+          <button id="model-back-dashboard" type="button" class="model-dash-btn model-dash-btn-back">← Kembali ke Database HP</button>
+          <div id="model-detail-dashboard-content"></div>
         </div>
-        <div id="model-list" class="model-grid"></div>
-        <div class="model-expand-wrap">
-          <button id="model-back-dashboard" type="button" class="model-dash-btn model-dash-btn-back hidden">← Kembali</button>
-          <button id="model-toggle-all" type="button" class="model-dash-btn">Lihat Semua Database HP ▾</button>
-        </div>
-        <div id="model-detail-dashboard" class="model-detail hidden"></div>
       </section>
 
       <section id="orders" class="card"><div class="card-heading"><div><h2>Riwayat Servis / Order</h2><p class="section-note">Pantau order masuk, proses pengerjaan, pemakaian sparepart, dan status garansi.</p></div><a href="orders.html" class="button-muted" style="text-decoration:none;display:inline-flex;align-items:center;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:900;">Buka Halaman Order ›</a></div><div id="order-list" class="table-lite"></div></section>
@@ -58,6 +62,6 @@
     <a class="admin-bottom-nav-item" href="orders.html" aria-label="Order"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="m12 7 3 5-3 5"></path></svg><span>Order</span></a>
     <a class="admin-bottom-nav-item" href="chat.html" aria-label="Chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Chat</span></a>
   </nav>
-  <script src="admin-shell.js?v=2"></script><script src="app.js?v=14"></script>
+  <script src="admin-shell.js?v=2"></script><script src="app.js?v=15"></script>
 </body>
 </html>

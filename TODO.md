@@ -2183,3 +2183,38 @@ Menambahkan tombol tambah baris spesifikasi (`+ Tambah Baris (Label)` dan `+ Tam
 ### Result
 
 Selesai. Form edit Database HP kini menyediakan tombol tambah di bawah tabel spesifikasi sehingga pengisian spesifikasi panjang dapat dilanjutkan langsung dari baris terakhir tanpa scroll ke atas.
+
+---
+
+## TASK-032 — Rapikan dashboard dan detail HP read-only Admin PrasCell
+
+- Status: completed-local
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-031
+
+### Objective
+
+Merapikan katalog Database HP pada dashboard Admin PrasCell, mengecilkan search bar desktop, membuat kartu HP lebih terbaca dan clickable, serta menampilkan detail perangkat read-only dengan alur Back yang jelas.
+
+### Scope
+
+- `prascell/adminprascell/index.html`: pisahkan state browse dan detail dashboard.
+- `prascell/adminprascell/app.js`: render kartu dashboard, search, detail read-only, Back, dan binding aman untuk halaman yang tidak memiliki form CRUD.
+- `prascell/adminprascell/styles.css`: search maksimum 420px, grid 6/3/2 kolom, affordance kartu, dan detail responsif.
+- `prascell/adminprascell/sw.js` dan seluruh HTML admin: cache `adminprascell-v21`, `styles.css?v=24`, dan `app.js?v=15`.
+- `prascell/dist/adminprascell/`: sinkronisasi build artifact.
+
+### Validation
+
+- `npm run check`, domain tests, `npm run build`, dan `git diff --check` berhasil.
+- Preview desktop: search 420px, grid 6 kolom, overflow horizontal 0.
+- Preview mobile 390px: header tidak overlap, search 322px, grid 2 kolom, overflow horizontal 0.
+- Search menyaring 6 kartu menjadi 1; klik kartu membuka detail dengan 0 input editable; Back mempertahankan query dan hasil.
+- Final-scroll clearance terhadap bottom navigation 177px.
+
+### Result
+
+Selesai lokal. Dashboard HP sekarang rapi, kartu memiliki affordance `Lihat detail`, seluruh kartu dapat diketuk, detail hanya-baca menggantikan grid saat dibuka, dan Back mengembalikan grid tanpa menghapus pencarian. Belum commit atau deploy.

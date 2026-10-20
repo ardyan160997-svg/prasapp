@@ -58,8 +58,6 @@ function renderModels() {
 function renderModelsDashboard() {
   const searchEl = qs('#model-search');
   const toggleBtn = qs('#model-toggle-all');
-  const backBtn = qs('#model-back-dashboard');
-  const detailEl = qs('#model-detail-dashboard');
   if (!searchEl || !toggleBtn) return;
 
   const query = String(searchEl.value || '').trim().toLowerCase();
@@ -69,7 +67,7 @@ function renderModelsDashboard() {
   const LIMIT = 6;
   const shown = modelExpanded || query ? filtered : filtered.slice(0, LIMIT);
 
-  qs('#model-list').innerHTML = shown.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view-dash="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Tidak ada model yang cocok.</p>';
+  qs('#model-list').innerHTML = shown.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view-dash="${m.id}" aria-label="Lihat detail ${escapeHtml(`${m.brand} ${m.model}`)}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span><span class="model-card-open">Lihat detail <span aria-hidden="true">›</span></span></button>`).join('') || '<p class="muted model-empty">Tidak ada model yang cocok.</p>';
 
   const hiddenCount = filtered.length - LIMIT;
   if (modelExpanded || query) {
@@ -78,8 +76,8 @@ function renderModelsDashboard() {
     toggleBtn.textContent = hiddenCount > 0 ? `Lihat Semua (${filtered.length}) ▾` : 'Lihat Semua Database HP ▾';
   }
   toggleBtn.classList.toggle('hidden', filtered.length <= LIMIT && !modelExpanded);
-  if (backBtn) backBtn.classList.add('hidden');
-  if (detailEl) detailEl.classList.add('hidden');
+  qs('#model-browser-dashboard')?.classList.remove('hidden');
+  qs('#model-detail-dashboard')?.classList.add('hidden');
   dashboardDetailModel = null;
 }
 
@@ -87,8 +85,8 @@ function showDashboardModelDetail(model) {
   if (!model) return;
   dashboardDetailModel = model;
   const detailEl = qs('#model-detail-dashboard');
-  const backBtn = qs('#model-back-dashboard');
-  if (!detailEl) return;
+  const contentEl = qs('#model-detail-dashboard-content');
+  if (!detailEl || !contentEl) return;
 
   let category = '';
   const specifications = (model.specification_rows || []).map((row) => {
@@ -98,9 +96,9 @@ function showDashboardModelDetail(model) {
   }).join('') || '<p class="muted">Belum ada spesifikasi.</p>';
   const links = (model.software_links || []).map((item) => `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)} ↗</a>`).join('') || '<p class="muted">Belum ada link software.</p>';
 
-  detailEl.innerHTML = `<header class="model-detail-head"><span class="model-detail-image">${model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="${escapeHtml(`${model.brand} ${model.model}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(model.brand)}</small><h3>${escapeHtml(model.model)}</h3><p>${escapeHtml(model.notes || 'Tanpa catatan')}</p></div></header><section><h3>Spesifikasi HP</h3><div class="spec-view">${specifications}</div></section><section><h3>Download Software</h3><div class="model-software-links">${links}</div></section>`;
+  contentEl.innerHTML = `<header class="model-detail-head"><span class="model-detail-image">${model.image_url ? `<img src="${escapeHtml(model.image_url)}" alt="${escapeHtml(`${model.brand} ${model.model}`)}">` : '<i aria-hidden="true"></i>'}</span><div><small>${escapeHtml(model.brand)}</small><h3>${escapeHtml(model.model)}</h3><p>${escapeHtml(model.notes || 'Tanpa catatan')}</p></div></header><section><h3>Spesifikasi HP</h3><div class="spec-view">${specifications}</div></section><section><h3>Download Software</h3><div class="model-software-links">${links}</div></section>`;
+  qs('#model-browser-dashboard')?.classList.add('hidden');
   detailEl.classList.remove('hidden');
-  if (backBtn) backBtn.classList.remove('hidden');
   requestAnimationFrame(() => window.scrollTo({ top: qs('#models').getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' }));
 }
 
@@ -352,10 +350,13 @@ function render() {
   stats();
   if (document.body.classList.contains('admin-page-dashboard')) {
     renderModelsDashboard();
-  } else {
+  } else if (qs('#model-list')) {
     renderModels();
   }
-  renderServices(); renderOrders(); renderMembers(); renderChats();
+  if (qs('#service-list')) renderServices();
+  if (qs('#order-list')) renderOrders();
+  if (qs('#member-list')) renderMembers();
+  if (qs('#chat-list')) renderChats();
 }
 
 
@@ -404,9 +405,9 @@ qs('#login-form').addEventListener('submit', async (event) => {
 });
 
 qs('#refresh').addEventListener('click', () => loadDashboard().then(() => toast('Data diperbarui')).catch((e) => toast(e.message, 'error')));
-qs('#model-add').addEventListener('click', () => { selectedModelId = ''; resetModelForm(); setModelPage('edit'); qs('#model-form').classList.remove('hidden'); });
+qs('#model-add')?.addEventListener('click', () => { selectedModelId = ''; resetModelForm(); setModelPage('edit'); qs('#model-form').classList.remove('hidden'); });
 qs('#model-back')?.addEventListener('click', () => { selectedModelId = ''; resetModelForm(); setModelPage('browse'); });
-qs('#model-form').addEventListener('submit', async (event) => {
+qs('#model-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
   syncSpecificationRows();
@@ -450,16 +451,16 @@ qs('#model-form [name="image"]')?.addEventListener('change', (event) => {
   if (file.size > 2 * 1024 * 1024) { event.target.value = ''; return toast('Ukuran gambar maksimal 2 MB.', 'error'); }
   qs('#model-image-preview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Preview gambar HP">`;
 });
-qs('#model-cancel').addEventListener('click', () => {
+qs('#model-cancel')?.addEventListener('click', () => {
   const model = state.models.find((item) => item.id === selectedModelId);
   model ? showModelDetail(model) : resetModelForm();
 });
-qs('#model-archive').addEventListener('click', async () => {
+qs('#model-archive')?.addEventListener('click', async () => {
   const id = qs('#model-form').elements.id.value;
   if (!id || !confirm('Nonaktifkan model ini dari halaman estimasi? Data biaya, panduan, dan histori tetap tersimpan.')) return;
   try { await api('/api/admin/models', { method: 'DELETE', body: JSON.stringify({ id }) }); resetModelForm(); await loadDashboard(); toast('Model HP dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
 });
-qs('#model-list').addEventListener('click', (event) => {
+qs('#model-list')?.addEventListener('click', (event) => {
   const viewDash = event.target.closest('[data-model-view-dash]');
   if (viewDash) { showDashboardModelDetail(state.models.find((model) => model.id === viewDash.dataset.modelViewDash)); return; }
   const view = event.target.closest('[data-model-view]');
@@ -474,11 +475,7 @@ qs('#model-toggle-all')?.addEventListener('click', () => {
   renderModelsDashboard();
 });
 qs('#model-back-dashboard')?.addEventListener('click', () => {
-  dashboardDetailModel = null;
-  const detailEl = qs('#model-detail-dashboard');
-  const backBtn = qs('#model-back-dashboard');
-  if (detailEl) detailEl.classList.add('hidden');
-  if (backBtn) backBtn.classList.add('hidden');
+  renderModelsDashboard();
 });
 qs('#model-search')?.addEventListener('input', () => {
   if (document.body.classList.contains('admin-page-dashboard')) {
@@ -487,7 +484,7 @@ qs('#model-search')?.addEventListener('input', () => {
   }
 });
 
-qs('#service-form').addEventListener('submit', async (event) => {
+qs('#service-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const body = Object.fromEntries(new FormData(event.target).entries());
   const editing = Boolean(body.id);
@@ -502,7 +499,7 @@ qs('#service-form').addEventListener('submit', async (event) => {
     toast(guides ? 'Panduan diperbarui' : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
-qs('#service-cancel').addEventListener('click', () => {
+qs('#service-cancel')?.addEventListener('click', () => {
   const service = state.services.find((item) => item.id === selectedServiceId);
   service ? showServiceDetail(service) : setServicePage('browse');
 });
@@ -517,7 +514,7 @@ qs('#service-archive')?.addEventListener('click', async () => {
   if (!id || !confirm('Nonaktifkan masalah ini dari halaman estimasi? Data tetap tersimpan.')) return;
   try { await api('/api/admin/services', { method: 'DELETE', body: JSON.stringify({ id }) }); resetServiceForm(); await loadDashboard(); toast('Masalah dinonaktifkan'); } catch (e) { toast(e.message, 'error'); }
 });
-qs('#service-list').addEventListener('click', (event) => {
+qs('#service-list')?.addEventListener('click', (event) => {
   const view = event.target.closest('[data-service-view]');
   if (view) showServiceDetail(state.services.find((service) => service.id === view.dataset.serviceView));
 });
@@ -531,7 +528,7 @@ qs('#service-back')?.addEventListener('click', () => {
   setServicePage('browse');
 });
 qs('#service-search')?.addEventListener('input', renderServices);
-qs('#service-form').addEventListener('change', async (event) => {
+qs('#service-form')?.addEventListener('change', async (event) => {
   const input = event.target.closest('[data-guide-image]');
   if (!input?.files[0]) return;
   const id = qs('#service-form').elements.id.value;
@@ -564,7 +561,7 @@ qs('#disassembly-list')?.addEventListener('click', async (event) => {
   try { await saveDisassembly(qs('#service-form').elements.id.value, images); toast(remove ? 'Langkah dihapus' : 'Urutan diperbarui'); }
   catch (error) { toast(error.message, 'error'); }
 });
-qs('#order-list').addEventListener('submit', async (event) => {
+qs('#order-list')?.addEventListener('submit', async (event) => {
   const form = event.target.closest('.order-edit, .warranty-edit, .inventory-use');
   if (!form) return;
   event.preventDefault();
