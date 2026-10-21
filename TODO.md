@@ -2349,3 +2349,35 @@ Merapikan search bar pada `models.html` dan memastikan pencarian menyaring selur
 ### Result
 
 Selesai. Search Database HP memakai shell khusus yang lebih proporsional, memiliki ikon dan bantuan singkat, responsif di mobile, serta menyaring seluruh database.
+
+---
+
+## TASK-037 — Tambah case pada Panduan Admin PrasCell
+
+- Status: completed
+- Requested route: user
+- Selected combo: webdev-build
+- Priority: high
+- Risk: medium
+- Dependencies: TASK-036
+
+### Objective
+
+Menambahkan alur input case baru langsung dari halaman Panduan tanpa harus membuat record terlebih dahulu dari halaman Biaya.
+
+### Scope
+
+- `prascell/adminprascell/guides.html`: tombol `+ Tambah Case` dan field identitas case.
+- `prascell/adminprascell/app.js`: state create, pesan hasil, dan kontrol upload sebelum case memiliki ID.
+- `prascell/adminprascell/styles.css`: layout field case responsif.
+
+### Validation
+
+- Case baru memakai endpoint layanan existing sehingga Panduan dan Biaya tetap satu sumber data.
+- Field wajib mencakup model HP, kategori, nama case, harga minimum/maksimum, dan estimasi waktu.
+- Upload foto dinonaktifkan sampai case pertama kali tersimpan dan memperoleh ID.
+- Canonical check/build dan focused ad-hoc verification lulus sebelum commit.
+
+### Result
+
+Selesai. Halaman Panduan menyediakan tombol `+ Tambah Case`, form identitas case, seluruh field panduan teknisi, dan state upload yang aman untuk record baru.

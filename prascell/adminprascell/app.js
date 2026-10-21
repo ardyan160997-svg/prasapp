@@ -281,12 +281,17 @@ function renderGuideMedia(service) {
   renderDisassembly(service);
 }
 
+function setGuideUploadsEnabled(enabled) {
+  document.querySelectorAll('[data-guide-image]').forEach((input) => { input.disabled = !enabled; });
+  qs('#service-editor')?.classList.toggle('guide-create-mode', !enabled);
+}
+
 function setServicePage(mode, service) {
   const guides = document.body.classList.contains('admin-page-guides');
   const browsing = mode === 'browse';
   const title = guides ? 'Panduan Teknisi' : 'Biaya Servis';
-  qs('#service-page-title').textContent = browsing ? title : service ? `${service.brand || 'Umum'} ${service.model || ''}`.trim() : 'Tambah Biaya Servis';
-  qs('#service-page-eyebrow').textContent = browsing ? (guides ? 'Referensi teknisi' : 'Estimasi layanan') : mode === 'detail' ? escapeHtml(service?.issue_name || 'Detail layanan') : guides ? 'Edit panduan' : service ? 'Edit biaya' : 'Biaya baru';
+  qs('#service-page-title').textContent = browsing ? title : service ? `${service.brand || 'Umum'} ${service.model || ''}`.trim() : guides ? 'Tambah Case Panduan' : 'Tambah Biaya Servis';
+  qs('#service-page-eyebrow').textContent = browsing ? (guides ? 'Referensi teknisi' : 'Estimasi layanan') : mode === 'detail' ? escapeHtml(service?.issue_name || 'Detail layanan') : guides ? (service ? 'Edit panduan' : 'Case baru') : service ? 'Edit biaya' : 'Biaya baru';
   qs('#service-back').classList.toggle('hidden', browsing);
   qs('#service-add')?.classList.toggle('hidden', !browsing);
   qs('#service-browser').classList.toggle('hidden', !browsing);
@@ -324,6 +329,7 @@ function fillServiceForm(service) {
     const context = qs('#guide-context');
     context.innerHTML = `<small>${escapeHtml(service.brand || 'Umum')}</small><b>${escapeHtml(service.model || '')}</b><span>${escapeHtml(service.issue_category || 'hardware')} · ${escapeHtml(service.issue_name)}</span>`;
     renderGuideMedia(service);
+    setGuideUploadsEnabled(true);
   }
   qs('#service-cancel').classList.remove('hidden');
   qs('#service-archive')?.classList.toggle('hidden', guides || !service.is_active);
@@ -521,7 +527,7 @@ qs('#service-form')?.addEventListener('submit', async (event) => {
     resetServiceForm();
     await loadDashboard();
     showServiceDetail(state.services.find((service) => service.id === saved.service.id));
-    toast(guides ? 'Panduan diperbarui' : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan');
+    toast(guides ? (editing ? 'Panduan diperbarui' : 'Case panduan ditambahkan') : editing ? 'Masalah dan biaya diperbarui' : 'Masalah dan biaya ditambahkan');
   } catch (e) { toast(e.message, 'error'); }
 });
 qs('#service-cancel')?.addEventListener('click', () => {
@@ -533,6 +539,11 @@ qs('#service-add')?.addEventListener('click', () => {
   resetServiceForm();
   setServicePage('edit');
   qs('#service-form').classList.remove('hidden');
+  if (document.body.classList.contains('admin-page-guides')) {
+    qs('#guide-context').innerHTML = '<small>Case baru</small><b>Lengkapi identitas case dan panduan teknisi</b><span>Simpan case terlebih dahulu untuk mengaktifkan upload foto.</span>';
+    renderGuideMedia({});
+    setGuideUploadsEnabled(false);
+  }
 });
 qs('#service-archive')?.addEventListener('click', async () => {
   const id = qs('#service-form').elements.id.value;
