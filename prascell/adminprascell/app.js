@@ -5,6 +5,7 @@ let state = { members: [], models: [], services: [], orders: [], chats: [], stat
 let selectedModelId = '';
 let selectedServiceId = '';
 let modelExpanded = false;
+let modelsPageExpanded = false;
 let dashboardDetailModel = null;
 
 
@@ -52,7 +53,24 @@ function renderModels() {
     select.innerHTML = '<option value="">Pilih model HP</option>' + state.models.filter((m) => m.is_active).map((m) => `<option value="${m.id}">${escapeHtml(m.brand)} ${escapeHtml(m.model)}</option>`).join('');
     if ([...select.options].some((option) => option.value === selected)) select.value = selected;
   }
-  qs('#model-list').innerHTML = state.models.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+  const list = qs('#model-list');
+  const limit = 9;
+  const shown = modelsPageExpanded ? state.models : state.models.slice(0, limit);
+  list.innerHTML = shown.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
+  let toggle = qs('#models-page-toggle');
+  if (!toggle) {
+    const wrap = document.createElement('div');
+    wrap.className = 'model-expand-wrap';
+    toggle = document.createElement('button');
+    toggle.id = 'models-page-toggle';
+    toggle.className = 'model-dash-btn';
+    toggle.type = 'button';
+    toggle.addEventListener('click', () => { modelsPageExpanded = !modelsPageExpanded; renderModels(); });
+    wrap.append(toggle);
+    list.insertAdjacentElement('afterend', wrap);
+  }
+  toggle.textContent = modelsPageExpanded ? 'Tampilkan 9 HP ▴' : `Lihat Semua (${state.models.length}) ▾`;
+  toggle.classList.toggle('hidden', state.models.length <= limit);
 }
 
 function renderModelsDashboard() {

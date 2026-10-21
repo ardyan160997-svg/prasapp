@@ -2287,3 +2287,34 @@ Memindahkan section Database HP ke bawah Menu cepat dan membatasi state awal aga
 ### Result
 
 Selesai lokal. Database HP sekarang berada setelah Menu cepat dan hanya menampilkan 6 HP pada state awal. Belum commit atau deploy.
+
+---
+
+## TASK-035 — Ringkas state awal Database HP Admin PrasCell
+
+- Status: completed
+- Requested route: user
+- Selected combo: quick-edit
+- Priority: medium
+- Risk: low
+- Dependencies: TASK-032
+
+### Objective
+
+Membatasi halaman `models.html` agar state awal hanya menampilkan 9 kartu HP dan halaman tidak terlalu panjang.
+
+### Scope
+
+- `prascell/adminprascell/app.js`: render 9 model awal dan toggle seluruh Database HP.
+- `prascell/adminprascell/models.html`: cache-bust `app.js?v=16`.
+
+### Validation
+
+- State awal mengambil `state.models.slice(0, 9)`.
+- Tombol `Lihat Semua` membuka seluruh model dan `Tampilkan 9 HP` mengembalikan state ringkas.
+- Dashboard utama tetap memakai batas 6 model.
+- `npm run check`, domain tests, `npm run build`, `git diff --check`, dan focused ad-hoc verification berhasil.
+
+### Result
+
+Selesai. Halaman Database HP admin menampilkan 9 kartu pada state awal dengan toggle untuk membuka seluruh model; dashboard utama tetap dibatasi 6 kartu.
