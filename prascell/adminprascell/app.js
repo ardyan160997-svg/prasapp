@@ -54,8 +54,12 @@ function renderModels() {
     if ([...select.options].some((option) => option.value === selected)) select.value = selected;
   }
   const list = qs('#model-list');
+  const query = String(qs('#model-search')?.value || '').trim().toLowerCase();
+  const filtered = query
+    ? state.models.filter((m) => [m.brand, m.model].some((value) => String(value || '').toLowerCase().includes(query)))
+    : state.models;
   const limit = 9;
-  const shown = modelsPageExpanded ? state.models : state.models.slice(0, limit);
+  const shown = modelsPageExpanded || query ? filtered : filtered.slice(0, limit);
   list.innerHTML = shown.map((m) => `<button class="model-card ${m.is_active ? '' : 'row-inactive'}" type="button" data-model-view="${m.id}"><span class="model-image">${m.image_url ? `<img src="${escapeHtml(m.image_url)}" alt="${escapeHtml(`${m.brand} ${m.model}`)}">` : '<i aria-hidden="true"></i>'}</span><span class="model-card-copy"><small>${escapeHtml(m.brand)}</small><b>${escapeHtml(m.model)}</b><em>${m.specification_rows?.length ? `${m.specification_rows.length} spesifikasi` : ''}${m.specification_rows?.length && m.software_links?.length ? ' · ' : ''}${m.software_links?.length ? `${m.software_links.length} link` : ''}</em></span><span class="model-card-status">${m.is_active ? 'Aktif' : 'Nonaktif'}</span></button>`).join('') || '<p class="muted">Belum ada database HP.</p>';
   let toggle = qs('#models-page-toggle');
   if (!toggle) {
@@ -69,8 +73,8 @@ function renderModels() {
     wrap.append(toggle);
     list.insertAdjacentElement('afterend', wrap);
   }
-  toggle.textContent = modelsPageExpanded ? 'Tampilkan 9 HP ▴' : `Lihat Semua (${state.models.length}) ▾`;
-  toggle.classList.toggle('hidden', state.models.length <= limit);
+  toggle.textContent = modelsPageExpanded ? 'Tampilkan 9 HP ▴' : `Lihat Semua (${filtered.length}) ▾`;
+  toggle.classList.toggle('hidden', Boolean(query) || filtered.length <= limit);
 }
 
 function renderModelsDashboard() {
@@ -499,6 +503,9 @@ qs('#model-search')?.addEventListener('input', () => {
   if (document.body.classList.contains('admin-page-dashboard')) {
     modelExpanded = false;
     renderModelsDashboard();
+  } else {
+    modelsPageExpanded = false;
+    renderModels();
   }
 });
 

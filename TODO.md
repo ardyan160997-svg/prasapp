@@ -2318,3 +2318,34 @@ Membatasi halaman `models.html` agar state awal hanya menampilkan 9 kartu HP dan
 ### Result
 
 Selesai. Halaman Database HP admin menampilkan 9 kartu pada state awal dengan toggle untuk membuka seluruh model; dashboard utama tetap dibatasi 6 kartu.
+
+---
+
+## TASK-036 — Rapikan search Database HP Admin PrasCell
+
+- Status: completed
+- Requested route: user
+- Selected combo: quick-edit
+- Priority: medium
+- Risk: low
+- Dependencies: TASK-035
+
+### Objective
+
+Merapikan search bar pada `models.html` dan memastikan pencarian menyaring seluruh Database HP tanpa mengubah state awal 9 kartu.
+
+### Scope
+
+- `prascell/adminprascell/models.html`: search shell, ikon, teks bantuan, serta cache `styles.css?v=25` dan `app.js?v=17`.
+- `prascell/adminprascell/app.js`: filter merek/model pada halaman Database HP.
+- `prascell/adminprascell/styles.css`: layout search khusus desktop/mobile tanpa memengaruhi dashboard.
+
+### Validation
+
+- `npm run check`, domain tests, `npm run build`, dan `git diff --check` berhasil.
+- Focused ad-hoc verification memastikan pencarian seluruh data, state awal 9, dashboard tetap 6, CSS responsif, dan source/dist parity.
+- Preview visual lokal dibatalkan karena command preview temporer tidak mendapat izin terminal.
+
+### Result
+
+Selesai. Search Database HP memakai shell khusus yang lebih proporsional, memiliki ikon dan bantuan singkat, responsif di mobile, serta menyaring seluruh database.
