@@ -9,7 +9,7 @@
   <link rel="icon" type="image/avif" href="images/icon.avif?v=2">
   <link rel="apple-touch-icon" href="images/icon.avif?v=2">
   <link rel="stylesheet" href="styles.css?v=15">
-  <link rel="stylesheet" href="home.css?v=4">
+  <link rel="stylesheet" href="home.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -26,6 +26,10 @@
         <div class="actions"><a class="btn primary" href="estimasi.html">Cek Estimasi</a><a class="btn ghost" href="tracking.html">Lacak Servis</a></div>
       </div>
     </section>
+    <section class="section panel home-links">
+      <div class="section-head"><p class="eyebrow">Menu cepat</p><h2>Pilih kebutuhan servis</h2></div>
+      <div class="home-card-grid"><a href="estimasi.html">Cek Estimasi</a><a href="tracking.html">Lacak Servis</a><a href="chat.html">Chat Admin</a><a href="member.html">Member</a></div>
+    </section>
     <section id="database-hp" class="section panel public-model-catalog" aria-labelledby="public-model-title">
       <div id="public-model-browser">
         <div class="section-head public-model-head">
@@ -34,15 +38,12 @@
         </div>
         <label class="public-model-search" for="public-model-query"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16.5 16.5 4 4"></path></svg><input id="public-model-query" type="search" placeholder="Cari merek atau model HP..." autocomplete="off"></label>
         <div id="public-model-grid" class="public-model-grid" aria-live="polite"><p class="public-model-empty">Memuat database HP...</p></div>
+        <div class="public-model-expand"><button id="public-model-toggle" type="button" hidden>Lihat semua HP</button></div>
       </div>
       <article id="public-model-detail" class="public-model-detail" hidden>
         <button id="public-model-back" class="public-model-back" type="button">← Kembali ke Database HP</button>
         <div id="public-model-detail-content" class="public-model-detail-content"></div>
       </article>
-    </section>
-    <section class="section panel home-links">
-      <div class="section-head"><p class="eyebrow">Menu cepat</p><h2>Pilih kebutuhan servis</h2></div>
-      <div class="home-card-grid"><a href="estimasi.html">Cek Estimasi</a><a href="tracking.html">Lacak Servis</a><a href="chat.html">Chat Admin</a><a href="member.html">Member</a></div>
     </section>
   </main>
   <footer class="site-footer"><div class="site-footer-brand"><span class="brand brand-logo"><img class="brand-mark" src="images/prascelllogo.avif?v=2" alt=""><img class="brand-wordmark" src="images/prascelltag.avif?v=2" alt="PrasCell"></span><p>Servis HP lebih jelas, terukur, dan mudah dilacak.</p></div><nav aria-label="Navigasi footer"><a href="index.html">Home</a><a href="estimasi.html">Estimasi</a><a href="tracking.html">Tracking</a><a href="member.html">Member</a><a href="chat.html">Chat</a></nav><a class="site-footer-cta" href="estimasi.html">Cek Estimasi</a><small>© 2026 PrasCell</small></footer>
@@ -53,6 +54,6 @@
     <a class="bottom-nav-item" href="chat.html" aria-label="Chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path></svg><span>Chat</span></a>
     <a class="bottom-nav-item" href="member.html" aria-label="Member"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Member</span></a>
   </nav>
-  <script>window.PRASCELL_API='https://adminprascell.prasapp.com';</script><script src="home.js?v=1"></script>
+  <script>window.PRASCELL_API='https://adminprascell.prasapp.com';</script><script src="home.js?v=2"></script>
 </body>
 </html>

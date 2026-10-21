@@ -1,5 +1,6 @@
 const PUBLIC_API = window.PRASCELL_API || 'http://localhost:3010';
-const modelState = { rows: [], query: '' };
+const modelState = { rows: [], query: '', expanded: false };
+const INITIAL_MODEL_LIMIT = 6;
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
@@ -20,12 +21,17 @@ function renderModelCards() {
   const grid = document.getElementById('public-model-grid');
   const count = document.getElementById('public-model-count');
   const rows = filteredModels();
-  count.textContent = `${rows.length} model`;
+  const searching = Boolean(modelState.query.trim());
+  const shown = searching || modelState.expanded ? rows : rows.slice(0, INITIAL_MODEL_LIMIT);
+  const toggle = document.getElementById('public-model-toggle');
+  count.textContent = searching ? `${rows.length} hasil` : `${modelState.rows.length} model`;
+  toggle.hidden = searching || rows.length <= INITIAL_MODEL_LIMIT;
+  toggle.textContent = modelState.expanded ? 'Tampilkan 6 HP' : `Lihat semua ${rows.length} HP`;
   if (!rows.length) {
     grid.innerHTML = '<p class="public-model-empty">Model HP tidak ditemukan.</p>';
     return;
   }
-  grid.innerHTML = rows.map((model) => {
+  grid.innerHTML = shown.map((model) => {
     const title = `${model.brand || ''} ${model.model || ''}`.trim();
     const image = publicImageUrl(model.image_url);
     const specs = Array.isArray(model.specification_rows) ? model.specification_rows.length : 0;
@@ -86,5 +92,10 @@ document.getElementById('public-model-grid')?.addEventListener('click', (event) 
   if (card) openModelDetail(card.dataset.publicModel);
 });
 document.getElementById('public-model-back')?.addEventListener('click', closeModelDetail);
+document.getElementById('public-model-toggle')?.addEventListener('click', () => {
+  modelState.expanded = !modelState.expanded;
+  renderModelCards();
+  if (!modelState.expanded) document.getElementById('database-hp').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 loadPublicModels();

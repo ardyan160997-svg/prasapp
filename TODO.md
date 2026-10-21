@@ -2252,4 +2252,38 @@ Menampilkan Database HP tepat di bawah hero/background homepage public PrasCell 
 
 ### Result
 
-Selesai lokal. Katalog public memakai model aktif dari API production yang sama, hanya membuka merek, model, foto, catatan, dan spesifikasi. Tidak ada tombol Edit, software link, endpoint admin, atau data privat. Belum commit atau deploy.
+Selesai dan sudah dideploy. Katalog public memakai model aktif dari API production yang sama, hanya membuka merek, model, foto, catatan, dan spesifikasi. Tidak ada tombol Edit, software link, endpoint admin, atau data privat. Commit `86bf626`; backend backup `/root/prasapp/prascell/adminprascell/.release-backups/20261021-003519-public-phone-catalog-api`; frontend live di `prascell.prasapp.com`.
+
+---
+
+## TASK-034 — Pindahkan dan ringkas Database HP public PrasCell
+
+- Status: completed-local
+- Requested route: user
+- Selected combo: quick-edit
+- Priority: medium
+- Risk: low
+- Dependencies: TASK-033
+
+### Objective
+
+Memindahkan section Database HP ke bawah Menu cepat dan membatasi state awal agar homepage tidak terlalu panjang.
+
+### Scope
+
+- `prascell/public/index.html`: urutan Hero → Menu cepat → Database HP serta tombol toggle.
+- `prascell/public/home.js`: tampilkan 6 HP awal, toggle seluruh model, dan search seluruh database.
+- `prascell/public/home.css`: styling tombol toggle.
+- `prascell/public/sw.js`: cache `prascell-public-v12`, `home.css?v=5`, dan `home.js?v=2`.
+
+### Validation
+
+- Preview mobile 390px menunjukkan urutan Hero → Menu cepat → Database HP.
+- State awal menampilkan 6 dari 32 model dalam grid 2 kolom tanpa horizontal overflow.
+- `Lihat semua 32 HP` membuka 32 kartu; `Tampilkan 6 HP` mengembalikan state ringkas.
+- Search tetap mencakup seluruh database dan menyembunyikan toggle saat aktif.
+- Canonical check/build ditunda sampai approval visual atau permintaan commit sesuai workflow UI.
+
+### Result
+
+Selesai lokal. Database HP sekarang berada setelah Menu cepat dan hanya menampilkan 6 HP pada state awal. Belum commit atau deploy.
