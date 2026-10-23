@@ -105,6 +105,7 @@
   });
 
   const revealTargets = [...document.querySelectorAll([
+    '.mobile-discovery-shell',
     '.quick-heading',
     '.service-card',
     '.row-heading',
@@ -130,7 +131,10 @@
         entry.target.classList.add('is-visible');
         observer.unobserve(entry.target);
       });
-    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    }, {
+      threshold: 0.12,
+      rootMargin: window.innerWidth <= 600 ? '0px 0px -25% 0px' : '0px 0px -8% 0px',
+    });
     revealTargets.forEach((element) => revealObserver.observe(element));
   }
 })();
